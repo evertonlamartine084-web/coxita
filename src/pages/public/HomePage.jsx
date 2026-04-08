@@ -13,14 +13,23 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getFeaturedProducts(), getProducts(), getSettings()])
-      .then(([feat, all, setts]) => {
+    async function load() {
+      try {
+        const [feat, all, setts] = await Promise.all([
+          getFeaturedProducts().catch(() => []),
+          getProducts().catch(() => []),
+          getSettings().catch(() => ({})),
+        ])
         setFeatured(feat)
         setAllProducts(all)
         setSettingsData(setts)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
+      } catch (err) {
+        console.error('Erro ao carregar dados:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
 
   if (loading) return <Loading />
@@ -30,8 +39,9 @@ export default function HomePage() {
       {/* Hero */}
       <section className="bg-gradient-to-br from-primary to-primary-dark text-white py-16 md:py-24">
         <div className="max-w-6xl mx-auto px-4 text-center">
+          <img src="/logo.png" alt="Coxita mascote" className="w-32 h-32 md:w-40 md:h-40 object-contain mx-auto mb-6 drop-shadow-lg" />
           <h1 className="text-4xl md:text-6xl font-bold mb-4">
-            As melhores coxinhas<br />da cidade! 🍗
+            As melhores coxinhas<br />da cidade!
           </h1>
           <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
             Crocantes por fora, cremosas por dentro. Feitas com amor e ingredientes selecionados.
