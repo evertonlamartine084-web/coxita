@@ -21,7 +21,9 @@ function getStepIndex(status) {
 export default function OrderTrackingPage() {
   const { orderNumber } = useParams()
   const [searchParams] = useSearchParams()
-  const [inputNumber, setInputNumber] = useState(orderNumber || searchParams.get('pedido') || '')
+  const lastOrder = localStorage.getItem('coxita-last-order')
+  const initialNumber = orderNumber || searchParams.get('pedido') || lastOrder || ''
+  const [inputNumber, setInputNumber] = useState(initialNumber)
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -35,6 +37,7 @@ export default function OrderTrackingPage() {
       const data = await getOrderByNumber(parseInt(num))
       setOrder(data)
       setSearched(true)
+      localStorage.setItem('coxita-last-order', num.toString())
     } catch {
       setOrder(null)
       setError('Pedido nao encontrado. Verifique o numero e tente novamente.')
@@ -45,10 +48,11 @@ export default function OrderTrackingPage() {
   }, [])
 
   useEffect(() => {
-    if (orderNumber) {
-      fetchOrder(orderNumber)
+    const numToLoad = orderNumber || lastOrder
+    if (numToLoad) {
+      fetchOrder(numToLoad)
     }
-  }, [orderNumber, fetchOrder])
+  }, [orderNumber])
 
   // Auto-refresh every 30s
   useEffect(() => {

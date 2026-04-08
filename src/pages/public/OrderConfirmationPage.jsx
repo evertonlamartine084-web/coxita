@@ -1,24 +1,35 @@
 import { useParams, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { HiClipboardCopy, HiCheck, HiHome } from 'react-icons/hi'
+import { getOrderByNumber } from '../../services/orders'
+import { getSettings } from '../../services/settings'
 import Button from '../../components/ui/Button'
+import Loading from '../../components/ui/Loading'
 import { formatCurrency, PAYMENT_LABELS } from '../../utils/format'
 import toast from 'react-hot-toast'
 
 export default function OrderConfirmationPage() {
   const { orderNumber } = useParams()
   const [order, setOrder] = useState(null)
+  const [settings, setSettingsData] = useState({})
   const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('lastOrder')
-    if (saved) {
-      setOrder(JSON.parse(saved))
-    }
-  }, [])
+    Promise.all([
+      getOrderByNumber(parseInt(orderNumber)),
+      getSettings(),
+    ])
+      .then(([orderData, settingsData]) => {
+        setOrder(orderData)
+        setSettingsData(settingsData)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [orderNumber])
 
   const handleCopyPix = () => {
-    const pixKey = order?.settings?.pix_key
+    const pixKey = settings?.pix_key
     if (pixKey) {
       navigator.clipboard.writeText(pixKey)
       setCopied(true)
@@ -26,6 +37,8 @@ export default function OrderConfirmationPage() {
       setTimeout(() => setCopied(false), 3000)
     }
   }
+
+  if (loading) return <Loading />
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-bg-warm to-bg">
@@ -49,7 +62,7 @@ export default function OrderConfirmationPage() {
         </div>
 
         {/* Pagamento Pix */}
-        {order?.payment_method === 'pix' && order?.settings?.pix_key && (
+        {order?.payment_method === 'pix' && settings?.pix_key && (
           <div className="bg-accent/5 card-organic border-2 border-accent/30 p-6 mb-6">
             <div className="text-center mb-4">
               <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-2">
@@ -61,9 +74,9 @@ export default function OrderConfirmationPage() {
 
             <div className="bg-white rounded-xl p-4 mb-3 shadow-sm">
               <p className="text-xs text-text-light mb-1 font-semibold uppercase tracking-wide">Chave Pix</p>
-              <p className="font-mono text-sm font-bold break-all text-text">{order.settings.pix_key}</p>
-              {order.settings.pix_name && (
-                <p className="text-xs text-text-light mt-1.5">Nome: {order.settings.pix_name}</p>
+              <p className="font-mono text-sm font-bold break-all text-text">{settings.pix_key}</p>
+              {settings.pix_name && (
+                <p className="text-xs text-text-light mt-1.5">Nome: {settings.pix_name}</p>
               )}
             </div>
 
