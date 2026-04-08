@@ -1,0 +1,103 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { getFeaturedProducts } from '../../services/products'
+import { getSettings } from '../../services/settings'
+import ProductCard from '../../components/product/ProductCard'
+import Button from '../../components/ui/Button'
+import Loading from '../../components/ui/Loading'
+
+export default function HomePage() {
+  const [products, setProducts] = useState([])
+  const [settings, setSettingsData] = useState({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([getFeaturedProducts(), getSettings()])
+      .then(([prods, setts]) => {
+        setProducts(prods)
+        setSettingsData(setts)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <Loading />
+
+  return (
+    <div>
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-primary to-primary-dark text-white py-16 md:py-24">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4">
+            As melhores coxinhas<br />da cidade! 🍗
+          </h1>
+          <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
+            Crocantes por fora, cremosas por dentro. Feitas com amor e ingredientes selecionados.
+          </p>
+          <Link to="/cardapio">
+            <Button variant="secondary" size="lg">
+              Pedir Agora
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Featured */}
+      {products.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 py-12">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">
+            ⭐ Destaques
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {products.map(p => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <Link to="/cardapio">
+              <Button variant="outline">Ver Cardápio Completo</Button>
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* Promos */}
+      <section className="bg-secondary/20 py-12">
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold mb-4">🔥 Promoções</h2>
+          <p className="text-text-light mb-6">Confira nossos combos com preços especiais!</p>
+          <Link to="/cardapio">
+            <Button>Ver Combos</Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Info */}
+      <section className="max-w-6xl mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+          <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
+            <div className="text-3xl mb-3">🕐</div>
+            <h3 className="font-semibold mb-1">Horários</h3>
+            <p className="text-text-light text-sm">{settings.opening_hours || 'Seg-Dom: 11h-22h'}</p>
+          </div>
+          <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
+            <div className="text-3xl mb-3">📍</div>
+            <h3 className="font-semibold mb-1">Localização</h3>
+            <p className="text-text-light text-sm">{settings.address || 'Consulte pelo WhatsApp'}</p>
+          </div>
+          <div className="bg-surface p-6 rounded-xl shadow-sm border border-border">
+            <div className="text-3xl mb-3">📱</div>
+            <h3 className="font-semibold mb-1">Contato</h3>
+            <p className="text-text-light text-sm">
+              {settings.whatsapp ? (
+                <a href={`https://wa.me/55${settings.whatsapp.replace(/\D/g, '')}`} className="text-primary hover:underline">
+                  WhatsApp: {settings.whatsapp}
+                </a>
+              ) : 'Consulte nossas redes'}
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
