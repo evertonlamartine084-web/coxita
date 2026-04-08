@@ -1,4 +1,4 @@
-import { HiPlus } from 'react-icons/hi'
+import { HiPlus, HiShoppingCart } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { formatCurrency } from '../../utils/format'
 import toast from 'react-hot-toast'
@@ -8,42 +8,66 @@ export default function ProductCard({ product }) {
 
   const handleAdd = () => {
     addItem(product)
-    toast.success(`${product.name} adicionado!`)
+    toast.success(`${product.name} adicionado!`, {
+      icon: null,
+      style: {
+        background: '#292524',
+        color: '#fff',
+        borderRadius: '1rem',
+        fontFamily: "'Baloo 2', cursive",
+        fontWeight: 600,
+      },
+    })
   }
 
   return (
-    <div className="bg-surface rounded-xl shadow-sm overflow-hidden border border-border hover:shadow-md transition-shadow">
-      {product.image_url ? (
-        <img
-          src={product.image_url}
-          alt={product.name}
-          className="w-full h-48 object-cover"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-full h-48 bg-orange-100 flex items-center justify-center text-5xl">
-          🍗
-        </div>
-      )}
-      <div className="p-4">
+    <div className="group bg-surface card-organic overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 card-shine border border-border/60">
+      {/* Image */}
+      <div className="relative overflow-hidden">
+        {product.image_url ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-52 bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center">
+            <img src="/logo.png" alt="" className="w-20 h-20 opacity-30 object-contain" />
+          </div>
+        )}
+
+        {/* Category badge */}
         {product.categories && (
-          <span className="text-xs text-primary font-medium uppercase">
+          <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-primary text-xs font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wide">
             {product.categories.name}
           </span>
         )}
-        <h3 className="font-semibold text-lg mt-1">{product.name}</h3>
+
+        {/* Quick add overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        <h3 className="font-display font-bold text-lg text-text leading-tight">{product.name}</h3>
         {product.description && (
-          <p className="text-text-light text-sm mt-1 line-clamp-2">{product.description}</p>
+          <p className="text-text-light text-sm mt-1.5 line-clamp-2 leading-relaxed">{product.description}</p>
         )}
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-xl font-bold text-primary">
-            {formatCurrency(product.price)}
-          </span>
+
+        <div className="flex items-end justify-between mt-4 pt-3 border-t border-border/50">
+          <div>
+            <span className="text-xs text-text-light block">a partir de</span>
+            <span className="text-2xl font-display font-extrabold text-primary">
+              {formatCurrency(product.price)}
+            </span>
+          </div>
           <button
             onClick={handleAdd}
-            className="bg-primary text-white p-2 rounded-lg hover:bg-primary-dark transition-colors"
+            className="bg-primary text-white p-3 rounded-xl hover:bg-primary-dark transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg group/btn cursor-pointer"
           >
-            <HiPlus size={20} />
+            <HiPlus size={20} className="group-hover/btn:hidden" />
+            <HiShoppingCart size={20} className="hidden group-hover/btn:block" />
           </button>
         </div>
       </div>

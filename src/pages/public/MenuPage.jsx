@@ -27,46 +27,69 @@ export default function MenuPage() {
   if (loading) return <Loading />
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Cardápio</h1>
+    <div className="min-h-screen">
+      {/* Page header */}
+      <div className="bg-gradient-to-b from-bg-warm to-bg pt-8 pb-6">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex items-center gap-4 mb-6">
+            <img src="/logo.png" alt="" className="w-12 h-12 object-contain" />
+            <div>
+              <h1 className="font-display text-3xl md:text-4xl font-extrabold text-text">Cardapio</h1>
+              <p className="text-text-light text-sm mt-0.5">Escolha seus sabores favoritos</p>
+            </div>
+          </div>
 
-      {/* Category filter */}
-      <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
-        <button
-          onClick={() => setActiveCategory('all')}
-          className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
-            activeCategory === 'all'
-              ? 'bg-primary text-white'
-              : 'bg-white text-text border border-border hover:border-primary'
-          }`}
-        >
-          Todos
-        </button>
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.slug)}
-            className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
-              activeCategory === cat.slug
-                ? 'bg-primary text-white'
-                : 'bg-white text-text border border-border hover:border-primary'
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
+          {/* Category filter pills */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <CategoryPill
+              active={activeCategory === 'all'}
+              onClick={() => setActiveCategory('all')}
+            >
+              Todos
+            </CategoryPill>
+            {categories.map(cat => (
+              <CategoryPill
+                key={cat.id}
+                active={activeCategory === cat.slug}
+                onClick={() => setActiveCategory(cat.slug)}
+              >
+                {cat.name}
+              </CategoryPill>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Products grid */}
-      {filtered.length === 0 ? (
-        <p className="text-text-light text-center py-12">Nenhum produto encontrado nesta categoria.</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map(p => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      )}
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <img src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
+            <p className="text-text-light font-display text-lg">Nenhum produto nesta categoria.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filtered.map(p => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
+  )
+}
+
+function CategoryPill({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-5 py-2.5 rounded-full whitespace-nowrap text-sm font-bold font-display transition-all duration-200 cursor-pointer ${
+        active
+          ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
+          : 'bg-white text-text-warm border-2 border-transparent hover:border-primary/30 hover:text-primary shadow-sm'
+      }`}
+    >
+      {children}
+    </button>
   )
 }

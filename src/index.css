@@ -1,32 +1,187 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #e65100;
-  --color-primary-dark: #bf360c;
-  --color-primary-light: #ff8a65;
-  --color-secondary: #fdd835;
-  --color-accent: #4caf50;
-  --color-bg: #fff8f0;
+  --color-primary: #c2410c;
+  --color-primary-dark: #9a3412;
+  --color-primary-light: #ea580c;
+  --color-secondary: #facc15;
+  --color-secondary-dark: #eab308;
+  --color-accent: #15803d;
+  --color-accent-light: #22c55e;
+  --color-bg: #fffbf5;
+  --color-bg-warm: #fef3e2;
   --color-surface: #ffffff;
-  --color-text: #333333;
-  --color-text-light: #666666;
-  --color-border: #e0e0e0;
-  --color-danger: #ef4444;
-  --color-success: #22c55e;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --color-surface-warm: #fff8ed;
+  --color-text: #292524;
+  --color-text-light: #78716c;
+  --color-text-warm: #44403c;
+  --color-border: #e7e5e4;
+  --color-border-warm: #d6d3d1;
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+  --color-festa: #7c3aed;
+  --color-festa-light: #a78bfa;
+  --font-display: 'Baloo 2', cursive;
+  --font-body: 'Nunito', sans-serif;
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   background-color: var(--color-bg);
   color: var(--color-text);
   margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Xadrez pattern - festa junina */
+.bg-xadrez {
+  background-image:
+    linear-gradient(45deg, rgba(194, 65, 12, 0.06) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(194, 65, 12, 0.06) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(194, 65, 12, 0.06) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(194, 65, 12, 0.06) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+
+/* Bandeirinhas border */
+.bandeirinhas {
+  position: relative;
+}
+.bandeirinhas::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'%3E%3Cpath d='M0 0 L10 0 L5 18 Z' fill='%23facc15'/%3E%3Cpath d='M15 0 L25 0 L20 18 Z' fill='%23ea580c'/%3E%3Cpath d='M30 0 L40 0 L35 18 Z' fill='%2322c55e'/%3E%3Cpath d='M45 0 L55 0 L50 18 Z' fill='%237c3aed'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 60px 24px;
+  z-index: 10;
+}
+
+/* Wave divider */
+.wave-divider {
+  position: relative;
+}
+.wave-divider::after {
+  content: '';
+  position: absolute;
+  bottom: -30px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: var(--color-bg);
+  clip-path: ellipse(55% 100% at 50% 100%);
+  z-index: 5;
+}
+
+/* Animated shine on cards */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+.card-shine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transform: translateX(-100%);
+  z-index: 1;
+  pointer-events: none;
+}
+.card-shine:hover::before {
+  animation: shimmer 0.6s ease-in-out;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Wobble on hover */
+@keyframes wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+.hover-wobble:hover {
+  animation: wobble 0.4s ease-in-out;
+}
+
+/* Pulse glow */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(194, 65, 12, 0.3); }
+  50% { box-shadow: 0 0 20px 5px rgba(194, 65, 12, 0.15); }
+}
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Custom rounded shapes */
+.blob-shape {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+}
+
+/* Handwritten underline effect */
+.underline-hand {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12'%3E%3Cpath d='M2 8 Q50 2, 100 7 Q150 12, 198 4' stroke='%23facc15' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: 100% 12px;
+  padding-bottom: 8px;
+}
+
+/* Organic card shape */
+.card-organic {
+  border-radius: 1rem 1.5rem 1rem 1.5rem;
+}
+
+/* Stamp/badge style */
+.stamp {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border: 2px dashed currentColor;
+  border-radius: 0.5rem;
+  transform: rotate(-2deg);
+  font-weight: 700;
+}
+
+/* Dotted border pattern */
+.border-festive {
+  border: 3px dashed var(--color-secondary);
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary-dark));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
