@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getFeaturedProducts } from '../../services/products'
+import { getFeaturedProducts, getProducts } from '../../services/products'
 import { getSettings } from '../../services/settings'
-import ProductCard from '../../components/product/ProductCard'
+import ProductCarousel from '../../components/product/ProductCarousel'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 
 export default function HomePage() {
-  const [products, setProducts] = useState([])
+  const [featured, setFeatured] = useState([])
+  const [allProducts, setAllProducts] = useState([])
   const [settings, setSettingsData] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getFeaturedProducts(), getSettings()])
-      .then(([prods, setts]) => {
-        setProducts(prods)
+    Promise.all([getFeaturedProducts(), getProducts(), getSettings()])
+      .then(([feat, all, setts]) => {
+        setFeatured(feat)
+        setAllProducts(all)
         setSettingsData(setts)
       })
       .catch(console.error)
@@ -42,22 +44,22 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured */}
-      {products.length > 0 && (
+      {/* Featured Carousel */}
+      {featured.length > 0 && (
         <section className="max-w-6xl mx-auto px-4 py-12">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">
-            ⭐ Destaques
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map(p => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          <ProductCarousel products={featured} title="⭐ Destaques" />
           <div className="text-center mt-8">
             <Link to="/cardapio">
               <Button variant="outline">Ver Cardápio Completo</Button>
             </Link>
           </div>
+        </section>
+      )}
+
+      {/* All Products Carousel */}
+      {allProducts.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 py-12">
+          <ProductCarousel products={allProducts} title="🍗 Nossos Produtos" />
         </section>
       )}
 
