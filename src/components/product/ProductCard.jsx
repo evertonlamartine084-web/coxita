@@ -4,16 +4,6 @@ import { useCartStore } from '../../store/cartStore'
 import { formatCurrency } from '../../utils/format'
 import toast from 'react-hot-toast'
 
-function getOptimizedUrl(url, width = 400) {
-  if (!url) return url
-  // Supabase Storage image transformation
-  if (url.includes('supabase.co/storage')) {
-    const separator = url.includes('?') ? '&' : '?'
-    return `${url}${separator}width=${width}&quality=75`
-  }
-  return url
-}
-
 export default function ProductCard({ product }) {
   const addItem = useCartStore(s => s.addItem)
   const [imgLoaded, setImgLoaded] = useState(false)
@@ -44,7 +34,7 @@ export default function ProductCard({ product }) {
               </div>
             )}
             <img
-              src={getOptimizedUrl(product.image_url)}
+              src={product.image_url}
               alt={product.name}
               className={`w-full h-52 object-cover group-hover:scale-105 transition-all duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
               loading="lazy"
