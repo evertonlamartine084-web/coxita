@@ -116,6 +116,10 @@ create policy "categories_public_read" on categories for select using (true);
 create policy "products_public_read" on products for select using (true);
 create policy "settings_public_read" on settings for select using (true);
 
+-- Public read for orders and order_items (order tracking)
+create policy "orders_public_read" on orders for select using (true);
+create policy "order_items_public_read" on order_items for select using (true);
+
 -- Public insert for orders and order_items (customers place orders)
 create policy "orders_public_insert" on orders for insert with check (true);
 create policy "order_items_public_insert" on order_items for insert with check (true);

@@ -6,12 +6,12 @@ export default function Footer() {
     <footer className="mt-auto relative">
       {/* Wave top */}
       <div className="bg-bg">
-        <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block">
+        <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none">
           <path d="M0 40 Q360 0 720 40 Q1080 80 1440 40 L1440 80 L0 80Z" fill="#292524" />
         </svg>
       </div>
 
-      <div className="bg-stone-800 pt-6 pb-8">
+      <div className="bg-stone-800 pt-6 pb-8 -mt-px">
         <div className="max-w-6xl mx-auto px-4">
           {/* Top section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">

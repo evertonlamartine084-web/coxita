@@ -50,6 +50,9 @@ export default function Header() {
           <NavLink to="/cardapio" scrolled={scrolled}>
             Cardapio
           </NavLink>
+          <NavLink to="/acompanhar" scrolled={scrolled}>
+            Meu pedido
+          </NavLink>
 
           <Link
             to="/carrinho"
@@ -101,6 +104,9 @@ export default function Header() {
             </Link>
             <Link to="/cardapio" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
               Cardapio
+            </Link>
+            <Link to="/acompanhar" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
+              Meu pedido
             </Link>
             <Link to="/carrinho" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
               Carrinho {itemCount > 0 && `(${itemCount})`}

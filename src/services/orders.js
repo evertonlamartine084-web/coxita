@@ -64,6 +64,16 @@ export async function updateOrderStatus(id, status) {
   return data
 }
 
+export async function getOrderByNumber(orderNumber) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('order_number', orderNumber)
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function getTodayOrders() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)

@@ -128,7 +128,14 @@ export default function OrderConfirmationPage() {
           </div>
         )}
 
-        <Link to="/" className="block mt-8">
+        <Link to={`/acompanhar/${orderNumber}`} className="block mt-8">
+          <Button className="w-full gap-2" variant="festive">
+            <HiCheck size={18} />
+            Acompanhar pedido
+          </Button>
+        </Link>
+
+        <Link to="/" className="block mt-3">
           <Button variant="outline" className="w-full gap-2">
             <HiHome size={18} />
             Voltar ao inicio
