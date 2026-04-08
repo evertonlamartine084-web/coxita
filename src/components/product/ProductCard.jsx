@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { HiPlus, HiShoppingCart } from 'react-icons/hi'
+import { HiPlus, HiShoppingCart, HiHeart, HiOutlineHeart } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
+import { useFavoritesStore } from '../../store/favoritesStore'
 import { formatCurrency } from '../../utils/format'
 import toast from 'react-hot-toast'
 
 export default function ProductCard({ product }) {
   const addItem = useCartStore(s => s.addItem)
+  const isFavorite = useFavoritesStore(s => s.isFavorite(product.id))
+  const toggleFavorite = useFavoritesStore(s => s.toggleFavorite)
   const [imgLoaded, setImgLoaded] = useState(false)
 
   const handleAdd = () => {
@@ -53,6 +56,18 @@ export default function ProductCard({ product }) {
             {product.categories.name}
           </span>
         )}
+
+        {/* Favorite button */}
+        <button
+          onClick={() => toggleFavorite(product.id)}
+          className="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-sm hover:scale-110 transition-all duration-200 cursor-pointer"
+        >
+          {isFavorite ? (
+            <HiHeart className="text-danger" size={18} />
+          ) : (
+            <HiOutlineHeart className="text-text-light" size={18} />
+          )}
+        </button>
 
         {/* Quick add overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

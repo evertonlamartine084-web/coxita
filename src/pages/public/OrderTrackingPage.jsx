@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight } from 'react-icons/hi'
+import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight, HiBell, HiStar } from 'react-icons/hi'
 import { getOrderByNumber } from '../../services/orders'
-import { formatCurrency, formatDate, PAYMENT_LABELS } from '../../utils/format'
+import { createReview, getReviewByOrderId } from '../../services/reviews'
+import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../../utils/format'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
+import toast from 'react-hot-toast'
 
 const STEPS = [
   { key: 'pendente', label: 'Pedido recebido', icon: HiClock, description: 'Seu pedido foi recebido e esta aguardando confirmacao' },
@@ -18,12 +20,26 @@ function getStepIndex(status) {
   return STEPS.findIndex(s => s.key === status)
 }
 
+function sendNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/logo.png' })
+  }
+}
+
 export default function OrderTrackingPage() {
   const { orderNumber } = useParams()
   const lastOrder = localStorage.getItem('coxita-last-order')
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [notifEnabled, setNotifEnabled] = useState(
+    'Notification' in window && Notification.permission === 'granted'
+  )
+  const [review, setReview] = useState(null)
+  const [rating, setRating] = useState(0)
+  const [comment, setComment] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const prevStatusRef = useRef(null)
 
   const fetchOrder = useCallback(async (num) => {
     if (!num) {
@@ -33,8 +49,18 @@ export default function OrderTrackingPage() {
     setLoading(true)
     try {
       const data = await getOrderByNumber(parseInt(num))
+      // Notify on status change
+      if (prevStatusRef.current && prevStatusRef.current !== data.status) {
+        const label = STATUS_LABELS[data.status] || data.status
+        sendNotification(`Pedido #${data.order_number}`, `Status atualizado: ${label}`)
+      }
+      prevStatusRef.current = data.status
       setOrder(data)
       setNotFound(false)
+      // Load review if delivered
+      if (data.status === 'entregue') {
+        getReviewByOrderId(data.id).then(r => { if (r) setReview(r) }).catch(() => {})
+      }
     } catch {
       setOrder(null)
       setNotFound(true)
@@ -55,6 +81,38 @@ export default function OrderTrackingPage() {
     }, 30000)
     return () => clearInterval(interval)
   }, [order, fetchOrder])
+
+  const handleSubmitReview = async () => {
+    if (rating === 0) {
+      toast.error('Selecione uma nota')
+      return
+    }
+    setSubmittingReview(true)
+    try {
+      const r = await createReview({
+        order_id: order.id,
+        order_number: order.order_number,
+        customer_name: order.customer_name,
+        rating,
+        comment: comment.trim() || null,
+      })
+      setReview(r)
+      toast.success('Obrigado pela avaliacao!')
+    } catch {
+      toast.error('Erro ao enviar avaliacao')
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
+  const requestNotifications = async () => {
+    if (!('Notification' in window)) return
+    const permission = await Notification.requestPermission()
+    setNotifEnabled(permission === 'granted')
+    if (permission === 'granted') {
+      new Notification('Coxita', { body: 'Voce sera notificado quando o status mudar!', icon: '/logo.png' })
+    }
+  }
 
   const currentStep = order ? getStepIndex(order.status) : -1
 
@@ -206,8 +264,23 @@ export default function OrderTrackingPage() {
                   })}
                 </div>
 
-                {/* Auto refresh notice */}
-                <div className="mt-6 pt-4 border-t border-border/50">
+                {/* Notifications + Auto refresh */}
+                <div className="mt-6 pt-4 border-t border-border/50 space-y-3">
+                  {'Notification' in window && !notifEnabled && (
+                    <button
+                      onClick={requestNotifications}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/5 text-primary font-display font-bold text-sm hover:bg-primary/10 transition-colors cursor-pointer"
+                    >
+                      <HiBell size={16} />
+                      Ativar notificacoes
+                    </button>
+                  )}
+                  {notifEnabled && (
+                    <p className="text-center text-accent text-xs font-semibold flex items-center justify-center gap-1">
+                      <HiBell size={14} />
+                      Notificacoes ativadas
+                    </p>
+                  )}
                   <p className="text-center text-text-light text-xs">
                     Atualiza automaticamente a cada 30 segundos
                   </p>
@@ -234,6 +307,78 @@ export default function OrderTrackingPage() {
                 <span className="font-display font-extrabold text-primary text-lg">{formatCurrency(order.total)}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Review section - only when delivered */}
+        {order && order.status === 'entregue' && (
+          <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm mt-5">
+            {review ? (
+              <div className="text-center">
+                <h3 className="font-display font-bold text-text mb-2">Sua avaliacao</h3>
+                <div className="flex justify-center gap-1 mb-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <HiStar
+                      key={star}
+                      size={24}
+                      className={star <= review.rating ? 'text-secondary' : 'text-border'}
+                    />
+                  ))}
+                </div>
+                {review.comment && (
+                  <p className="text-text-light text-sm italic">"{review.comment}"</p>
+                )}
+                <p className="text-accent text-xs font-semibold mt-2">Obrigado pelo feedback!</p>
+              </div>
+            ) : (
+              <div>
+                <h3 className="font-display font-bold text-text mb-1 text-center">Como foi seu pedido?</h3>
+                <p className="text-text-light text-xs text-center mb-4">Sua opiniao nos ajuda a melhorar</p>
+
+                {/* Stars */}
+                <div className="flex justify-center gap-2 mb-4">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(star)}
+                      className="cursor-pointer transition-transform hover:scale-125"
+                    >
+                      <HiStar
+                        size={32}
+                        className={`transition-colors ${star <= rating ? 'text-secondary' : 'text-border hover:text-secondary/50'}`}
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                {rating > 0 && (
+                  <p className="text-center text-sm font-display font-bold text-secondary mb-3">
+                    {rating === 1 && 'Pode melhorar'}
+                    {rating === 2 && 'Regular'}
+                    {rating === 3 && 'Bom'}
+                    {rating === 4 && 'Muito bom!'}
+                    {rating === 5 && 'Excelente!'}
+                  </p>
+                )}
+
+                {/* Comment */}
+                <textarea
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  rows={3}
+                  placeholder="Deixe um comentario (opcional)"
+                  className="w-full px-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary resize-none transition-colors font-body text-sm mb-3"
+                />
+
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={rating === 0 || submittingReview}
+                  className="w-full py-3 rounded-xl font-bold font-display bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingReview ? 'Enviando...' : 'Enviar avaliacao'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

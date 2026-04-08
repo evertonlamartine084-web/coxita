@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { useState } from 'react'
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/admin/pedidos', icon: HiClipboardList, label: 'Pedidos' },
   { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
   { to: '/admin/categorias', icon: HiTag, label: 'Categorias' },
+  { to: '/admin/avaliacoes', icon: HiStar, label: 'Avaliações' },
   { to: '/admin/configuracoes', icon: HiCog, label: 'Configurações' },
 ]
 

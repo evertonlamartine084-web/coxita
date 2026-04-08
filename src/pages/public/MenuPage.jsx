@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { HiSearch, HiX, HiHeart } from 'react-icons/hi'
 import { getProducts } from '../../services/products'
 import { getCategories } from '../../services/categories'
+import { useFavoritesStore } from '../../store/favoritesStore'
 import ProductCard from '../../components/product/ProductCard'
 import Loading from '../../components/ui/Loading'
 
@@ -8,7 +10,9 @@ export default function MenuPage() {
   const [products, setProducts] = useState([])
   const [categories, setCategoriesData] = useState([])
   const [activeCategory, setActiveCategory] = useState('all')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const favorites = useFavoritesStore(s => s.favorites)
 
   useEffect(() => {
     Promise.all([getProducts(), getCategories()])
@@ -20,9 +24,16 @@ export default function MenuPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = activeCategory === 'all'
-    ? products
-    : products.filter(p => p.categories?.slug === activeCategory)
+  const filtered = products.filter(p => {
+    const matchCategory = activeCategory === 'all'
+      ? true
+      : activeCategory === 'favoritos'
+        ? favorites.includes(p.id)
+        : p.categories?.slug === activeCategory
+    const q = search.toLowerCase().trim()
+    const matchSearch = !q || p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)
+    return matchCategory && matchSearch
+  })
 
   if (loading) return <Loading />
 
@@ -39,6 +50,26 @@ export default function MenuPage() {
             </div>
           </div>
 
+          {/* Search */}
+          <div className="relative mb-4">
+            <HiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-text-light" size={18} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar coxinhas..."
+              className="w-full pl-11 pr-10 py-3 border-2 border-border rounded-xl outline-none focus:border-primary transition-colors font-body text-sm bg-white"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-light hover:text-text cursor-pointer"
+              >
+                <HiX size={18} />
+              </button>
+            )}
+          </div>
+
           {/* Category filter pills */}
           <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide">
             <CategoryPill
@@ -47,6 +78,15 @@ export default function MenuPage() {
             >
               Todos
             </CategoryPill>
+            {favorites.length > 0 && (
+              <CategoryPill
+                active={activeCategory === 'favoritos'}
+                onClick={() => setActiveCategory('favoritos')}
+              >
+                <HiHeart className="inline -mt-0.5 mr-1" size={14} />
+                Favoritos
+              </CategoryPill>
+            )}
             {categories.map(cat => (
               <CategoryPill
                 key={cat.id}

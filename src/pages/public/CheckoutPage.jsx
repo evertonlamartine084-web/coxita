@@ -103,6 +103,9 @@ export default function CheckoutPage() {
       notifyNewOrder(order, items)
 
       localStorage.setItem('coxita-last-order', order.order_number.toString())
+      localStorage.setItem('coxita-last-order-items', JSON.stringify(
+        items.map(i => ({ id: i.id, name: i.name, price: i.price, image_url: i.image_url }))
+      ))
 
       if (form.payment_method === 'credito' || form.payment_method === 'debito') {
         try {

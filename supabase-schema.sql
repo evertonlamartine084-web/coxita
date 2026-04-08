@@ -101,6 +101,20 @@ insert into categories (name, slug, sort_order) values
   ('Bebidas', 'bebidas', 4),
   ('Extras', 'extras', 5);
 
+-- 6. REVIEWS
+create table reviews (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid references orders(id) on delete cascade not null unique,
+  order_number int not null,
+  customer_name text not null,
+  rating int not null check (rating >= 1 and rating <= 5),
+  comment text,
+  created_at timestamptz default now()
+);
+
+create index idx_reviews_order on reviews(order_id);
+create index idx_reviews_rating on reviews(rating);
+
 -- ========================================
 -- ROW LEVEL SECURITY
 -- ========================================
@@ -110,11 +124,16 @@ alter table products enable row level security;
 alter table orders enable row level security;
 alter table order_items enable row level security;
 alter table settings enable row level security;
+alter table reviews enable row level security;
 
 -- Public read for categories, products, settings
 create policy "categories_public_read" on categories for select using (true);
 create policy "products_public_read" on products for select using (true);
 create policy "settings_public_read" on settings for select using (true);
+
+-- Public access for reviews
+create policy "reviews_public_read" on reviews for select using (true);
+create policy "reviews_public_insert" on reviews for insert with check (true);
 
 -- Public read for orders and order_items (order tracking)
 create policy "orders_public_read" on orders for select using (true);
@@ -130,6 +149,7 @@ create policy "products_admin_all" on products for all using (auth.role() = 'aut
 create policy "orders_admin_all" on orders for all using (auth.role() = 'authenticated');
 create policy "order_items_admin_all" on order_items for all using (auth.role() = 'authenticated');
 create policy "settings_admin_all" on settings for all using (auth.role() = 'authenticated');
+create policy "reviews_admin_all" on reviews for all using (auth.role() = 'authenticated');
 
 -- ========================================
 -- STORAGE BUCKET FOR PRODUCT IMAGES

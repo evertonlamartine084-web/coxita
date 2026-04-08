@@ -22,6 +22,7 @@ const OrdersPage = lazy(() => import('./pages/admin/OrdersPage'))
 const ProductsPage = lazy(() => import('./pages/admin/ProductsPage'))
 const CategoriesPage = lazy(() => import('./pages/admin/CategoriesPage'))
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
+const ReviewsPage = lazy(() => import('./pages/admin/ReviewsPage'))
 
 export default function App() {
   const setSession = useAuthStore(s => s.setSession)
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="pedidos" element={<OrdersPage />} />
             <Route path="produtos" element={<ProductsPage />} />
             <Route path="categorias" element={<CategoriesPage />} />
+            <Route path="avaliacoes" element={<ReviewsPage />} />
             <Route path="configuracoes" element={<SettingsPage />} />
           </Route>
         </Routes>

@@ -1,17 +1,28 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { HiClock, HiLocationMarker, HiPhone, HiArrowRight } from 'react-icons/hi'
+import { Link, useNavigate } from 'react-router-dom'
+import { HiClock, HiLocationMarker, HiPhone, HiArrowRight, HiRefresh } from 'react-icons/hi'
 import { getFeaturedProducts, getProducts } from '../../services/products'
 import { getSettings } from '../../services/settings'
+import { useCartStore } from '../../store/cartStore'
 import ProductCarousel from '../../components/product/ProductCarousel'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
+import toast from 'react-hot-toast'
 
 export default function HomePage() {
   const [featured, setFeatured] = useState([])
   const [allProducts, setAllProducts] = useState([])
   const [settings, setSettingsData] = useState({})
   const [loading, setLoading] = useState(true)
+  const addItem = useCartStore(s => s.addItem)
+  const navigate = useNavigate()
+  const lastOrderItems = JSON.parse(localStorage.getItem('coxita-last-order-items') || 'null')
+
+  const handleRepeatOrder = () => {
+    lastOrderItems.forEach(item => addItem(item))
+    toast.success('Itens adicionados ao carrinho!')
+    navigate('/carrinho')
+  }
 
   useEffect(() => {
     async function load() {
@@ -72,6 +83,17 @@ export default function HomePage() {
                     <HiArrowRight size={18} />
                   </Button>
                 </Link>
+                {lastOrderItems && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full sm:w-auto gap-2 border-white/30 text-white hover:bg-white/10"
+                    onClick={handleRepeatOrder}
+                  >
+                    <HiRefresh size={18} />
+                    Repetir pedido
+                  </Button>
+                )}
               </div>
             </div>
 
