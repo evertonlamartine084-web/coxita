@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { HiSearch, HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX } from 'react-icons/hi'
+import { useParams, Link } from 'react-router-dom'
+import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight } from 'react-icons/hi'
 import { getOrderByNumber } from '../../services/orders'
 import { formatCurrency, formatDate, PAYMENT_LABELS } from '../../utils/format'
 import Button from '../../components/ui/Button'
@@ -20,38 +20,31 @@ function getStepIndex(status) {
 
 export default function OrderTrackingPage() {
   const { orderNumber } = useParams()
-  const [searchParams] = useSearchParams()
   const lastOrder = localStorage.getItem('coxita-last-order')
-  const initialNumber = orderNumber || searchParams.get('pedido') || lastOrder || ''
-  const [inputNumber, setInputNumber] = useState(initialNumber)
   const [order, setOrder] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [searched, setSearched] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
   const fetchOrder = useCallback(async (num) => {
-    if (!num) return
+    if (!num) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    setError(null)
     try {
       const data = await getOrderByNumber(parseInt(num))
       setOrder(data)
-      setSearched(true)
-      localStorage.setItem('coxita-last-order', num.toString())
+      setNotFound(false)
     } catch {
       setOrder(null)
-      setError('Pedido nao encontrado. Verifique o numero e tente novamente.')
-      setSearched(true)
+      setNotFound(true)
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    const numToLoad = orderNumber || lastOrder
-    if (numToLoad) {
-      fetchOrder(numToLoad)
-    }
+    fetchOrder(orderNumber || lastOrder)
   }, [orderNumber])
 
   // Auto-refresh every 30s
@@ -63,12 +56,37 @@ export default function OrderTrackingPage() {
     return () => clearInterval(interval)
   }, [order, fetchOrder])
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    fetchOrder(inputNumber.replace(/\D/g, ''))
-  }
-
   const currentStep = order ? getStepIndex(order.status) : -1
+
+  if (loading) return <Loading />
+
+  // No order found - show empty state
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-bg-warm to-bg">
+        <div className="max-w-lg mx-auto px-4 py-20 text-center">
+          <div className="relative inline-block mb-6">
+            <div className="absolute inset-0 bg-primary/5 rounded-full scale-150" />
+            <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
+          </div>
+          <h2 className="font-display text-2xl font-bold mb-2 text-text">
+            {notFound ? 'Pedido nao encontrado' : 'Nenhum pedido ainda'}
+          </h2>
+          <p className="text-text-light mb-8 max-w-sm mx-auto">
+            {notFound
+              ? 'O pedido que voce procura nao existe.'
+              : 'Faca seu primeiro pedido e acompanhe por aqui!'}
+          </p>
+          <Link to="/cardapio">
+            <Button variant="festive" className="gap-2">
+              Ver cardapio
+              <HiArrowRight size={18} />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-bg-warm to-bg">
@@ -81,49 +99,6 @@ export default function OrderTrackingPage() {
           <h1 className="font-display text-3xl font-extrabold text-text mb-1">Acompanhar pedido</h1>
           <p className="text-text-light text-sm">Veja o status do seu pedido em tempo real</p>
         </div>
-
-        {/* Search form */}
-        {!orderNumber && (
-          <form onSubmit={handleSearch} className="mb-8">
-            <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm">
-              <label className="block text-sm font-semibold text-text-warm mb-2 font-display">
-                Numero do pedido
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light font-bold">#</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={inputNumber}
-                    onChange={e => setInputNumber(e.target.value)}
-                    placeholder="Ex: 42"
-                    className="w-full pl-8 pr-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary transition-colors font-display text-lg font-bold"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={!inputNumber || loading}
-                  className="px-5 bg-primary text-white rounded-xl font-bold font-display flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  <HiSearch size={20} />
-                  Buscar
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-
-        {loading && <Loading />}
-
-        {error && searched && (
-          <div className="bg-danger/5 card-organic border-2 border-danger/30 p-6 text-center">
-            <div className="w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-3">
-              <HiX className="text-danger" size={24} />
-            </div>
-            <p className="text-danger font-display font-bold">{error}</p>
-          </div>
-        )}
 
         {order && !loading && (
           <div className="space-y-5">
