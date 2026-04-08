@@ -9,7 +9,8 @@ export default function Header() {
     <header className="bg-primary text-white sticky top-0 z-40 shadow-md">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 no-underline text-white">
-          <span className="text-2xl font-bold">🍗 Coxita</span>
+          <img src="/logo.png" alt="Coxita" className="w-9 h-9 object-contain" />
+          <span className="text-2xl font-bold">Coxita</span>
         </Link>
 
         <nav className="flex items-center gap-6">

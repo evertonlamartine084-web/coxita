@@ -28,7 +28,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold">🍗 Coxita</h1>
+          <img src="/logo.png" alt="Coxita" className="w-20 h-20 object-contain mx-auto mb-2" />
+          <h1 className="text-3xl font-bold">Coxita</h1>
           <p className="text-text-light mt-1">Painel Administrativo</p>
         </div>
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-border p-6 space-y-4">

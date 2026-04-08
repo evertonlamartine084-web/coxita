@@ -31,7 +31,10 @@ export default function AdminLayout() {
       {/* Sidebar */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-4 border-b border-gray-700">
-          <h1 className="text-xl font-bold">🍗 Coxita Admin</h1>
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="Coxita" className="w-8 h-8 object-contain" />
+            <h1 className="text-xl font-bold">Coxita Admin</h1>
+          </div>
         </div>
         <nav className="p-4 space-y-1">
           {navItems.map(({ to, icon: Icon, label }) => {
