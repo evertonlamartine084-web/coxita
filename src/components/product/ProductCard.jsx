@@ -1,10 +1,22 @@
+import { useState } from 'react'
 import { HiPlus, HiShoppingCart } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { formatCurrency } from '../../utils/format'
 import toast from 'react-hot-toast'
 
+function getOptimizedUrl(url, width = 400) {
+  if (!url) return url
+  // Supabase Storage image transformation
+  if (url.includes('supabase.co/storage')) {
+    const separator = url.includes('?') ? '&' : '?'
+    return `${url}${separator}width=${width}&quality=75`
+  }
+  return url
+}
+
 export default function ProductCard({ product }) {
   const addItem = useCartStore(s => s.addItem)
+  const [imgLoaded, setImgLoaded] = useState(false)
 
   const handleAdd = () => {
     addItem(product)
@@ -25,12 +37,20 @@ export default function ProductCard({ product }) {
       {/* Image */}
       <div className="relative overflow-hidden">
         {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
-          />
+          <>
+            {!imgLoaded && (
+              <div className="absolute inset-0 w-full h-52 bg-gradient-to-br from-orange-100 to-orange-50 animate-pulse flex items-center justify-center">
+                <img src="/logo.png" alt="" className="w-16 h-16 opacity-20 object-contain" />
+              </div>
+            )}
+            <img
+              src={getOptimizedUrl(product.image_url)}
+              alt={product.name}
+              className={`w-full h-52 object-cover group-hover:scale-105 transition-all duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+              loading="lazy"
+              onLoad={() => setImgLoaded(true)}
+            />
+          </>
         ) : (
           <div className="w-full h-52 bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center">
             <img src="/logo.png" alt="" className="w-20 h-20 opacity-30 object-contain" />
