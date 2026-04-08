@@ -14,6 +14,7 @@ const MenuPage = lazy(() => import('./pages/public/MenuPage'))
 const CartPage = lazy(() => import('./pages/public/CartPage'))
 const CheckoutPage = lazy(() => import('./pages/public/CheckoutPage'))
 const OrderConfirmationPage = lazy(() => import('./pages/public/OrderConfirmationPage'))
+const PaymentFailedPage = lazy(() => import('./pages/public/PaymentFailedPage'))
 const LoginPage = lazy(() => import('./pages/admin/LoginPage'))
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
 const OrdersPage = lazy(() => import('./pages/admin/OrdersPage'))
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/carrinho" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/pedido-confirmado/:orderNumber" element={<OrderConfirmationPage />} />
+            <Route path="/pagamento-falhou/:orderNumber" element={<PaymentFailedPage />} />
           </Route>
 
           {/* Admin */}

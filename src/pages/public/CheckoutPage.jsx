@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useCartStore } from '../../store/cartStore'
 import { createOrder } from '../../services/orders'
 import { getSettings } from '../../services/settings'
+import { createPaymentPreference } from '../../services/payment'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
@@ -96,6 +97,28 @@ export default function CheckoutPage() {
       }
 
       const order = await createOrder(orderData, items)
+
+      // Salva dados do pedido para a tela de confirmação
+      sessionStorage.setItem('lastOrder', JSON.stringify({
+        ...order,
+        items: items.map(i => ({ product_name: i.name, quantity: i.quantity, unit_price: i.price })),
+        settings: { pix_key: settings.pix_key, pix_name: settings.pix_name, whatsapp: settings.whatsapp },
+      }))
+
+      // Se for cartão, redireciona pro Mercado Pago
+      if (form.payment_method === 'credito' || form.payment_method === 'debito') {
+        try {
+          const payment = await createPaymentPreference(order, items)
+          clearCart()
+          window.location.href = payment.init_point
+          return
+        } catch (payErr) {
+          console.error('Erro ao criar pagamento:', payErr)
+          toast.error('Erro ao processar pagamento. Tente outro método.')
+          return
+        }
+      }
+
       clearCart()
       navigate(`/pedido-confirmado/${order.order_number}`)
     } catch (err) {
