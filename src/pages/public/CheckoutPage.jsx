@@ -4,6 +4,7 @@ import { useCartStore } from '../../store/cartStore'
 import { createOrder } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import { createPaymentPreference } from '../../services/payment'
+import { notifyNewOrder } from '../../services/notifications'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
@@ -97,6 +98,9 @@ export default function CheckoutPage() {
       }
 
       const order = await createOrder(orderData, items)
+
+      // Notifica o dono via push notification
+      notifyNewOrder(order, items)
 
       // Salva dados do pedido para a tela de confirmação
       sessionStorage.setItem('lastOrder', JSON.stringify({
