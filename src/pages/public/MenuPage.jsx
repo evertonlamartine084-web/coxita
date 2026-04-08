@@ -40,7 +40,7 @@ export default function MenuPage() {
           </div>
 
           {/* Category filter pills */}
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide">
             <CategoryPill
               active={activeCategory === 'all'}
               onClick={() => setActiveCategory('all')}
