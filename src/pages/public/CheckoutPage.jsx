@@ -7,6 +7,7 @@ import { createOrder } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import { createPaymentPreference } from '../../services/payment'
 import { notifyNewOrder } from '../../services/notifications'
+import { validateCoupon, useCoupon } from '../../services/coupons'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
@@ -37,6 +38,46 @@ export default function CheckoutPage() {
   const [settings, setSettingsData] = useState({})
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [couponCode, setCouponCode] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState('')
+
+  const getDiscount = () => {
+    if (!appliedCoupon) return 0
+    if (appliedCoupon.discount_type === 'percent') {
+      return getSubtotal() * (appliedCoupon.discount_value / 100)
+    }
+    return Math.min(appliedCoupon.discount_value, getSubtotal())
+  }
+
+  const getFinalTotal = () => {
+    return Math.max(0, getSubtotal() - getDiscount() + deliveryFee)
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError('')
+    try {
+      const result = await validateCoupon(couponCode)
+      if (!result.valid) {
+        setCouponError(result.error)
+        setAppliedCoupon(null)
+      } else if (result.coupon.min_order > 0 && getSubtotal() < result.coupon.min_order) {
+        setCouponError(`Pedido minimo de ${formatCurrency(result.coupon.min_order)} para este cupom`)
+        setAppliedCoupon(null)
+      } else {
+        setAppliedCoupon(result.coupon)
+        setCouponError('')
+        toast.success('Cupom aplicado!')
+      }
+    } catch {
+      setCouponError('Erro ao validar cupom')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (items.length === 0) {
@@ -109,12 +150,19 @@ export default function CheckoutPage() {
         scheduled_for: form.order_type === 'agendado' ? new Date(`${form.scheduled_date}T${form.scheduled_time}`).toISOString() : null,
         subtotal: getSubtotal(),
         delivery_fee: deliveryFee,
-        total: getTotal(),
+        discount: getDiscount(),
+        coupon_code: appliedCoupon?.code || null,
+        total: getFinalTotal(),
       }
 
       const order = await createOrder(orderData, items)
 
       notifyNewOrder(order, items)
+
+      // Increment coupon usage
+      if (appliedCoupon) {
+        useCoupon(appliedCoupon.id).catch(() => {})
+      }
 
       // Loyalty points
       const totalQty = items.reduce((sum, i) => sum + i.quantity, 0)
@@ -355,6 +403,48 @@ export default function CheckoutPage() {
             />
           </CheckoutSection>
 
+          {/* Cupom */}
+          <CheckoutSection title="Cupom de desconto" step="">
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between bg-accent/5 border border-accent/30 rounded-xl p-3">
+                <div>
+                  <span className="font-mono font-bold text-accent">{appliedCoupon.code}</span>
+                  <span className="text-sm text-accent ml-2">
+                    -{appliedCoupon.discount_type === 'percent' ? `${appliedCoupon.discount_value}%` : formatCurrency(appliedCoupon.discount_value)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAppliedCoupon(null); setCouponCode('') }}
+                  className="text-danger text-sm font-semibold cursor-pointer"
+                >
+                  Remover
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="Digite o codigo"
+                    className="flex-1 px-4 py-2.5 border-2 border-border rounded-xl outline-none focus:border-primary font-mono text-sm uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="px-5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {couponLoading ? '...' : 'Aplicar'}
+                  </button>
+                </div>
+                {couponError && <p className="text-danger text-xs mt-1.5 font-semibold">{couponError}</p>}
+              </div>
+            )}
+          </CheckoutSection>
+
           {/* Resumo */}
           <CheckoutSection title="Resumo do pedido" step="4">
             <div className="space-y-2">
@@ -373,6 +463,12 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(getSubtotal())}</span>
               </div>
+              {getDiscount() > 0 && (
+                <div className="flex justify-between text-sm text-accent font-semibold">
+                  <span>Desconto ({appliedCoupon.code})</span>
+                  <span>-{formatCurrency(getDiscount())}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-text-light">
                 <span>Taxa de entrega</span>
                 <span className={deliveryFee === 0 ? 'text-accent font-semibold' : ''}>
@@ -381,7 +477,7 @@ export default function CheckoutPage() {
               </div>
               <div className="flex justify-between pt-3 border-t border-border">
                 <span className="font-display font-extrabold text-lg">Total</span>
-                <span className="font-display font-extrabold text-2xl text-primary">{formatCurrency(getTotal())}</span>
+                <span className="font-display font-extrabold text-2xl text-primary">{formatCurrency(getFinalTotal())}</span>
               </div>
             </div>
           </CheckoutSection>

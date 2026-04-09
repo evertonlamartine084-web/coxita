@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { getOrders, updateOrderStatus } from '../../services/orders'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Loading from '../../components/ui/Loading'
+import { playOrderAlert } from '../../utils/alertSound'
 import toast from 'react-hot-toast'
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
@@ -14,16 +15,51 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    return localStorage.getItem('coxita_admin_sound') !== 'off'
+  })
+  const [newOrderIds, setNewOrderIds] = useState([])
+  const prevOrderIdsRef = useRef(null)
 
   const loadOrders = () => {
     setLoading(true)
     getOrders(filter || null)
-      .then(setOrders)
+      .then(data => {
+        // Detect new orders by comparing IDs
+        if (prevOrderIdsRef.current !== null) {
+          const prevIds = prevOrderIdsRef.current
+          const freshIds = data.map(o => o.id).filter(id => !prevIds.has(id))
+          if (freshIds.length > 0) {
+            setNewOrderIds(freshIds)
+            setTimeout(() => setNewOrderIds([]), 3000)
+          }
+        }
+        prevOrderIdsRef.current = new Set(data.map(o => o.id))
+        setOrders(data)
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { loadOrders() }, [filter])
+
+  // Auto-reload every 15 seconds to catch new orders
+  useEffect(() => {
+    const interval = setInterval(loadOrders, 15000)
+    return () => clearInterval(interval)
+  }, [filter])
+
+  const toggleSound = () => {
+    const newValue = !soundEnabled
+    setSoundEnabled(newValue)
+    localStorage.setItem('coxita_admin_sound', newValue ? 'on' : 'off')
+    if (newValue) {
+      playOrderAlert()
+      toast.success('Som de alerta ativado')
+    } else {
+      toast('Som de alerta desativado')
+    }
+  }
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
@@ -40,7 +76,21 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Pedidos</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Pedidos</h1>
+        <button
+          onClick={toggleSound}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            soundEnabled
+              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+          title={soundEnabled ? 'Desativar som de alerta' : 'Ativar som de alerta'}
+        >
+          {soundEnabled ? '🔔' : '🔕'}
+          <span className="hidden sm:inline">{soundEnabled ? 'Som ativo' : 'Som desativado'}</span>
+        </button>
+      </div>
 
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-4 mb-4">
@@ -86,7 +136,7 @@ export default function OrdersPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {orders.map(order => (
-                    <tr key={order.id} className="hover:bg-gray-50">
+                    <tr key={order.id} className={`hover:bg-gray-50 transition-colors ${newOrderIds.includes(order.id) ? 'bg-green-50 animate-pulse' : ''}`}>
                       <td className="px-4 py-3 font-medium">
                         #{order.order_number}
                         {order.scheduled_for && (

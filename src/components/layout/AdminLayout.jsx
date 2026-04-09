@@ -1,13 +1,17 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '../../services/supabase'
+import { playOrderAlert } from '../../utils/alertSound'
+import toast from 'react-hot-toast'
 
 const navItems = [
   { to: '/admin', icon: HiHome, label: 'Dashboard' },
   { to: '/admin/pedidos', icon: HiClipboardList, label: 'Pedidos' },
   { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
   { to: '/admin/categorias', icon: HiTag, label: 'Categorias' },
+  { to: '/admin/cupons', icon: HiTicket, label: 'Cupons' },
   { to: '/admin/avaliacoes', icon: HiStar, label: 'Avaliações' },
   { to: '/admin/configuracoes', icon: HiCog, label: 'Configurações' },
 ]
@@ -16,6 +20,41 @@ export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  const lastOrderCountRef = useRef(null)
+
+  // Poll for new orders every 15 seconds
+  useEffect(() => {
+    const checkNewOrders = async () => {
+      try {
+        const { count } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+
+        if (lastOrderCountRef.current !== null && count > lastOrderCountRef.current) {
+          const newCount = count - lastOrderCountRef.current
+          setPendingCount(c => c + newCount)
+          const soundOn = localStorage.getItem('coxita_admin_sound') !== 'off'
+          if (soundOn) playOrderAlert()
+          toast.success(`${newCount} novo(s) pedido(s)!`, { duration: 5000 })
+        }
+        lastOrderCountRef.current = count
+      } catch (e) {
+        console.warn('Error checking orders:', e)
+      }
+    }
+
+    checkNewOrders()
+    const interval = setInterval(checkNewOrders, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Reset pending count when visiting orders page
+  useEffect(() => {
+    if (location.pathname === '/admin/pedidos') {
+      setPendingCount(0)
+    }
+  }, [location.pathname])
 
   const handleLogout = async () => {
     await signOut()
@@ -50,7 +89,12 @@ export default function AdminLayout() {
                 }`}
               >
                 <Icon size={20} />
-                <span>{label}</span>
+                <span className="flex-1">{label}</span>
+                {to === '/admin/pedidos' && pendingCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                    {pendingCount}
+                  </span>
+                )}
               </Link>
             )
           })}

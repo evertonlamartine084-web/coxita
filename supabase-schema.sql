@@ -52,6 +52,8 @@ create table orders (
   change_for decimal(10,2),
   subtotal decimal(10,2) not null,
   delivery_fee decimal(10,2) default 0,
+  discount decimal(10,2) default 0,
+  coupon_code text,
   total decimal(10,2) not null,
   status text not null default 'pendente' check (status in ('pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado')),
   scheduled_for timestamptz,
@@ -102,7 +104,23 @@ insert into categories (name, slug, sort_order) values
   ('Bebidas', 'bebidas', 4),
   ('Extras', 'extras', 5);
 
--- 6. REVIEWS
+-- 6. COUPONS
+create table coupons (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  discount_type text not null check (discount_type in ('percent', 'fixed')),
+  discount_value decimal(10,2) not null,
+  min_order decimal(10,2) default 0,
+  max_uses int,
+  used_count int default 0,
+  active boolean default true,
+  expires_at timestamptz,
+  created_at timestamptz default now()
+);
+
+create index idx_coupons_code on coupons(code);
+
+-- 7. REVIEWS
 create table reviews (
   id uuid primary key default gen_random_uuid(),
   order_id uuid references orders(id) on delete cascade not null unique,
@@ -125,12 +143,17 @@ alter table products enable row level security;
 alter table orders enable row level security;
 alter table order_items enable row level security;
 alter table settings enable row level security;
+alter table coupons enable row level security;
 alter table reviews enable row level security;
 
 -- Public read for categories, products, settings
 create policy "categories_public_read" on categories for select using (true);
 create policy "products_public_read" on products for select using (true);
 create policy "settings_public_read" on settings for select using (true);
+
+-- Coupons: public read for validation, admin full access
+create policy "coupons_public_read" on coupons for select using (true);
+create policy "coupons_admin_all" on coupons for all using (auth.role() = 'authenticated');
 
 -- Public access for reviews
 create policy "reviews_public_read" on reviews for select using (true);
