@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { getOrdersByPhone } from '../../services/orders'
+import { getProducts } from '../../services/products'
+import { useCartStore } from '../../store/cartStore'
 import { formatCurrency, STATUS_LABELS, STATUS_COLORS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Loading from '../../components/ui/Loading'
+import toast from 'react-hot-toast'
 
 export default function OrderHistoryPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [reordering, setReordering] = useState(null)
   const phone = localStorage.getItem('coxita-customer-phone')
+  const navigate = useNavigate()
+  const { addItem, clearCart } = useCartStore()
 
   useEffect(() => {
     if (!phone) {
@@ -21,6 +27,45 @@ export default function OrderHistoryPage() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
+
+  const handleReorder = async (order) => {
+    setReordering(order.id)
+    try {
+      const products = await getProducts()
+      let added = 0
+
+      clearCart()
+      order.order_items?.forEach(item => {
+        const product = products.find(p => p.id === item.product_id)
+        if (product) {
+          for (let i = 0; i < item.quantity; i++) {
+            addItem({
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              image_url: product.image_url,
+            })
+          }
+          added++
+        }
+      })
+
+      if (added === 0) {
+        toast.error('Os produtos desse pedido nao estao mais disponiveis')
+      } else {
+        if (added < (order.order_items?.length || 0)) {
+          toast('Alguns itens nao estao mais disponiveis', { icon: '⚠️' })
+        } else {
+          toast.success('Itens adicionados ao carrinho!')
+        }
+        navigate('/carrinho')
+      }
+    } catch {
+      toast.error('Erro ao carregar produtos')
+    } finally {
+      setReordering(null)
+    }
+  }
 
   if (loading) return <Loading />
 
@@ -118,12 +163,13 @@ export default function OrderHistoryPage() {
                         Acompanhar
                       </Link>
                     )}
-                    <Link
-                      to="/cardapio"
-                      className="flex-1 text-center border-2 border-primary text-primary font-bold py-2.5 rounded-xl text-sm no-underline hover:bg-primary/5 transition-colors"
+                    <button
+                      onClick={() => handleReorder(order)}
+                      disabled={reordering === order.id}
+                      className="flex-1 text-center border-2 border-primary text-primary font-bold py-2.5 rounded-xl text-sm hover:bg-primary/5 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      Pedir novamente
-                    </Link>
+                      {reordering === order.id ? 'Adicionando...' : 'Pedir de novo'}
+                    </button>
                   </div>
                 </div>
               )}
