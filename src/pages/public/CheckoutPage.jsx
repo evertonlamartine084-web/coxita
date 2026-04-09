@@ -17,6 +17,7 @@ const initialForm = {
   customer_name: '',
   customer_phone: '',
   delivery_type: 'entrega',
+  address_cep: '',
   address: '',
   neighborhood: '',
   address_number: '',
@@ -38,6 +39,7 @@ export default function CheckoutPage() {
   const [settings, setSettingsData] = useState({})
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [cepLoading, setCepLoading] = useState(false)
   const [couponCode, setCouponCode] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [couponLoading, setCouponLoading] = useState(false)
@@ -98,6 +100,7 @@ export default function CheckoutPage() {
           ...f,
           customer_name: data.customer_name || '',
           customer_phone: data.customer_phone || '',
+          address_cep: data.address_cep || '',
           address: data.address || '',
           neighborhood: data.neighborhood || '',
           address_number: data.address_number || '',
@@ -107,6 +110,24 @@ export default function CheckoutPage() {
       } catch {}
     }
   }, [])
+
+  const handleCepBlur = async () => {
+    const cep = form.address_cep.replace(/\D/g, '')
+    if (cep.length !== 8) return
+    setCepLoading(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`)
+      const data = await res.json()
+      if (!data.erro) {
+        setForm(f => ({
+          ...f,
+          address: data.logradouro || f.address,
+          neighborhood: data.bairro || f.neighborhood,
+        }))
+      }
+    } catch {}
+    finally { setCepLoading(false) }
+  }
 
   useEffect(() => {
     if (form.delivery_type === 'retirada') {
@@ -157,6 +178,7 @@ export default function CheckoutPage() {
         customer_name: form.customer_name.trim(),
         customer_phone: form.customer_phone.trim(),
         delivery_type: form.delivery_type,
+        address_cep: form.delivery_type === 'entrega' ? form.address_cep.replace(/\D/g, '') || null : null,
         address: form.delivery_type === 'entrega' ? form.address.trim() : null,
         neighborhood: form.delivery_type === 'entrega' ? form.neighborhood.trim() : null,
         address_number: form.delivery_type === 'entrega' ? form.address_number.trim() : null,
@@ -191,6 +213,7 @@ export default function CheckoutPage() {
       localStorage.setItem('coxita-customer-data', JSON.stringify({
         customer_name: form.customer_name.trim(),
         customer_phone: form.customer_phone.trim(),
+        address_cep: form.address_cep.trim(),
         address: form.address.trim(),
         neighborhood: form.neighborhood.trim(),
         address_number: form.address_number.trim(),
@@ -299,6 +322,19 @@ export default function CheckoutPage() {
           {/* Endereco */}
           {form.delivery_type === 'entrega' && (
             <CheckoutSection title="Endereco" step="">
+              <div className="relative">
+                <Input
+                  label="CEP"
+                  name="address_cep"
+                  value={form.address_cep}
+                  onChange={handleChange}
+                  onBlur={handleCepBlur}
+                  placeholder="00000-000"
+                />
+                {cepLoading && (
+                  <span className="absolute right-3 top-9 text-xs text-primary font-semibold animate-pulse">Buscando...</span>
+                )}
+              </div>
               <Input label="Rua *" name="address" value={form.address} onChange={handleChange} error={errors.address} />
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Numero *" name="address_number" value={form.address_number} onChange={handleChange} error={errors.address_number} />
