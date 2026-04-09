@@ -47,7 +47,7 @@ export default function HomePage() {
 
   if (loading) return <Loading />
 
-  const bannerActive = settings.banner_active === 'sim' && settings.banner_text
+  const bannerActive = ['sim', 'true', '1', 'on', 'yes'].includes((settings.banner_active || '').toLowerCase().trim()) && settings.banner_text
 
   return (
     <div className="overflow-hidden">
