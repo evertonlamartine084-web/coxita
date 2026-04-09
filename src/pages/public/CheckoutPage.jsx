@@ -88,6 +88,24 @@ export default function CheckoutPage() {
       setSettingsData(s)
       setDeliveryFee(parseFloat(s.delivery_fee || '0'))
     })
+
+    // Auto-fill with saved customer data
+    const saved = localStorage.getItem('coxita-customer-data')
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        setForm(f => ({
+          ...f,
+          customer_name: data.customer_name || '',
+          customer_phone: data.customer_phone || '',
+          address: data.address || '',
+          neighborhood: data.neighborhood || '',
+          address_number: data.address_number || '',
+          address_complement: data.address_complement || '',
+          address_reference: data.address_reference || '',
+        }))
+      } catch {}
+    }
   }, [])
 
   useEffect(() => {
@@ -170,6 +188,15 @@ export default function CheckoutPage() {
 
       localStorage.setItem('coxita-last-order', order.order_number.toString())
       localStorage.setItem('coxita-customer-phone', form.customer_phone.trim())
+      localStorage.setItem('coxita-customer-data', JSON.stringify({
+        customer_name: form.customer_name.trim(),
+        customer_phone: form.customer_phone.trim(),
+        address: form.address.trim(),
+        neighborhood: form.neighborhood.trim(),
+        address_number: form.address_number.trim(),
+        address_complement: form.address_complement.trim(),
+        address_reference: form.address_reference.trim(),
+      }))
       localStorage.setItem('coxita-last-order-items', JSON.stringify(
         items.map(i => ({ id: i.id, name: i.name, price: i.price, image_url: i.image_url }))
       ))
