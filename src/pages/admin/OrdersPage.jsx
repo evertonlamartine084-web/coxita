@@ -26,6 +26,7 @@ export default function OrdersPage() {
   const [sendingAdminMsg, setSendingAdminMsg] = useState(false)
   const adminChatEndRef = useRef(null)
   const [unreadCounts, setUnreadCounts] = useState({})
+  const adminShouldScrollRef = useRef(false)
 
   const loadOrders = (showLoading = false) => {
     if (showLoading) setLoading(true)
@@ -58,6 +59,7 @@ export default function OrdersPage() {
   // Load chat messages when order is selected
   useEffect(() => {
     if (!selectedOrder) { setChatMessages([]); return }
+    adminShouldScrollRef.current = true
     const load = () => {
       getOrderMessages(selectedOrder.id).then(msgs => {
         setChatMessages(msgs)
@@ -70,7 +72,10 @@ export default function OrdersPage() {
   }, [selectedOrder?.id])
 
   useEffect(() => {
-    adminChatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (adminShouldScrollRef.current) {
+      adminChatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      adminShouldScrollRef.current = false
+    }
   }, [chatMessages])
 
   const handleSendAdminMessage = async () => {
@@ -79,6 +84,7 @@ export default function OrdersPage() {
     try {
       await sendOrderMessage(selectedOrder.id, 'admin', adminMessage.trim())
       setAdminMessage('')
+      adminShouldScrollRef.current = true
       const msgs = await getOrderMessages(selectedOrder.id)
       setChatMessages(msgs)
     } catch {

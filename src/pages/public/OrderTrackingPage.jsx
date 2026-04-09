@@ -46,6 +46,7 @@ export default function OrderTrackingPage() {
   const [sendingMsg, setSendingMsg] = useState(false)
   const chatEndRef = useRef(null)
   const [unreadCount, setUnreadCount] = useState(0)
+  const shouldScrollRef = useRef(false)
 
   const loadMessages = useCallback(async (orderId) => {
     if (!orderId) return
@@ -63,6 +64,7 @@ export default function OrderTrackingPage() {
     try {
       await sendOrderMessage(order.id, 'customer', newMessage.trim())
       setNewMessage('')
+      shouldScrollRef.current = true
       await loadMessages(order.id)
     } catch {
       toast.error('Erro ao enviar mensagem')
@@ -79,8 +81,9 @@ export default function OrderTrackingPage() {
     return () => clearInterval(interval)
   }, [order?.id, loadMessages])
 
-  // Mark admin messages as read when chat is opened
+  // Mark admin messages as read when chat is opened + scroll to bottom
   useEffect(() => {
+    if (chatOpen) shouldScrollRef.current = true
     if (chatOpen && order && unreadCount > 0) {
       markMessagesRead(order.id, 'admin').then(() => {
         loadMessages(order.id)
@@ -88,9 +91,12 @@ export default function OrderTrackingPage() {
     }
   }, [chatOpen, order?.id])
 
-  // Scroll to bottom when new messages
+  // Scroll to bottom only after sending a message or opening chat
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (shouldScrollRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      shouldScrollRef.current = false
+    }
   }, [messages])
 
   const fetchOrder = useCallback(async (num) => {
