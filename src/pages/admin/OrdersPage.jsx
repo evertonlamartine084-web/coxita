@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { getOrders, updateOrderStatus } from '../../services/orders'
+import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
