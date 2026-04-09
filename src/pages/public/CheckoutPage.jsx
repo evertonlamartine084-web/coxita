@@ -210,6 +210,11 @@ export default function CheckoutPage() {
 
       localStorage.setItem('coxita-last-order', order.order_number.toString())
       localStorage.setItem('coxita-customer-phone', form.customer_phone.trim())
+
+      // Save order number to device history
+      const myOrders = JSON.parse(localStorage.getItem('coxita-my-orders') || '[]')
+      myOrders.push(order.order_number)
+      localStorage.setItem('coxita-my-orders', JSON.stringify(myOrders))
       localStorage.setItem('coxita-customer-data', JSON.stringify({
         customer_name: form.customer_name.trim(),
         customer_phone: form.customer_phone.trim(),

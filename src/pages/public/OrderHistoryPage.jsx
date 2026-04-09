@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getOrdersByPhone } from '../../services/orders'
+import { getOrdersByNumbers } from '../../services/orders'
 import { getProducts } from '../../services/products'
 import { useCartStore } from '../../store/cartStore'
 import { formatCurrency, STATUS_LABELS, STATUS_COLORS } from '../../utils/format'
@@ -13,16 +13,16 @@ export default function OrderHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [reordering, setReordering] = useState(null)
-  const phone = localStorage.getItem('coxita-customer-phone')
+  const myOrderNumbers = JSON.parse(localStorage.getItem('coxita-my-orders') || '[]')
   const navigate = useNavigate()
   const { addItem, clearCart } = useCartStore()
 
   useEffect(() => {
-    if (!phone) {
+    if (myOrderNumbers.length === 0) {
       setLoading(false)
       return
     }
-    getOrdersByPhone(phone)
+    getOrdersByNumbers(myOrderNumbers)
       .then(setOrders)
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -69,7 +69,7 @@ export default function OrderHistoryPage() {
 
   if (loading) return <Loading />
 
-  if (!phone) {
+  if (myOrderNumbers.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">📋</div>

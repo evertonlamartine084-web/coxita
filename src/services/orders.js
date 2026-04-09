@@ -84,6 +84,17 @@ export async function getOrdersByPhone(phone) {
   return data
 }
 
+export async function getOrdersByNumbers(orderNumbers) {
+  if (!orderNumbers || orderNumbers.length === 0) return []
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .in('order_number', orderNumbers)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
 export async function getTodayOrders() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
