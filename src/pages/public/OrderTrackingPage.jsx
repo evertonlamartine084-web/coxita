@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight, HiBell, HiStar, HiChat, HiPaperAirplane } from 'react-icons/hi'
-import { getOrderByNumber, getOrderMessages, sendOrderMessage } from '../../services/orders'
+import { getOrderByNumber, getOrderMessages, sendOrderMessage, markMessagesRead } from '../../services/orders'
 import { createReview, getReviewByOrderId } from '../../services/reviews'
 import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../../utils/format'
 import Button from '../../components/ui/Button'
@@ -45,12 +45,15 @@ export default function OrderTrackingPage() {
   const [newMessage, setNewMessage] = useState('')
   const [sendingMsg, setSendingMsg] = useState(false)
   const chatEndRef = useRef(null)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const loadMessages = useCallback(async (orderId) => {
     if (!orderId) return
     try {
       const msgs = await getOrderMessages(orderId)
       setMessages(msgs)
+      const unread = msgs.filter(m => m.sender_type === 'admin' && !m.read_at).length
+      setUnreadCount(unread)
     } catch {}
   }, [])
 
@@ -68,13 +71,22 @@ export default function OrderTrackingPage() {
     }
   }
 
-  // Load messages when chat opens and poll every 10s
+  // Poll messages every 10s (even when chat is closed, for the badge)
   useEffect(() => {
-    if (!chatOpen || !order) return
+    if (!order) return
     loadMessages(order.id)
     const interval = setInterval(() => loadMessages(order.id), 10000)
     return () => clearInterval(interval)
-  }, [chatOpen, order?.id, loadMessages])
+  }, [order?.id, loadMessages])
+
+  // Mark admin messages as read when chat is opened
+  useEffect(() => {
+    if (chatOpen && order && unreadCount > 0) {
+      markMessagesRead(order.id, 'admin').then(() => {
+        loadMessages(order.id)
+      }).catch(() => {})
+    }
+  }, [chatOpen, order?.id])
 
   // Scroll to bottom when new messages
   useEffect(() => {
@@ -375,6 +387,11 @@ export default function OrderTrackingPage() {
                   <div className="flex items-center gap-2">
                     <HiChat size={20} className="text-primary" />
                     <span className="font-display font-bold text-text">Falar com a loja</span>
+                    {!chatOpen && unreadCount > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                        {unreadCount}
+                      </span>
+                    )}
                   </div>
                   <span className="text-text-light text-sm">{chatOpen ? '▲' : '▼'}</span>
                 </button>
@@ -392,10 +409,20 @@ export default function OrderTrackingPage() {
                                 ? 'bg-primary text-white rounded-br-sm'
                                 : 'bg-white border border-border text-text rounded-bl-sm'
                             }`}>
+                              {msg.sender_type === 'admin' && (
+                                <p className="text-[10px] font-bold text-primary mb-0.5">Loja</p>
+                              )}
                               <p>{msg.message}</p>
-                              <p className={`text-[10px] mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
-                                {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                              </p>
+                              <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
+                                <span className="text-[10px]">
+                                  {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {msg.sender_type === 'customer' && (
+                                  <span className={`text-[10px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                                    {msg.read_at ? '✓✓' : '✓'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))

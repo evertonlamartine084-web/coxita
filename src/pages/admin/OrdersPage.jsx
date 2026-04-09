@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead } from '../../services/orders'
+import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts } from '../../services/orders'
 import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
@@ -25,6 +25,7 @@ export default function OrdersPage() {
   const [adminMessage, setAdminMessage] = useState('')
   const [sendingAdminMsg, setSendingAdminMsg] = useState(false)
   const adminChatEndRef = useRef(null)
+  const [unreadCounts, setUnreadCounts] = useState({})
 
   const loadOrders = (showLoading = false) => {
     if (showLoading) setLoading(true)
@@ -43,6 +44,7 @@ export default function OrdersPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
+    getUnreadMessageCounts().then(setUnreadCounts).catch(() => {})
   }
 
   useEffect(() => { loadOrders(true) }, [filter])
@@ -215,9 +217,14 @@ export default function OrdersPage() {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setSelectedOrder(order)}
-                          className="text-primary hover:underline text-sm"
+                          className="text-primary hover:underline text-sm relative"
                         >
                           Ver
+                          {unreadCounts[order.id] > 0 && (
+                            <span className="absolute -top-2 -right-4 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                              {unreadCounts[order.id]}
+                            </span>
+                          )}
                         </button>
                       </td>
                     </tr>
@@ -311,9 +318,16 @@ export default function OrdersPage() {
                       }`}>
                         <p className="text-xs font-bold mb-0.5">{msg.sender_type === 'admin' ? 'Voce' : 'Cliente'}</p>
                         <p>{msg.message}</p>
-                        <p className={`text-[10px] mt-0.5 ${msg.sender_type === 'admin' ? 'text-white/60' : 'text-text-light'}`}>
-                          {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                        <div className={`flex items-center gap-1 justify-end mt-0.5 ${msg.sender_type === 'admin' ? 'text-white/60' : 'text-text-light'}`}>
+                          <span className="text-[10px]">
+                            {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {msg.sender_type === 'admin' && (
+                            <span className={`text-[10px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                              {msg.read_at ? '✓✓' : '✓'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))

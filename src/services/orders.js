@@ -126,6 +126,20 @@ export async function markMessagesRead(orderId, senderType) {
   if (error) throw error
 }
 
+export async function getUnreadMessageCounts() {
+  const { data, error } = await supabase
+    .from('order_messages')
+    .select('order_id')
+    .eq('sender_type', 'customer')
+    .is('read_at', null)
+  if (error) throw error
+  const counts = {}
+  data.forEach(msg => {
+    counts[msg.order_id] = (counts[msg.order_id] || 0) + 1
+  })
+  return counts
+}
+
 export async function getActiveOrderByNumbers(orderNumbers) {
   if (!orderNumbers || orderNumbers.length === 0) return null
   const { data, error } = await supabase
