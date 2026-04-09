@@ -73,28 +73,34 @@ export default function OrderTrackingPage() {
     }
   }
 
-  // Poll messages every 10s (even when chat is closed, for the badge)
+  // Check unread count periodically (lightweight, no re-render of full messages)
   useEffect(() => {
-    if (!order) return
-    loadMessages(order.id)
-    const interval = setInterval(() => loadMessages(order.id), 10000)
-    return () => clearInterval(interval)
-  }, [order?.id, loadMessages])
-
-  // Mark admin messages as read when chat is opened + scroll to bottom
-  useEffect(() => {
-    if (chatOpen) shouldScrollRef.current = true
-    if (chatOpen && order && unreadCount > 0) {
-      markMessagesRead(order.id, 'admin').then(() => {
-        loadMessages(order.id)
+    if (!order || chatOpen) return
+    const checkUnread = () => {
+      getOrderMessages(order.id).then(msgs => {
+        const count = msgs.filter(m => m.sender_type === 'admin' && !m.read_at).length
+        setUnreadCount(count)
       }).catch(() => {})
     }
-  }, [chatOpen, order?.id])
+    checkUnread()
+    const interval = setInterval(checkUnread, 15000)
+    return () => clearInterval(interval)
+  }, [order?.id, chatOpen])
 
-  // Scroll to bottom only after sending a message or opening chat
+  // Load messages and poll only when chat is open
   useEffect(() => {
-    if (shouldScrollRef.current) {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!chatOpen || !order) return
+    shouldScrollRef.current = true
+    loadMessages(order.id)
+    markMessagesRead(order.id, 'admin').catch(() => {})
+    const interval = setInterval(() => loadMessages(order.id), 10000)
+    return () => clearInterval(interval)
+  }, [chatOpen, order?.id, loadMessages])
+
+  // Scroll inside chat only, not the page
+  useEffect(() => {
+    if (shouldScrollRef.current && chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       shouldScrollRef.current = false
     }
   }, [messages])
