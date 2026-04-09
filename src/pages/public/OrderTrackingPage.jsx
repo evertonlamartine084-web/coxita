@@ -87,6 +87,16 @@ export default function OrderTrackingPage() {
     return () => clearInterval(interval)
   }, [order?.id, chatOpen])
 
+  // Block body scroll when chat modal is open
+  useEffect(() => {
+    if (chatOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [chatOpen])
+
   // Load messages and poll only when chat is open
   useEffect(() => {
     if (!chatOpen || !order) return
@@ -406,9 +416,9 @@ export default function OrderTrackingPage() {
 
             {/* Chat modal */}
             {chatOpen && (
-              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
-                <div className="relative w-full max-w-md mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[85vh] sm:h-[70vh]">
+                <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl flex flex-col h-[75vh] sm:h-[70vh]" style={{ overscrollBehavior: 'contain' }}>
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center gap-3">
