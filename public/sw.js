@@ -15,8 +15,11 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/logo-192.png',
-      badge: '/favicon-32.png',
-      vibrate: [200, 100, 200],
+      badge: '/logo-192.png',
+      tag: 'coxita-' + (data.url || 'general'),
+      renotify: true,
+      requireInteraction: false,
+      silent: false,
       data: data.url || '/',
     })
   )
