@@ -438,9 +438,7 @@ export default function OrderTrackingPage() {
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center">
-                        <HiChat size={18} className="text-primary" />
-                      </div>
+                      <img src="/logo.png" alt="Coxita" className="w-9 h-9 rounded-full object-cover" />
                       <div>
                         <p className="font-display font-bold text-sm text-text">Coxita</p>
                         <p className="text-[11px] text-green-500 font-medium">Online</p>
