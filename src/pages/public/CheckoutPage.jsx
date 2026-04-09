@@ -45,6 +45,7 @@ export default function CheckoutPage() {
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState('')
   const [activeOrder, setActiveOrder] = useState(null)
+  const [storeClosed, setStoreClosed] = useState(false)
 
   const getDiscount = () => {
     if (!appliedCoupon) return 0
@@ -90,6 +91,16 @@ export default function CheckoutPage() {
     getSettings().then(s => {
       setSettingsData(s)
       setDeliveryFee(parseFloat(s.delivery_fee || '0'))
+
+      // Check if store is open
+      if (s.opening_time && s.closing_time) {
+        const now = new Date()
+        const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+        if (hhmm < s.opening_time || hhmm >= s.closing_time) {
+          setStoreClosed(true)
+          setForm(f => ({ ...f, order_type: 'agendado' }))
+        }
+      }
     })
 
     // Check for active order
@@ -374,15 +385,24 @@ export default function CheckoutPage() {
 
           {/* Quando receber */}
           <CheckoutSection title="Quando voce quer?" step="">
+            {storeClosed && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
+                <p className="text-sm font-bold text-yellow-700">Estamos fechados no momento</p>
+                <p className="text-xs text-yellow-600 mt-0.5">
+                  Horario: {settings.opening_time} - {settings.closing_time}. Agende seu pedido!
+                </p>
+              </div>
+            )}
             <div className="flex gap-3">
               <DeliveryOption
-                active={form.order_type === 'agora'}
-                onChange={() => handleChange({ target: { name: 'order_type', value: 'agora' } })}
+                active={form.order_type === 'agora' && !storeClosed}
+                onChange={() => !storeClosed && handleChange({ target: { name: 'order_type', value: 'agora' } })}
                 icon={<HiLightningBolt size={22} />}
                 label="Agora"
-                sublabel="O mais rapido possivel"
+                sublabel={storeClosed ? 'Indisponivel agora' : 'O mais rapido possivel'}
                 name="order_type"
                 value="agora"
+                disabled={storeClosed}
               />
               <DeliveryOption
                 active={form.order_type === 'agendado'}
@@ -608,12 +628,14 @@ function CheckoutSection({ title, step, children }) {
   )
 }
 
-function DeliveryOption({ active, onChange, icon, label, sublabel, name, value }) {
+function DeliveryOption({ active, onChange, icon, label, sublabel, name, value, disabled }) {
   return (
-    <label className={`flex-1 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 text-center ${
-      active
-        ? 'border-primary bg-primary/5 shadow-sm'
-        : 'border-border hover:border-primary/30'
+    <label className={`flex-1 p-4 rounded-xl border-2 transition-all duration-200 text-center ${
+      disabled
+        ? 'border-border bg-gray-50 opacity-50 cursor-not-allowed'
+        : active
+        ? 'border-primary bg-primary/5 shadow-sm cursor-pointer'
+        : 'border-border hover:border-primary/30 cursor-pointer'
     }`}>
       <input
         type="radio"
@@ -621,9 +643,10 @@ function DeliveryOption({ active, onChange, icon, label, sublabel, name, value }
         value={value}
         checked={active}
         onChange={onChange}
+        disabled={disabled}
         className="sr-only"
       />
-      <div className={`mx-auto mb-1 ${active ? 'text-primary' : 'text-text-light'}`}>
+      <div className={`mx-auto mb-1 ${active && !disabled ? 'text-primary' : 'text-text-light'}`}>
         {icon}
       </div>
       <span className="font-bold text-sm block">{label}</span>

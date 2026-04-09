@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight, HiBell, HiStar, HiChat, HiPaperAirplane } from 'react-icons/hi'
 import { getOrderByNumber, getOrderMessages, sendOrderMessage, markMessagesRead } from '../../services/orders'
+import { getSettings } from '../../services/settings'
 import { createReview, getReviewByOrderId } from '../../services/reviews'
 import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../../utils/format'
 import Button from '../../components/ui/Button'
@@ -39,6 +40,7 @@ export default function OrderTrackingPage() {
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [submittingReview, setSubmittingReview] = useState(false)
+  const [estimatedDelivery, setEstimatedDelivery] = useState('')
   const prevStatusRef = useRef(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [messages, setMessages] = useState([])
@@ -115,12 +117,19 @@ export default function OrderTrackingPage() {
     }
   }, [messages])
 
-  const fetchOrder = useCallback(async (num) => {
+  // Load estimated delivery time
+  useEffect(() => {
+    getSettings().then(s => {
+      if (s.estimated_delivery) setEstimatedDelivery(s.estimated_delivery)
+    }).catch(() => {})
+  }, [])
+
+  const fetchOrder = useCallback(async (num, showLoading = false) => {
     if (!num) {
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (showLoading) setLoading(true)
     try {
       const data = await getOrderByNumber(parseInt(num))
       // Notify on status change
@@ -144,7 +153,7 @@ export default function OrderTrackingPage() {
   }, [])
 
   useEffect(() => {
-    fetchOrder(orderNumber || lastOrder)
+    fetchOrder(orderNumber || lastOrder, true)
   }, [orderNumber])
 
   // Auto-register push if permission already granted
@@ -302,6 +311,13 @@ export default function OrderTrackingPage() {
                     {' as '}
                     {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
+                </div>
+              )}
+
+              {estimatedDelivery && !order.scheduled_for && order.status !== 'entregue' && order.status !== 'cancelado' && (
+                <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
+                  <HiClock size={16} className="text-accent" />
+                  <span className="text-sm font-semibold text-text">Tempo estimado: <span className="text-accent">{estimatedDelivery}</span></span>
                 </div>
               )}
             </div>

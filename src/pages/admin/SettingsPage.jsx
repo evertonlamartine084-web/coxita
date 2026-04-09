@@ -9,7 +9,10 @@ const fields = [
   { key: 'store_name', label: 'Nome da Loja' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'address', label: 'Endereço' },
-  { key: 'opening_hours', label: 'Horário de Funcionamento' },
+  { key: 'opening_hours', label: 'Horário de Funcionamento (exibição)', placeholder: 'Ex: Seg-Sex: 11h-21h | Sáb-Dom: 11h-22h' },
+  { key: 'opening_time', label: 'Horário de abertura', type: 'time' },
+  { key: 'closing_time', label: 'Horário de fechamento', type: 'time' },
+  { key: 'estimated_delivery', label: 'Tempo estimado de entrega', placeholder: 'Ex: 30-45 min' },
   { key: 'delivery_fee', label: 'Taxa de Entrega (R$)', type: 'number' },
   { key: 'min_order', label: 'Pedido Mínimo (R$)', type: 'number' },
   { key: 'pix_key', label: 'Chave Pix' },
@@ -69,6 +72,7 @@ export default function SettingsPage() {
               step={f.type === 'number' ? '0.01' : undefined}
               value={form[f.key] || ''}
               onChange={e => handleChange(f.key, e.target.value)}
+              placeholder={f.placeholder}
             />
           ))}
         </div>
