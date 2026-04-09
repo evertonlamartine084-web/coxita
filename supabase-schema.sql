@@ -134,6 +134,19 @@ create table reviews (
 create index idx_reviews_order on reviews(order_id);
 create index idx_reviews_rating on reviews(rating);
 
+-- 8. PUSH SUBSCRIPTIONS (Web Push)
+create table push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  endpoint text not null,
+  keys_p256dh text not null,
+  keys_auth text not null,
+  order_number int not null,
+  created_at timestamptz default now(),
+  unique(endpoint, order_number)
+);
+
+create index idx_push_subs_order on push_subscriptions(order_number);
+
 -- ========================================
 -- ROW LEVEL SECURITY
 -- ========================================
@@ -145,6 +158,7 @@ alter table order_items enable row level security;
 alter table settings enable row level security;
 alter table coupons enable row level security;
 alter table reviews enable row level security;
+alter table push_subscriptions enable row level security;
 
 -- Public read for categories, products, settings
 create policy "categories_public_read" on categories for select using (true);
@@ -174,6 +188,11 @@ create policy "orders_admin_all" on orders for all using (auth.role() = 'authent
 create policy "order_items_admin_all" on order_items for all using (auth.role() = 'authenticated');
 create policy "settings_admin_all" on settings for all using (auth.role() = 'authenticated');
 create policy "reviews_admin_all" on reviews for all using (auth.role() = 'authenticated');
+
+-- Push subscriptions: public insert/read, admin all
+create policy "push_subs_public_insert" on push_subscriptions for insert with check (true);
+create policy "push_subs_public_read" on push_subscriptions for select using (true);
+create policy "push_subs_admin_all" on push_subscriptions for all using (auth.role() = 'authenticated');
 
 -- ========================================
 -- STORAGE BUCKET FOR PRODUCT IMAGES

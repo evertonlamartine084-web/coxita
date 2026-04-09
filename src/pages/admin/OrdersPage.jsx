@@ -63,12 +63,17 @@ export default function OrdersPage() {
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      await updateOrderStatus(orderId, newStatus)
+      const updatedOrder = await updateOrderStatus(orderId, newStatus)
       toast.success('Status atualizado!')
       loadOrders()
       if (selectedOrder?.id === orderId) {
         setSelectedOrder(prev => ({ ...prev, status: newStatus }))
       }
+
+      // Send push notification to customer
+      supabase.functions.invoke('send-push', {
+        body: { order_number: updatedOrder.order_number, status: newStatus },
+      }).catch(() => {})
     } catch {
       toast.error('Erro ao atualizar status.')
     }

@@ -7,6 +7,7 @@ import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../..
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import ShareButtons from '../../components/share/ShareButtons'
+import { registerPushSubscription } from '../../services/pushNotifications'
 import toast from 'react-hot-toast'
 
 const STEPS = [
@@ -108,10 +109,26 @@ export default function OrderTrackingPage() {
 
   const requestNotifications = async () => {
     if (!('Notification' in window)) return
-    const permission = await Notification.requestPermission()
-    setNotifEnabled(permission === 'granted')
-    if (permission === 'granted') {
-      new Notification('Coxita', { body: 'Voce sera notificado quando o status mudar!', icon: '/logo.png' })
+    try {
+      const result = await registerPushSubscription(order?.order_number)
+      if (!result.supported) {
+        toast.error('Seu navegador nao suporta notificacoes')
+        return
+      }
+      if (!result.granted) {
+        toast.error('Permissao de notificacao negada')
+        return
+      }
+      setNotifEnabled(true)
+      toast.success('Notificacoes ativadas! Voce sera avisado mesmo fora do site.')
+    } catch (err) {
+      console.error('Push registration error:', err)
+      // Fallback to basic notifications
+      const permission = await Notification.requestPermission()
+      setNotifEnabled(permission === 'granted')
+      if (permission === 'granted') {
+        toast.success('Notificacoes ativadas!')
+      }
     }
   }
 
