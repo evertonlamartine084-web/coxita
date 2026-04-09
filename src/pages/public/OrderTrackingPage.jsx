@@ -34,9 +34,7 @@ export default function OrderTrackingPage() {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [notifEnabled, setNotifEnabled] = useState(
-    'Notification' in window && Notification.permission === 'granted'
-  )
+  const [notifEnabled, setNotifEnabled] = useState(false)
   const [review, setReview] = useState(null)
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
@@ -74,6 +72,16 @@ export default function OrderTrackingPage() {
   useEffect(() => {
     fetchOrder(orderNumber || lastOrder)
   }, [orderNumber])
+
+  // Auto-register push if permission already granted
+  useEffect(() => {
+    if (!order) return
+    if ('Notification' in window && Notification.permission === 'granted') {
+      registerPushSubscription(order.order_number)
+        .then(res => { if (res.granted) setNotifEnabled(true) })
+        .catch(() => {})
+    }
+  }, [order?.order_number])
 
   // Auto-refresh every 30s
   useEffect(() => {

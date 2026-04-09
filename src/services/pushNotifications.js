@@ -44,10 +44,22 @@ export async function registerPushSubscription(orderNumber) {
       endpoint: subJson.endpoint,
       keys_p256dh: subJson.keys.p256dh,
       keys_auth: subJson.keys.auth,
-      order_number: orderNumber,
+      order_number: parseInt(orderNumber),
     }, { onConflict: 'endpoint,order_number' })
 
-  if (error) console.error('Error saving push subscription:', error)
+  if (error) {
+    console.error('Error saving push subscription:', error)
+    // Try insert instead of upsert as fallback
+    const { error: insertError } = await supabase
+      .from('push_subscriptions')
+      .insert({
+        endpoint: subJson.endpoint,
+        keys_p256dh: subJson.keys.p256dh,
+        keys_auth: subJson.keys.auth,
+        order_number: parseInt(orderNumber),
+      })
+    if (insertError) console.error('Insert fallback also failed:', insertError)
+  }
 
   return { supported: true, granted: true, subscription }
 }
