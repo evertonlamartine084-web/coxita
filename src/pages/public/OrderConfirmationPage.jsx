@@ -5,6 +5,7 @@ import { getOrderByNumber } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
+import ShareButtons from '../../components/share/ShareButtons'
 import { formatCurrency, PAYMENT_LABELS } from '../../utils/format'
 import toast from 'react-hot-toast'
 
@@ -141,7 +142,12 @@ export default function OrderConfirmationPage() {
           </div>
         )}
 
-        <Link to={`/acompanhar/${orderNumber}`} className="block mt-8">
+        {/* Share */}
+        <div className="mt-6">
+          <ShareButtons orderNumber={orderNumber} />
+        </div>
+
+        <Link to={`/acompanhar/${orderNumber}`} className="block mt-5">
           <Button className="w-full gap-2" variant="festive">
             <HiCheck size={18} />
             Acompanhar pedido

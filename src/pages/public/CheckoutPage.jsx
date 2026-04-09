@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
+import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import { createPaymentPreference } from '../../services/payment'
@@ -28,6 +29,7 @@ const initialForm = {
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const { items, getSubtotal, deliveryFee, setDeliveryFee, getTotal, clearCart } = useCartStore()
+  const addLoyaltyItems = useLoyaltyStore(s => s.addItems)
   const [form, setForm] = useState(initialForm)
   const [settings, setSettingsData] = useState({})
   const [errors, setErrors] = useState({})
@@ -101,6 +103,10 @@ export default function CheckoutPage() {
       const order = await createOrder(orderData, items)
 
       notifyNewOrder(order, items)
+
+      // Loyalty points
+      const totalQty = items.reduce((sum, i) => sum + i.quantity, 0)
+      addLoyaltyItems(totalQty)
 
       localStorage.setItem('coxita-last-order', order.order_number.toString())
       localStorage.setItem('coxita-last-order-items', JSON.stringify(

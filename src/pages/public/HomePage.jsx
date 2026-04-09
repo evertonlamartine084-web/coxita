@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { HiClock, HiLocationMarker, HiPhone, HiArrowRight, HiRefresh } from 'react-icons/hi'
+import LoyaltyCard from '../../components/loyalty/LoyaltyCard'
 import { getFeaturedProducts, getProducts } from '../../services/products'
 import { getSettings } from '../../services/settings'
 import { useCartStore } from '../../store/cartStore'
@@ -46,8 +47,36 @@ export default function HomePage() {
 
   if (loading) return <Loading />
 
+  const bannerActive = settings.banner_active === 'sim' && settings.banner_text
+
   return (
     <div className="overflow-hidden">
+      {/* ============ BANNER PROMO ============ */}
+      {bannerActive && (
+        <div className="bg-gradient-to-r from-secondary via-secondary to-primary-light">
+          {settings.banner_link ? (
+            <Link
+              to={settings.banner_link}
+              className="block text-center py-3 px-4 no-underline"
+            >
+              <p className="font-display font-bold text-primary-dark text-sm md:text-base">
+                {settings.banner_emoji && <span className="mr-2">{settings.banner_emoji}</span>}
+                {settings.banner_text}
+                {settings.banner_emoji && <span className="ml-2">{settings.banner_emoji}</span>}
+              </p>
+            </Link>
+          ) : (
+            <div className="text-center py-3 px-4">
+              <p className="font-display font-bold text-primary-dark text-sm md:text-base">
+                {settings.banner_emoji && <span className="mr-2">{settings.banner_emoji}</span>}
+                {settings.banner_text}
+                {settings.banner_emoji && <span className="ml-2">{settings.banner_emoji}</span>}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ============ HERO ============ */}
       <section className="relative bg-gradient-to-br from-primary via-primary-dark to-stone-900 text-white overflow-hidden">
         {/* Decorative circles */}
@@ -168,6 +197,13 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ============ FIDELIDADE ============ */}
+      {settings.loyalty_goal && (
+        <section className="max-w-md mx-auto px-4 py-8">
+          <LoyaltyCard goal={settings.loyalty_goal} />
+        </section>
+      )}
 
       {/* ============ INFO CARDS ============ */}
       <section className="max-w-6xl mx-auto px-4 py-14">

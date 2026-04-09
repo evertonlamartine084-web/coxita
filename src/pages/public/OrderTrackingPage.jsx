@@ -6,6 +6,7 @@ import { createReview, getReviewByOrderId } from '../../services/reviews'
 import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../../utils/format'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
+import ShareButtons from '../../components/share/ShareButtons'
 import toast from 'react-hot-toast'
 
 const STEPS = [
@@ -307,6 +308,13 @@ export default function OrderTrackingPage() {
                 <span className="font-display font-extrabold text-primary text-lg">{formatCurrency(order.total)}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Share */}
+        {order && (
+          <div className="mt-5">
+            <ShareButtons orderNumber={order.order_number} />
           </div>
         )}
 
