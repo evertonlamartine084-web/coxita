@@ -16,6 +16,7 @@ const CheckoutPage = lazy(() => import('./pages/public/CheckoutPage'))
 const OrderConfirmationPage = lazy(() => import('./pages/public/OrderConfirmationPage'))
 const PaymentFailedPage = lazy(() => import('./pages/public/PaymentFailedPage'))
 const OrderTrackingPage = lazy(() => import('./pages/public/OrderTrackingPage'))
+const OrderHistoryPage = lazy(() => import('./pages/public/OrderHistoryPage'))
 const LoginPage = lazy(() => import('./pages/admin/LoginPage'))
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
 const OrdersPage = lazy(() => import('./pages/admin/OrdersPage'))
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/pedido-confirmado/:orderNumber" element={<OrderConfirmationPage />} />
             <Route path="/pagamento-falhou/:orderNumber" element={<PaymentFailedPage />} />
+            <Route path="/meus-pedidos" element={<OrderHistoryPage />} />
             <Route path="/acompanhar" element={<OrderTrackingPage />} />
             <Route path="/acompanhar/:orderNumber" element={<OrderTrackingPage />} />
           </Route>

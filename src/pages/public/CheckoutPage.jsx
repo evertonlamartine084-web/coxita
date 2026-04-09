@@ -169,6 +169,7 @@ export default function CheckoutPage() {
       addLoyaltyItems(totalQty)
 
       localStorage.setItem('coxita-last-order', order.order_number.toString())
+      localStorage.setItem('coxita-customer-phone', form.customer_phone.trim())
       localStorage.setItem('coxita-last-order-items', JSON.stringify(
         items.map(i => ({ id: i.id, name: i.name, price: i.price, image_url: i.image_url }))
       ))
