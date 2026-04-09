@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { getOrders, updateOrderStatus } from '../../services/orders'
+import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead } from '../../services/orders'
 import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
@@ -21,6 +21,10 @@ export default function OrdersPage() {
   })
   const [newOrderIds, setNewOrderIds] = useState([])
   const prevOrderIdsRef = useRef(null)
+  const [chatMessages, setChatMessages] = useState([])
+  const [adminMessage, setAdminMessage] = useState('')
+  const [sendingAdminMsg, setSendingAdminMsg] = useState(false)
+  const adminChatEndRef = useRef(null)
 
   const loadOrders = (showLoading = false) => {
     if (showLoading) setLoading(true)
@@ -48,6 +52,39 @@ export default function OrdersPage() {
     const interval = setInterval(() => loadOrders(false), 15000)
     return () => clearInterval(interval)
   }, [filter])
+
+  // Load chat messages when order is selected
+  useEffect(() => {
+    if (!selectedOrder) { setChatMessages([]); return }
+    const load = () => {
+      getOrderMessages(selectedOrder.id).then(msgs => {
+        setChatMessages(msgs)
+        markMessagesRead(selectedOrder.id, 'customer').catch(() => {})
+      }).catch(() => {})
+    }
+    load()
+    const interval = setInterval(load, 5000)
+    return () => clearInterval(interval)
+  }, [selectedOrder?.id])
+
+  useEffect(() => {
+    adminChatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  const handleSendAdminMessage = async () => {
+    if (!adminMessage.trim() || !selectedOrder || sendingAdminMsg) return
+    setSendingAdminMsg(true)
+    try {
+      await sendOrderMessage(selectedOrder.id, 'admin', adminMessage.trim())
+      setAdminMessage('')
+      const msgs = await getOrderMessages(selectedOrder.id)
+      setChatMessages(msgs)
+    } catch {
+      toast.error('Erro ao enviar mensagem')
+    } finally {
+      setSendingAdminMsg(false)
+    }
+  }
 
   const toggleSound = () => {
     const newValue = !soundEnabled
@@ -256,6 +293,50 @@ export default function OrdersPage() {
               {selectedOrder.notes && (
                 <p className="text-sm mt-2"><strong>Obs:</strong> {selectedOrder.notes}</p>
               )}
+            </div>
+
+            {/* Chat */}
+            <div className="border-t border-border pt-3">
+              <h4 className="font-medium mb-2">Chat com o cliente</h4>
+              <div className="h-48 overflow-y-auto bg-gray-50 rounded-lg p-3 space-y-2 mb-2">
+                {chatMessages.length === 0 ? (
+                  <p className="text-center text-text-light text-xs py-6">Nenhuma mensagem</p>
+                ) : (
+                  chatMessages.map(msg => (
+                    <div key={msg.id} className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] px-3 py-1.5 rounded-lg text-sm ${
+                        msg.sender_type === 'admin'
+                          ? 'bg-primary text-white rounded-br-sm'
+                          : 'bg-white border border-gray-200 text-text rounded-bl-sm'
+                      }`}>
+                        <p className="text-xs font-bold mb-0.5">{msg.sender_type === 'admin' ? 'Voce' : 'Cliente'}</p>
+                        <p>{msg.message}</p>
+                        <p className={`text-[10px] mt-0.5 ${msg.sender_type === 'admin' ? 'text-white/60' : 'text-text-light'}`}>
+                          {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+                <div ref={adminChatEndRef} />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={adminMessage}
+                  onChange={e => setAdminMessage(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendAdminMessage()}
+                  placeholder="Responder ao cliente..."
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-primary"
+                />
+                <button
+                  onClick={handleSendAdminMessage}
+                  disabled={!adminMessage.trim() || sendingAdminMsg}
+                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Enviar
+                </button>
+              </div>
             </div>
           </div>
         )}

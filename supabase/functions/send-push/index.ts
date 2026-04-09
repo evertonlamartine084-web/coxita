@@ -21,15 +21,15 @@ webpush.setVapidDetails(
   VAPID_PRIVATE_KEY
 )
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey",
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
-    })
+    return new Response("ok", { headers: corsHeaders })
   }
 
   try {
@@ -38,7 +38,7 @@ serve(async (req) => {
     if (!order_number || !status) {
       return new Response(JSON.stringify({ error: "order_number and status required" }), {
         status: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
     }
 
@@ -53,7 +53,7 @@ serve(async (req) => {
 
     if (!subscriptions || subscriptions.length === 0) {
       return new Response(JSON.stringify({ sent: 0, message: "No subscriptions" }), {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
     }
 
@@ -91,13 +91,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ sent, total: subscriptions.length }),
-      { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     )
   } catch (e: any) {
     console.error("send-push error:", e)
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     })
   }
 })

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
-import { createOrder } from '../../services/orders'
+import { createOrder, getActiveOrderByNumbers } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import { createPaymentPreference } from '../../services/payment'
 import { notifyNewOrder } from '../../services/notifications'
@@ -44,6 +44,7 @@ export default function CheckoutPage() {
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState('')
+  const [activeOrder, setActiveOrder] = useState(null)
 
   const getDiscount = () => {
     if (!appliedCoupon) return 0
@@ -90,6 +91,14 @@ export default function CheckoutPage() {
       setSettingsData(s)
       setDeliveryFee(parseFloat(s.delivery_fee || '0'))
     })
+
+    // Check for active order
+    const myOrders = JSON.parse(localStorage.getItem('coxita-my-orders') || '[]')
+    if (myOrders.length > 0) {
+      getActiveOrderByNumbers(myOrders).then(order => {
+        if (order) setActiveOrder(order)
+      }).catch(() => {})
+    }
 
     // Auto-fill with saved customer data
     const saved = localStorage.getItem('coxita-customer-data')
@@ -279,7 +288,20 @@ export default function CheckoutPage() {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {activeOrder && (
+          <div className="bg-secondary/10 border-2 border-secondary/30 rounded-xl p-5 mb-6 text-center">
+            <p className="text-lg font-display font-bold text-text mb-2">Voce ja tem um pedido em andamento!</p>
+            <p className="text-sm text-text-light mb-4">Pedido #{activeOrder.order_number} esta em aberto. Aguarde a conclusao para fazer outro.</p>
+            <Link
+              to={`/acompanhar/${activeOrder.order_number}`}
+              className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl no-underline hover:bg-primary-dark transition-colors"
+            >
+              Acompanhar pedido #{activeOrder.order_number}
+            </Link>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className={`space-y-5 ${activeOrder ? 'opacity-50 pointer-events-none' : ''}`}>
           {/* Dados pessoais */}
           <CheckoutSection title="Seus dados" step="1">
             <Input

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight, HiBell, HiStar } from 'react-icons/hi'
-import { getOrderByNumber } from '../../services/orders'
+import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight, HiBell, HiStar, HiChat, HiPaperAirplane } from 'react-icons/hi'
+import { getOrderByNumber, getOrderMessages, sendOrderMessage } from '../../services/orders'
 import { createReview, getReviewByOrderId } from '../../services/reviews'
 import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../../utils/format'
 import Button from '../../components/ui/Button'
@@ -40,6 +40,46 @@ export default function OrderTrackingPage() {
   const [comment, setComment] = useState('')
   const [submittingReview, setSubmittingReview] = useState(false)
   const prevStatusRef = useRef(null)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [messages, setMessages] = useState([])
+  const [newMessage, setNewMessage] = useState('')
+  const [sendingMsg, setSendingMsg] = useState(false)
+  const chatEndRef = useRef(null)
+
+  const loadMessages = useCallback(async (orderId) => {
+    if (!orderId) return
+    try {
+      const msgs = await getOrderMessages(orderId)
+      setMessages(msgs)
+    } catch {}
+  }, [])
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !order || sendingMsg) return
+    setSendingMsg(true)
+    try {
+      await sendOrderMessage(order.id, 'customer', newMessage.trim())
+      setNewMessage('')
+      await loadMessages(order.id)
+    } catch {
+      toast.error('Erro ao enviar mensagem')
+    } finally {
+      setSendingMsg(false)
+    }
+  }
+
+  // Load messages when chat opens and poll every 10s
+  useEffect(() => {
+    if (!chatOpen || !order) return
+    loadMessages(order.id)
+    const interval = setInterval(() => loadMessages(order.id), 10000)
+    return () => clearInterval(interval)
+  }, [chatOpen, order?.id, loadMessages])
+
+  // Scroll to bottom when new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const fetchOrder = useCallback(async (num) => {
     if (!num) {
@@ -322,6 +362,65 @@ export default function OrderTrackingPage() {
                     Atualiza automaticamente a cada 30 segundos
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* Chat */}
+            {order.status !== 'cancelado' && order.status !== 'entregue' && (
+              <div className="bg-surface card-organic border border-border/60 shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setChatOpen(!chatOpen)}
+                  className="w-full flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <HiChat size={20} className="text-primary" />
+                    <span className="font-display font-bold text-text">Falar com a loja</span>
+                  </div>
+                  <span className="text-text-light text-sm">{chatOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {chatOpen && (
+                  <div className="border-t border-border/50">
+                    <div className="h-64 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
+                      {messages.length === 0 ? (
+                        <p className="text-center text-text-light text-sm py-8">Nenhuma mensagem ainda. Envie uma mensagem!</p>
+                      ) : (
+                        messages.map(msg => (
+                          <div key={msg.id} className={`flex ${msg.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                              msg.sender_type === 'customer'
+                                ? 'bg-primary text-white rounded-br-sm'
+                                : 'bg-white border border-border text-text rounded-bl-sm'
+                            }`}>
+                              <p>{msg.message}</p>
+                              <p className={`text-[10px] mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
+                                {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+                    <div className="p-3 border-t border-border/50 flex gap-2">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={e => setNewMessage(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Digite sua mensagem..."
+                        className="flex-1 px-3 py-2 border-2 border-border rounded-xl text-sm outline-none focus:border-primary"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim() || sendingMsg}
+                        className="p-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <HiPaperAirplane size={18} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

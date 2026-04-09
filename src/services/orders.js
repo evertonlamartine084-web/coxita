@@ -95,6 +95,51 @@ export async function getOrdersByNumbers(orderNumbers) {
   return data
 }
 
+// Chat messages
+export async function getOrderMessages(orderId) {
+  const { data, error } = await supabase
+    .from('order_messages')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+export async function sendOrderMessage(orderId, senderType, message) {
+  const { data, error } = await supabase
+    .from('order_messages')
+    .insert({ order_id: orderId, sender_type: senderType, message })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function markMessagesRead(orderId, senderType) {
+  const { error } = await supabase
+    .from('order_messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('order_id', orderId)
+    .eq('sender_type', senderType)
+    .is('read_at', null)
+  if (error) throw error
+}
+
+export async function getActiveOrderByNumbers(orderNumbers) {
+  if (!orderNumbers || orderNumbers.length === 0) return null
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .in('order_number', orderNumbers)
+    .in('status', ['pendente', 'em_preparo', 'saiu_entrega'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 export async function getTodayOrders() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
