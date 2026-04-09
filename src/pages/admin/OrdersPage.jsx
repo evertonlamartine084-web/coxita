@@ -92,7 +92,10 @@ export default function OrdersPage() {
       // Send push notification to customer
       supabase.functions.invoke('send-push', {
         body: { order_number: selectedOrder.order_number, type: 'chat', message: msgText },
-      }).catch(err => console.error('Chat push error:', err))
+      }).then(res => {
+        console.log('Chat push sent:', res.data, 'order:', selectedOrder.order_number)
+        if (res.error) console.error('Chat push error:', res.error)
+      }).catch(err => console.error('Chat push network error:', err))
     } catch {
       toast.error('Erro ao enviar mensagem')
     } finally {
