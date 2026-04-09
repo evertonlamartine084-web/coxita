@@ -60,6 +60,17 @@ export default function OrderConfirmationPage() {
             <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Numero do pedido</p>
             <p className="font-display text-4xl font-extrabold text-primary mt-1">#{orderNumber}</p>
           </div>
+
+          {order?.scheduled_for && (
+            <div className="bg-primary/5 card-organic border-2 border-primary/30 p-4 mb-6 text-center">
+              <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Agendado para</p>
+              <p className="font-display text-lg font-bold text-primary mt-1">
+                {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}
+                {' as '}
+                {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Pagamento Pix */}

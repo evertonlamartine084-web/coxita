@@ -54,6 +54,7 @@ create table orders (
   delivery_fee decimal(10,2) default 0,
   total decimal(10,2) not null,
   status text not null default 'pendente' check (status in ('pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado')),
+  scheduled_for timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

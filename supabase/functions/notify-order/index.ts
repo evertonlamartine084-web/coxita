@@ -57,16 +57,23 @@ Deno.serve(async (req) => {
     if (order.payment_method === "dinheiro" && order.change_for) {
       lines.push(`Troco para: ${formatBRL(order.change_for)}`)
     }
+    if (order.scheduled_for) {
+      const d = new Date(order.scheduled_for)
+      lines.push(`AGENDADO: ${d.toLocaleDateString("pt-BR")} as ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`)
+    }
     if (order.notes) {
       lines.push(`Obs: ${order.notes}`)
     }
 
     const body = lines.join("\n")
+    const title = order.scheduled_for
+      ? `Pedido Agendado #${order.order_number}`
+      : `Novo Pedido #${order.order_number}`
 
     const ntfyResponse = await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: "POST",
       headers: {
-        "Title": `Novo Pedido #${order.order_number}`,
+        "Title": title,
         "Priority": "5",
         "Tags": "chicken,shopping_cart",
       },

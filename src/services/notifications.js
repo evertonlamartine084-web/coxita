@@ -15,6 +15,7 @@ export async function notifyNewOrder(order, items) {
           payment_method: order.payment_method,
           change_for: order.change_for,
           notes: order.notes,
+          scheduled_for: order.scheduled_for,
           subtotal: order.subtotal,
           delivery_fee: order.delivery_fee,
           total: order.total,

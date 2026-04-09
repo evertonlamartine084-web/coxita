@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile } from 'react-icons/hi'
+import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder } from '../../services/orders'
@@ -24,6 +24,9 @@ const initialForm = {
   notes: '',
   payment_method: 'pix',
   change_for: '',
+  order_type: 'agora',
+  scheduled_date: '',
+  scheduled_time: '',
 }
 
 export default function CheckoutPage() {
@@ -69,6 +72,14 @@ export default function CheckoutPage() {
       if (!form.neighborhood.trim()) errs.neighborhood = 'Bairro obrigatorio'
       if (!form.address_number.trim()) errs.address_number = 'Numero obrigatorio'
     }
+    if (form.order_type === 'agendado') {
+      if (!form.scheduled_date) errs.scheduled_date = 'Selecione a data'
+      if (!form.scheduled_time) errs.scheduled_time = 'Selecione o horario'
+      if (form.scheduled_date && form.scheduled_time) {
+        const scheduled = new Date(`${form.scheduled_date}T${form.scheduled_time}`)
+        if (scheduled <= new Date()) errs.scheduled_date = 'Data/hora deve ser no futuro'
+      }
+    }
     const minOrder = parseFloat(settings.min_order || '0')
     if (minOrder > 0 && getSubtotal() < minOrder) {
       errs.min_order = `Pedido minimo: ${formatCurrency(minOrder)}`
@@ -95,6 +106,7 @@ export default function CheckoutPage() {
         notes: form.notes.trim() || null,
         payment_method: form.payment_method,
         change_for: form.payment_method === 'dinheiro' && form.change_for ? parseFloat(form.change_for) : null,
+        scheduled_for: form.order_type === 'agendado' ? new Date(`${form.scheduled_date}T${form.scheduled_time}`).toISOString() : null,
         subtotal: getSubtotal(),
         delivery_fee: deliveryFee,
         total: getTotal(),
@@ -220,6 +232,62 @@ export default function CheckoutPage() {
               <Input label="Referencia" name="address_reference" value={form.address_reference} onChange={handleChange} placeholder="Proximo a..." />
             </CheckoutSection>
           )}
+
+          {/* Quando receber */}
+          <CheckoutSection title="Quando voce quer?" step="">
+            <div className="flex gap-3">
+              <DeliveryOption
+                active={form.order_type === 'agora'}
+                onChange={() => handleChange({ target: { name: 'order_type', value: 'agora' } })}
+                icon={<HiLightningBolt size={22} />}
+                label="Agora"
+                sublabel="O mais rapido possivel"
+                name="order_type"
+                value="agora"
+              />
+              <DeliveryOption
+                active={form.order_type === 'agendado'}
+                onChange={() => handleChange({ target: { name: 'order_type', value: 'agendado' } })}
+                icon={<HiClock size={22} />}
+                label="Agendar"
+                sublabel="Escolher dia e hora"
+                name="order_type"
+                value="agendado"
+              />
+            </div>
+
+            {form.order_type === 'agendado' && (
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Data *</label>
+                  <input
+                    type="date"
+                    name="scheduled_date"
+                    value={form.scheduled_date}
+                    onChange={handleChange}
+                    min={new Date().toISOString().split('T')[0]}
+                    className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
+                      errors.scheduled_date ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
+                    }`}
+                  />
+                  {errors.scheduled_date && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.scheduled_date}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Horario *</label>
+                  <input
+                    type="time"
+                    name="scheduled_time"
+                    value={form.scheduled_time}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
+                      errors.scheduled_time ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
+                    }`}
+                  />
+                  {errors.scheduled_time && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.scheduled_time}</p>}
+                </div>
+              </div>
+            )}
+          </CheckoutSection>
 
           {/* Pagamento */}
           <CheckoutSection title="Pagamento" step="3">

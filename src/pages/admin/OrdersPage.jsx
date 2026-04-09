@@ -87,7 +87,12 @@ export default function OrdersPage() {
                 <tbody className="divide-y divide-gray-100">
                   {orders.map(order => (
                     <tr key={order.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium">#{order.order_number}</td>
+                      <td className="px-4 py-3 font-medium">
+                        #{order.order_number}
+                        {order.scheduled_for && (
+                          <span className="ml-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">AGENDADO</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">{order.customer_name}</td>
                       <td className="px-4 py-3 hidden md:table-cell capitalize">{order.delivery_type}</td>
                       <td className="px-4 py-3 hidden md:table-cell">{PAYMENT_LABELS[order.payment_method]}</td>
@@ -133,6 +138,14 @@ export default function OrdersPage() {
               <Badge className={STATUS_COLORS[selectedOrder.status]}>{STATUS_LABELS[selectedOrder.status]}</Badge>
               <span className="text-text-light text-sm ml-2">{formatDate(selectedOrder.created_at)}</span>
             </div>
+
+            {selectedOrder.scheduled_for && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm font-bold text-blue-700">
+                  Pedido agendado para {formatDate(selectedOrder.scheduled_for)}
+                </p>
+              </div>
+            )}
 
             <div className="border-t border-border pt-3">
               <h4 className="font-medium mb-1">Cliente</h4>

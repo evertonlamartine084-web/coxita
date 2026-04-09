@@ -194,6 +194,17 @@ export default function OrderTrackingPage() {
                   <p className="font-semibold text-text">{formatDate(order.created_at)}</p>
                 </div>
               </div>
+
+              {order.scheduled_for && (
+                <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
+                  <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">Agendado</span>
+                  <span className="text-sm font-semibold text-text">
+                    {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                    {' as '}
+                    {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Status tracker */}
