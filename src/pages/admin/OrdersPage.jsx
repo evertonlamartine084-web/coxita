@@ -310,26 +310,35 @@ export default function OrdersPage() {
 
             {/* Chat */}
             <div className="border-t border-border pt-3">
-              <h4 className="font-medium mb-2">Chat com o cliente</h4>
-              <div className="h-48 overflow-y-auto bg-gray-50 rounded-lg p-3 space-y-2 mb-2">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                Chat
+                {chatMessages.filter(m => m.sender_type === 'customer' && !m.read_at).length > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {chatMessages.filter(m => m.sender_type === 'customer' && !m.read_at).length} nova(s)
+                  </span>
+                )}
+              </h4>
+              <div className="h-52 overflow-y-auto bg-gray-50 rounded-xl p-3 space-y-2 mb-2 border border-gray-100">
                 {chatMessages.length === 0 ? (
-                  <p className="text-center text-text-light text-xs py-6">Nenhuma mensagem</p>
+                  <p className="text-center text-text-light text-xs py-8">Nenhuma mensagem ainda</p>
                 ) : (
                   chatMessages.map(msg => (
                     <div key={msg.id} className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] px-3 py-1.5 rounded-lg text-sm ${
+                      <div className={`max-w-[75%] px-3 py-2 text-sm ${
                         msg.sender_type === 'admin'
-                          ? 'bg-primary text-white rounded-br-sm'
-                          : 'bg-white border border-gray-200 text-text rounded-bl-sm'
+                          ? 'bg-primary text-white rounded-2xl rounded-br-sm'
+                          : 'bg-white border border-gray-200 text-text rounded-2xl rounded-bl-sm shadow-sm'
                       }`}>
-                        <p className="text-xs font-bold mb-0.5">{msg.sender_type === 'admin' ? 'Voce' : 'Cliente'}</p>
-                        <p>{msg.message}</p>
-                        <div className={`flex items-center gap-1 justify-end mt-0.5 ${msg.sender_type === 'admin' ? 'text-white/60' : 'text-text-light'}`}>
+                        {msg.sender_type === 'customer' && (
+                          <p className="text-[10px] font-bold text-primary mb-0.5">{selectedOrder.customer_name}</p>
+                        )}
+                        <p className="leading-relaxed">{msg.message}</p>
+                        <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'admin' ? 'text-white/60' : 'text-text-light'}`}>
                           <span className="text-[10px]">
                             {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                           {msg.sender_type === 'admin' && (
-                            <span className={`text-[10px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                            <span className={`text-[11px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
                               {msg.read_at ? '✓✓' : '✓'}
                             </span>
                           )}
@@ -346,13 +355,13 @@ export default function OrdersPage() {
                   value={adminMessage}
                   onChange={e => setAdminMessage(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendAdminMessage()}
-                  placeholder="Responder ao cliente..."
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-primary"
+                  placeholder="Responder..."
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary transition-colors"
                 />
                 <button
                   onClick={handleSendAdminMessage}
                   disabled={!adminMessage.trim() || sendingAdminMsg}
-                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   Enviar
                 </button>
