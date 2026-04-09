@@ -21,11 +21,10 @@ export default function OrdersPage() {
   const [newOrderIds, setNewOrderIds] = useState([])
   const prevOrderIdsRef = useRef(null)
 
-  const loadOrders = () => {
-    setLoading(true)
+  const loadOrders = (showLoading = false) => {
+    if (showLoading) setLoading(true)
     getOrders(filter || null)
       .then(data => {
-        // Detect new orders by comparing IDs
         if (prevOrderIdsRef.current !== null) {
           const prevIds = prevOrderIdsRef.current
           const freshIds = data.map(o => o.id).filter(id => !prevIds.has(id))
@@ -41,11 +40,11 @@ export default function OrdersPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadOrders() }, [filter])
+  useEffect(() => { loadOrders(true) }, [filter])
 
-  // Auto-reload every 15 seconds to catch new orders
+  // Auto-reload every 15 seconds (silent, no loading spinner)
   useEffect(() => {
-    const interval = setInterval(loadOrders, 15000)
+    const interval = setInterval(() => loadOrders(false), 15000)
     return () => clearInterval(interval)
   }, [filter])
 
