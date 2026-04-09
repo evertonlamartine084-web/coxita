@@ -33,10 +33,10 @@ serve(async (req) => {
   }
 
   try {
-    const { order_number, status } = await req.json()
+    const { order_number, status, type, message } = await req.json()
 
-    if (!order_number || !status) {
-      return new Response(JSON.stringify({ error: "order_number and status required" }), {
+    if (!order_number) {
+      return new Response(JSON.stringify({ error: "order_number required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
@@ -57,12 +57,21 @@ serve(async (req) => {
       })
     }
 
-    const statusLabel = STATUS_LABELS[status] || status
-    const payload = JSON.stringify({
-      title: `Pedido #${order_number}`,
-      body: `Status: ${statusLabel}`,
-      url: `/acompanhar/${order_number}`,
-    })
+    let payload: string
+    if (type === "chat") {
+      payload = JSON.stringify({
+        title: `Coxita - Pedido #${order_number}`,
+        body: message || "Nova mensagem da loja",
+        url: `/acompanhar/${order_number}`,
+      })
+    } else {
+      const statusLabel = STATUS_LABELS[status] || status
+      payload = JSON.stringify({
+        title: `Pedido #${order_number}`,
+        body: `Status: ${statusLabel}`,
+        url: `/acompanhar/${order_number}`,
+      })
+    }
 
     let sent = 0
 

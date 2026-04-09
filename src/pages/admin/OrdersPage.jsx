@@ -80,13 +80,19 @@ export default function OrdersPage() {
 
   const handleSendAdminMessage = async () => {
     if (!adminMessage.trim() || !selectedOrder || sendingAdminMsg) return
+    const msgText = adminMessage.trim()
     setSendingAdminMsg(true)
     try {
-      await sendOrderMessage(selectedOrder.id, 'admin', adminMessage.trim())
+      await sendOrderMessage(selectedOrder.id, 'admin', msgText)
       setAdminMessage('')
       adminShouldScrollRef.current = true
       const msgs = await getOrderMessages(selectedOrder.id)
       setChatMessages(msgs)
+
+      // Send push notification to customer
+      supabase.functions.invoke('send-push', {
+        body: { order_number: selectedOrder.order_number, type: 'chat', message: msgText },
+      }).catch(err => console.error('Chat push error:', err))
     } catch {
       toast.error('Erro ao enviar mensagem')
     } finally {
