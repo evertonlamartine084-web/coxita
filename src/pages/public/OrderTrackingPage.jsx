@@ -389,77 +389,101 @@ export default function OrderTrackingPage() {
               </div>
             )}
 
-            {/* Chat */}
-            {order.status !== 'cancelado' && order.status !== 'entregue' && (
-              <div className="bg-surface card-organic border border-border/60 shadow-sm overflow-hidden">
-                <button
-                  onClick={() => setChatOpen(!chatOpen)}
-                  className="w-full flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <HiChat size={20} className="text-primary" />
-                    <span className="font-display font-bold text-text">Falar com a loja</span>
-                    {!chatOpen && unreadCount > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-text-light text-sm">{chatOpen ? '▲' : '▼'}</span>
-                </button>
+            {/* Chat floating button */}
+            {order.status !== 'cancelado' && order.status !== 'entregue' && !chatOpen && (
+              <button
+                onClick={() => setChatOpen(true)}
+                className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-all cursor-pointer hover:scale-105"
+              >
+                <HiChat size={26} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
 
-                {chatOpen && (
-                  <div className="border-t border-border/50">
-                    <div className="h-64 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
-                      {messages.length === 0 ? (
-                        <p className="text-center text-text-light text-sm py-8">Nenhuma mensagem ainda. Envie uma mensagem!</p>
-                      ) : (
-                        messages.map(msg => (
-                          <div key={msg.id} className={`flex ${msg.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
-                              msg.sender_type === 'customer'
-                                ? 'bg-primary text-white rounded-br-sm'
-                                : 'bg-white border border-border text-text rounded-bl-sm'
-                            }`}>
-                              {msg.sender_type === 'admin' && (
-                                <p className="text-[10px] font-bold text-primary mb-0.5">Loja</p>
-                              )}
-                              <p>{msg.message}</p>
-                              <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
-                                <span className="text-[10px]">
-                                  {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {/* Chat modal */}
+            {chatOpen && (
+              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+                <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
+                <div className="relative w-full max-w-md mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[70vh]">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center">
+                        <HiChat size={18} className="text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-display font-bold text-sm text-text">Coxita</p>
+                        <p className="text-[11px] text-green-500 font-medium">Online</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setChatOpen(false)}
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                    >
+                      <HiX size={20} className="text-text-light" />
+                    </button>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/80">
+                    {messages.length === 0 ? (
+                      <div className="text-center py-12">
+                        <HiChat size={36} className="text-gray-300 mx-auto mb-2" />
+                        <p className="text-text-light text-sm">Envie uma mensagem para a loja</p>
+                      </div>
+                    ) : (
+                      messages.map(msg => (
+                        <div key={msg.id} className={`flex ${msg.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[80%] px-3 py-2 text-sm ${
+                            msg.sender_type === 'customer'
+                              ? 'bg-primary text-white rounded-2xl rounded-br-sm'
+                              : 'bg-white border border-gray-200 text-text rounded-2xl rounded-bl-sm shadow-sm'
+                          }`}>
+                            {msg.sender_type === 'admin' && (
+                              <p className="text-[10px] font-bold text-primary mb-0.5">Coxita</p>
+                            )}
+                            <p className="leading-relaxed">{msg.message}</p>
+                            <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
+                              <span className="text-[10px]">
+                                {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {msg.sender_type === 'customer' && (
+                                <span className={`text-[11px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                                  {msg.read_at ? '✓✓' : '✓'}
                                 </span>
-                                {msg.sender_type === 'customer' && (
-                                  <span className={`text-[10px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
-                                    {msg.read_at ? '✓✓' : '✓'}
-                                  </span>
-                                )}
-                              </div>
+                              )}
                             </div>
                           </div>
-                        ))
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-                    <div className="p-3 border-t border-border/50 flex gap-2">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={e => setNewMessage(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                        placeholder="Digite sua mensagem..."
-                        className="flex-1 px-3 py-2 border-2 border-border rounded-xl text-sm outline-none focus:border-primary"
-                      />
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim() || sendingMsg}
-                        className="p-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        <HiPaperAirplane size={18} />
-                      </button>
-                    </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={chatEndRef} />
                   </div>
-                )}
+
+                  {/* Input */}
+                  <div className="p-3 border-t border-gray-100 flex gap-2 bg-white rounded-b-2xl">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={e => setNewMessage(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                      placeholder="Digite sua mensagem..."
+                      className="flex-1 px-4 py-2.5 border-2 border-border rounded-full text-sm outline-none focus:border-primary transition-colors"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim() || sendingMsg}
+                      className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <HiPaperAirplane size={18} />
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
