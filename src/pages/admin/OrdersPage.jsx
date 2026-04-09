@@ -64,28 +64,30 @@ export default function OrdersPage() {
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus)
-      toast.success('Status atualizado!')
-
-      // Find order_number from current orders list
-      const order = orders.find(o => o.id === orderId)
-      if (order) {
-        // Send push notification to customer
-        supabase.functions.invoke('send-push', {
-          body: { order_number: order.order_number, status: newStatus },
-        }).then(res => {
-          console.log('Push result:', res.data)
-        }).catch(err => {
-          console.error('Push error:', err)
-        })
-      }
-
-      loadOrders()
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(prev => ({ ...prev, status: newStatus }))
-      }
     } catch {
       toast.error('Erro ao atualizar status.')
+      return
     }
+
+    toast.success('Status atualizado!')
+
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(prev => ({ ...prev, status: newStatus }))
+    }
+
+    // Send push notification to customer (fire and forget)
+    const order = orders.find(o => o.id === orderId)
+    if (order) {
+      supabase.functions.invoke('send-push', {
+        body: { order_number: order.order_number, status: newStatus },
+      }).then(res => {
+        console.log('Push result:', res.data)
+      }).catch(err => {
+        console.error('Push error:', err)
+      })
+    }
+
+    loadOrders()
   }
 
   return (
