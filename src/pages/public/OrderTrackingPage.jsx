@@ -408,7 +408,7 @@ export default function OrderTrackingPage() {
             {chatOpen && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
                 <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
-                <div className="relative w-full max-w-md mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[70vh]">
+                <div className="relative w-full max-w-md mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[85vh] sm:h-[70vh]">
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center gap-3">
