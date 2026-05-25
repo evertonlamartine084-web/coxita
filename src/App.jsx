@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, lazy, Suspense, Component } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { onAuthStateChange } from './services/auth'
@@ -8,23 +8,48 @@ import AdminLayout from './components/layout/AdminLayout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Loading from './components/ui/Loading'
 
+// Retry lazy import on chunk load failure (common after new deploys)
+function lazyWithRetry(importFn) {
+  return lazy(() =>
+    importFn().catch(() => {
+      // Chunk failed to load - reload page to get fresh assets
+      window.location.reload()
+      return new Promise(() => {}) // keep suspense alive while reloading
+    })
+  )
+}
+
+// Error boundary to catch render errors from stale chunks
+class ErrorBoundary extends Component {
+  state = { hasError: false }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch() {
+    // Force reload to get fresh chunks
+    window.location.reload()
+  }
+  render() {
+    if (this.state.hasError) return <Loading />
+    return this.props.children
+  }
+}
+
 // Lazy load pages
-const HomePage = lazy(() => import('./pages/public/HomePage'))
-const MenuPage = lazy(() => import('./pages/public/MenuPage'))
-const CartPage = lazy(() => import('./pages/public/CartPage'))
-const CheckoutPage = lazy(() => import('./pages/public/CheckoutPage'))
-const OrderConfirmationPage = lazy(() => import('./pages/public/OrderConfirmationPage'))
-const PaymentFailedPage = lazy(() => import('./pages/public/PaymentFailedPage'))
-const OrderTrackingPage = lazy(() => import('./pages/public/OrderTrackingPage'))
-const OrderHistoryPage = lazy(() => import('./pages/public/OrderHistoryPage'))
-const LoginPage = lazy(() => import('./pages/admin/LoginPage'))
-const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
-const OrdersPage = lazy(() => import('./pages/admin/OrdersPage'))
-const ProductsPage = lazy(() => import('./pages/admin/ProductsPage'))
-const CategoriesPage = lazy(() => import('./pages/admin/CategoriesPage'))
-const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
-const ReviewsPage = lazy(() => import('./pages/admin/ReviewsPage'))
-const CouponsPage = lazy(() => import('./pages/admin/CouponsPage'))
+const HomePage = lazyWithRetry(() => import('./pages/public/HomePage'))
+const MenuPage = lazyWithRetry(() => import('./pages/public/MenuPage'))
+const CartPage = lazyWithRetry(() => import('./pages/public/CartPage'))
+const CheckoutPage = lazyWithRetry(() => import('./pages/public/CheckoutPage'))
+const OrderConfirmationPage = lazyWithRetry(() => import('./pages/public/OrderConfirmationPage'))
+const PaymentFailedPage = lazyWithRetry(() => import('./pages/public/PaymentFailedPage'))
+const OrderTrackingPage = lazyWithRetry(() => import('./pages/public/OrderTrackingPage'))
+const OrderHistoryPage = lazyWithRetry(() => import('./pages/public/OrderHistoryPage'))
+const LoginPage = lazyWithRetry(() => import('./pages/admin/LoginPage'))
+const DashboardPage = lazyWithRetry(() => import('./pages/admin/DashboardPage'))
+const OrdersPage = lazyWithRetry(() => import('./pages/admin/OrdersPage'))
+const ProductsPage = lazyWithRetry(() => import('./pages/admin/ProductsPage'))
+const CategoriesPage = lazyWithRetry(() => import('./pages/admin/CategoriesPage'))
+const SettingsPage = lazyWithRetry(() => import('./pages/admin/SettingsPage'))
+const ReviewsPage = lazyWithRetry(() => import('./pages/admin/ReviewsPage'))
+const CouponsPage = lazyWithRetry(() => import('./pages/admin/CouponsPage'))
 
 export default function App() {
   const setSession = useAuthStore(s => s.setSession)
@@ -39,6 +64,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-center" toastOptions={{ duration: 2000 }} />
+      <ErrorBoundary>
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* Public */}
@@ -74,6 +100,7 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }
