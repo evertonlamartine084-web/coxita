@@ -2,6 +2,11 @@ import "@supabase/functions-js/edge-runtime.d.ts"
 
 const MP_ACCESS_TOKEN = Deno.env.get("MP_ACCESS_TOKEN")!
 
+// Dominio publico do site, para onde o Mercado Pago devolve o cliente depois
+// do pagamento. Configuravel para nao exigir deploy de codigo a cada troca de
+// dominio. Sem barra no final: as rotas abaixo ja comecam com "/".
+const APP_URL = (Deno.env.get("APP_URL") ?? "https://coxita-theta.vercel.app").replace(/\/+$/, "")
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -40,13 +45,13 @@ Deno.serve(async (req) => {
         email: customer_email || undefined,
       },
       back_urls: {
-        success: `https://coxita-theta.vercel.app/pedido-confirmado/${order_number}`,
-        failure: `https://coxita-theta.vercel.app/pagamento-falhou/${order_number}`,
-        pending: `https://coxita-theta.vercel.app/pedido-confirmado/${order_number}`,
+        success: `${APP_URL}/pedido-confirmado/${order_number}`,
+        failure: `${APP_URL}/pagamento-falhou/${order_number}`,
+        pending: `${APP_URL}/pedido-confirmado/${order_number}`,
       },
       auto_return: "approved",
       external_reference: order_id,
-      statement_descriptor: "COXITA",
+      statement_descriptor: "COXELLI",
     }
 
     const response = await fetch("https://api.mercadopago.com/checkout/preferences", {

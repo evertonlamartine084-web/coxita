@@ -1,45 +1,47 @@
 import { supabase } from './supabase'
+import { cached, invalidar, peek } from './cache'
 
-export async function getProducts() {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*, categories(name, slug)')
-    .eq('active', true)
-    .order('sort_order')
-  if (error) throw error
-  return data
+export const CHAVE_ATIVOS = 'products:ativos'
+
+/** Produtos ativos ja em cache, ou undefined. Nao dispara requisicao. */
+export function peekProducts() {
+  return peek(CHAVE_ATIVOS)
 }
 
+export async function getProducts() {
+  return cached(CHAVE_ATIVOS, async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, categories(name, slug)')
+      .eq('active', true)
+      .order('sort_order')
+    if (error) throw error
+    return data
+  })
+}
+
+// Derivam da mesma lista de ativos em vez de ir ao banco: a home ja carrega
+// getProducts(), entao pedir os destaques de novo era uma ida a rede inutil.
 export async function getProductsByCategory(categorySlug) {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*, categories(name, slug)')
-    .eq('active', true)
-    .eq('categories.slug', categorySlug)
-    .order('sort_order')
-  if (error) throw error
-  return data
+  const produtos = await getProducts()
+  return produtos.filter(p => p.categories?.slug === categorySlug)
 }
 
 export async function getFeaturedProducts() {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*, categories(name, slug)')
-    .eq('active', true)
-    .eq('featured', true)
-    .order('sort_order')
-  if (error) throw error
-  return data
+  const produtos = await getProducts()
+  return produtos.filter(p => p.featured)
 }
 
 // Admin
 export async function getAllProducts() {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*, categories(name, slug)')
-    .order('sort_order')
-  if (error) throw error
-  return data
+  return cached('products:todos', async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, categories(name, slug)')
+      .order('sort_order')
+    if (error) throw error
+    return data
+  })
 }
 
 export async function createProduct(product) {
@@ -49,6 +51,7 @@ export async function createProduct(product) {
     .select()
     .single()
   if (error) throw error
+  invalidar('products')
   return data
 }
 
@@ -60,6 +63,7 @@ export async function updateProduct(id, updates) {
     .select()
     .single()
   if (error) throw error
+  invalidar('products')
   return data
 }
 
@@ -69,6 +73,7 @@ export async function deleteProduct(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+  invalidar('products')
 }
 
 function compressImage(file, maxWidth = 600, quality = 0.7) {

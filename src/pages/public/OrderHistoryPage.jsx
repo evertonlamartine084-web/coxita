@@ -13,7 +13,7 @@ export default function OrderHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [reordering, setReordering] = useState(null)
-  const myOrderNumbers = JSON.parse(localStorage.getItem('coxita-my-orders') || '[]')
+  const [myOrderNumbers] = useState(() => JSON.parse(localStorage.getItem('coxita-my-orders') || '[]'))
   const navigate = useNavigate()
   const { addItem, clearCart } = useCartStore()
 
@@ -26,7 +26,7 @@ export default function OrderHistoryPage() {
       .then(setOrders)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [])
+  }, [myOrderNumbers])
 
   const handleReorder = async (order) => {
     setReordering(order.id)
@@ -38,23 +38,34 @@ export default function OrderHistoryPage() {
       order.order_items?.forEach(item => {
         const product = products.find(p => p.id === item.product_id)
         if (product) {
+          // Repete tambem a composicao de sabores do pacote; sem isso o cliente
+          // reencomendaria um cento vazio.
+          const sabores = item.order_item_flavors?.length
+            ? item.order_item_flavors.map(s => ({
+                id: s.flavor_id,
+                name: s.flavor_name,
+                quantity: s.quantity,
+              }))
+            : null
+
           for (let i = 0; i < item.quantity; i++) {
             addItem({
               id: product.id,
               name: product.name,
               price: product.price,
               image_url: product.image_url,
-            })
+              pack_size: product.pack_size,
+            }, sabores)
           }
           added++
         }
       })
 
       if (added === 0) {
-        toast.error('Os produtos desse pedido nao estao mais disponiveis')
+        toast.error('Os produtos desse pedido não estão mais disponíveis')
       } else {
         if (added < (order.order_items?.length || 0)) {
-          toast('Alguns itens nao estao mais disponiveis', { icon: '⚠️' })
+          toast('Alguns itens não estão mais disponíveis', { icon: '⚠️' })
         } else {
           toast.success('Itens adicionados ao carrinho!')
         }
@@ -73,13 +84,13 @@ export default function OrderHistoryPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">📋</div>
-        <h1 className="font-display text-2xl font-bold mb-2">Historico de pedidos</h1>
-        <p className="text-text-light mb-6">Faca seu primeiro pedido para ver o historico aqui.</p>
+        <h1 className="font-display text-3xl font-black uppercase mb-2 text-brown">Histórico de pedidos</h1>
+        <p className="text-text-light mb-6">Faça seu primeiro pedido para ver o histórico aqui.</p>
         <Link
           to="/cardapio"
           className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl no-underline hover:bg-primary-dark transition-colors"
         >
-          Ver cardapio
+          Ver cardápio
         </Link>
       </div>
     )
@@ -87,7 +98,8 @@ export default function OrderHistoryPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="font-display text-2xl font-bold mb-6">Meus pedidos</h1>
+      <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-festa">Sua conta com a cozinha</p>
+      <h1 className="font-display text-4xl font-black uppercase text-brown mb-6">Meus pedidos</h1>
 
       {orders.length === 0 ? (
         <div className="text-center py-12">
@@ -97,7 +109,7 @@ export default function OrderHistoryPage() {
       ) : (
         <div className="space-y-4">
           {orders.map(order => (
-            <div key={order.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div key={order.id} className="bg-white border-2 border-brown/20 shadow-[4px_4px_0_rgba(93,43,4,0.12)] overflow-hidden">
               {/* Header */}
               <button
                 onClick={() => setSelectedOrder(selectedOrder === order.id ? null : order.id)}
@@ -146,7 +158,7 @@ export default function OrderHistoryPage() {
                     )}
                     <div className="flex justify-between text-text-light">
                       <span>Entrega</span>
-                      <span>{order.delivery_fee > 0 ? formatCurrency(order.delivery_fee) : 'Gratis'}</span>
+                      <span>{order.delivery_fee > 0 ? formatCurrency(order.delivery_fee) : 'Grátis'}</span>
                     </div>
                     <div className="flex justify-between font-bold text-base pt-1 border-t border-gray-200">
                       <span>Total</span>

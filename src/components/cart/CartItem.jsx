@@ -1,6 +1,7 @@
 import { HiMinus, HiPlus, HiTrash } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { formatCurrency } from '../../utils/format'
+import { totalDoSabor } from '../../utils/pacote'
 
 export default function CartItem({ item }) {
   const { updateQuantity, removeItem } = useCartStore()
@@ -23,17 +24,39 @@ export default function CartItem({ item }) {
         <h4 className="font-display font-bold text-base truncate text-text">{item.name}</h4>
         <p className="text-primary font-bold text-sm mt-0.5">{formatCurrency(item.price)} un.</p>
 
+        {item.flavors?.length > 0 && (
+          <>
+            <ul className="mt-1.5 space-y-0.5">
+              {item.flavors.map(sabor => (
+                <li key={sabor.id} className="text-text-light text-xs">
+                  <span className="font-semibold tabular-nums">
+                    {totalDoSabor(sabor.quantity, item.quantity)}x
+                  </span>{' '}
+                  {sabor.name}
+                </li>
+              ))}
+            </ul>
+            {item.quantity > 1 && (
+              <p className="text-text-light text-[11px] mt-1">
+                {item.quantity} pacotes iguais &middot; {item.flavors.map(s => `${s.quantity}x ${s.name}`).join(', ')} em cada
+              </p>
+            )}
+          </>
+        )}
+
         <div className="flex items-center gap-2 mt-2">
           <div className="flex items-center bg-stone-100 rounded-xl overflow-hidden">
             <button
-              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+              onClick={() => updateQuantity(item.lineId, item.quantity - 1)}
+              aria-label="Diminuir quantidade"
               className="w-8 h-8 flex items-center justify-center hover:bg-stone-200 transition-colors text-text-light cursor-pointer"
             >
               <HiMinus size={14} />
             </button>
             <span className="text-sm font-bold w-8 text-center font-display">{item.quantity}</span>
             <button
-              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+              onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
+              aria-label="Aumentar quantidade"
               className="w-8 h-8 flex items-center justify-center hover:bg-stone-200 transition-colors text-text-light cursor-pointer"
             >
               <HiPlus size={14} />
@@ -41,7 +64,7 @@ export default function CartItem({ item }) {
           </div>
 
           <button
-            onClick={() => removeItem(item.id)}
+            onClick={() => removeItem(item.lineId)}
             className="ml-auto text-stone-300 hover:text-danger transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
             title="Remover item"
           >

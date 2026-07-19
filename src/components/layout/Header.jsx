@@ -2,86 +2,76 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { HiShoppingCart, HiMenu, HiX } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
+import { prefetchRota } from '../../routes/importers'
+
+// Comeca a baixar o chunk da rota assim que o usuario demonstra intencao.
+function aoDemonstrarIntencao(rota) {
+  return {
+    onMouseEnter: () => prefetchRota(rota),
+    onFocus: () => prefetchRota(rota),
+    onTouchStart: () => prefetchRota(rota),
+  }
+}
 
 export default function Header() {
   const itemCount = useCartStore(s => s.getItemCount())
-  const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const location = useLocation()
-
+  // Esc fecha o menu.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+    if (!menuOpen) return
+    const onKey = e => { if (e.key === 'Escape') setMenuOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menuOpen])
 
-  useEffect(() => { setMenuOpen(false) }, [location])
+  // Trava o scroll atras do menu aberto: rolar o fundo enquanto o painel
+  // esta sobreposto desorienta.
+  useEffect(() => {
+    if (!menuOpen) return
+    const anterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = anterior }
+  }, [menuOpen])
 
+  // O header fica solido com o menu aberto, senao o backdrop apareceria
+  // atraves dele.
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-300 ${
-      scrolled
-        ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-border'
-        : 'bg-transparent'
-    }`}>
-      {/* Bandeirinhas decorativas no topo */}
-      <div className="h-1.5 bg-gradient-to-r from-primary via-secondary to-accent" />
-
+    <header className="sticky top-0 z-50 bg-cream border-b-4 border-festa">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5 no-underline group">
-          <img
-            src="/logo.png"
-            alt="Coxita"
-            className="w-10 h-10 object-contain group-hover:scale-110 transition-transform duration-200 drop-shadow-md"
-          />
-          <div>
-            <span className={`font-display text-2xl font-bold tracking-tight transition-colors ${
-              scrolled ? 'text-primary' : 'text-primary'
-            }`}>
-              Coxita
-            </span>
-            <span className="hidden sm:block text-[10px] font-body text-text-light -mt-1 tracking-wide">
-              Coxinhas artesanais
-            </span>
-          </div>
+        <Link to="/" className="flex items-center no-underline" aria-label="Coxelli — página inicial">
+          <img src="/wordmark.png" alt="Coxelli" className="h-11 md:h-12 w-auto" />
         </Link>
 
         {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-1">
-          <NavLink to="/cardapio" scrolled={scrolled}>
-            Cardapio
+          <NavLink to="/cardapio">
+            Cardápio
           </NavLink>
-          <NavLink to="/meus-pedidos" scrolled={scrolled}>
+          <NavLink to="/meus-pedidos">
             Meus pedidos
           </NavLink>
-          <NavLink to="/acompanhar" scrolled={scrolled}>
+          <NavLink to="/acompanhar">
             Acompanhar
           </NavLink>
 
           <Link
             to="/carrinho"
-            className={`relative ml-2 flex items-center gap-1.5 px-4 py-2 rounded-full font-semibold text-sm transition-all duration-200 ${
-              itemCount > 0
-                ? 'bg-primary text-white shadow-md hover:shadow-lg hover:scale-105'
-                : scrolled
-                  ? 'text-text-warm hover:text-primary hover:bg-primary/5'
-                  : 'text-text-warm hover:text-primary'
-            }`}
+            {...aoDemonstrarIntencao('/carrinho')}
+            className="relative ml-3 flex items-center gap-2 px-4 py-2 bg-primary text-white border-2 border-brown font-display font-extrabold uppercase tracking-wide text-sm shadow-[3px_3px_0_#5d2b04] hover:bg-brown transition-colors duration-200"
           >
             <HiShoppingCart size={20} />
+            <span>Pedir agora</span>
             {itemCount > 0 && (
-              <>
-                <span className="text-sm">Carrinho</span>
                 <span className="bg-secondary text-primary-dark text-xs font-extrabold rounded-full w-5 h-5 flex items-center justify-center -mr-1">
                   {itemCount}
                 </span>
-              </>
             )}
           </Link>
         </nav>
 
         {/* Mobile nav */}
         <div className="flex items-center gap-3 sm:hidden">
-          <Link to="/carrinho" className="relative text-primary">
+          <Link to="/carrinho" {...aoDemonstrarIntencao('/carrinho')} className="relative text-brown">
             <HiShoppingCart size={24} />
             {itemCount > 0 && (
               <span className="absolute -top-2 -right-2.5 bg-secondary text-primary-dark text-[10px] font-extrabold rounded-full w-5 h-5 flex items-center justify-center shadow-sm">
@@ -91,52 +81,72 @@ export default function Header() {
           </Link>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="text-primary p-1"
+            className="text-brown p-1"
+            aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={menuOpen}
+            aria-controls="menu-mobile"
           >
             {menuOpen ? <HiX size={24} /> : <HiMenu size={24} />}
           </button>
         </div>
       </div>
 
-      {/* Mobile dropdown */}
-      {menuOpen && (
-        <div className="sm:hidden bg-white border-t border-border shadow-lg">
-          <div className="px-4 py-3 space-y-1">
-            <Link to="/" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
-              Inicio
+      {/* Backdrop, ancorado logo abaixo do header. Nao usar `fixed` aqui: o
+          `backdrop-blur` do header cria um containing block, e um filho fixed
+          se ancoraria no header (64px de altura) em vez da viewport. */}
+      <div
+        onClick={() => setMenuOpen(false)}
+        aria-hidden="true"
+        className={`sm:hidden absolute top-full inset-x-0 h-screen bg-brown/25 backdrop-blur-[2px] transition-opacity duration-[--duration-base] ease-[--ease-interaction] ${
+          menuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      />
+
+      {/* Menu mobile. `absolute` o tira do fluxo: o header nao muda de altura
+          e a pagina abaixo nao e empurrada. */}
+      <div
+        id="menu-mobile"
+        className={`sm:hidden absolute top-full inset-x-0 bg-cream border-t-4 border-festa shadow-lg transition-[opacity,transform] duration-[--duration-base] ease-[--ease-entrance] ${
+          menuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+        }`}
+      >
+        <nav className="px-4 py-3 space-y-1">
+          {[
+            { to: '/', label: 'Início' },
+            { to: '/cardapio', label: 'Cardápio' },
+            { to: '/meus-pedidos', label: 'Meus pedidos' },
+            { to: '/acompanhar', label: 'Acompanhar' },
+            { to: '/carrinho', label: `Carrinho${itemCount > 0 ? ` (${itemCount})` : ''}` },
+          ].map(item => (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={() => setMenuOpen(false)}
+              tabIndex={menuOpen ? 0 : -1}
+              {...aoDemonstrarIntencao(item.to)}
+              className="block px-2 py-3 border-b border-brown/15 text-brown font-display font-extrabold uppercase tracking-wide hover:text-primary no-underline transition-colors duration-[--duration-fast] ease-[--ease-interaction]"
+            >
+              {item.label}
             </Link>
-            <Link to="/cardapio" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
-              Cardapio
-            </Link>
-            <Link to="/meus-pedidos" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
-              Meus pedidos
-            </Link>
-            <Link to="/acompanhar" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
-              Acompanhar
-            </Link>
-            <Link to="/carrinho" className="block px-4 py-3 rounded-xl text-text font-semibold hover:bg-bg-warm no-underline">
-              Carrinho {itemCount > 0 && `(${itemCount})`}
-            </Link>
-          </div>
-        </div>
-      )}
+          ))}
+        </nav>
+      </div>
     </header>
   )
 }
 
-function NavLink({ to, children, scrolled }) {
+function NavLink({ to, children }) {
   const location = useLocation()
   const isActive = location.pathname === to
 
   return (
     <Link
       to={to}
-      className={`px-4 py-2 rounded-full text-sm font-semibold no-underline transition-all duration-200 ${
+      {...aoDemonstrarIntencao(to)}
+      className={`px-3 py-2 border-b-2 font-display font-extrabold uppercase tracking-[0.04em] text-sm no-underline transition-colors duration-200 ${
         isActive
-          ? 'bg-primary/10 text-primary'
-          : scrolled
-            ? 'text-text-warm hover:text-primary hover:bg-primary/5'
-            : 'text-text-warm hover:text-primary'
+          ? 'border-primary text-primary'
+          : 'border-transparent text-text-warm hover:text-primary'
       }`}
     >
       {children}

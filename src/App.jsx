@@ -7,6 +7,7 @@ import PublicLayout from './components/layout/PublicLayout'
 import AdminLayout from './components/layout/AdminLayout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Loading from './components/ui/Loading'
+import { importarPagina } from './routes/importers'
 
 // Retry lazy import on chunk load failure (common after new deploys)
 function lazyWithRetry(importFn) {
@@ -33,23 +34,24 @@ class ErrorBoundary extends Component {
   }
 }
 
-// Lazy load pages
-const HomePage = lazyWithRetry(() => import('./pages/public/HomePage'))
-const MenuPage = lazyWithRetry(() => import('./pages/public/MenuPage'))
-const CartPage = lazyWithRetry(() => import('./pages/public/CartPage'))
-const CheckoutPage = lazyWithRetry(() => import('./pages/public/CheckoutPage'))
-const OrderConfirmationPage = lazyWithRetry(() => import('./pages/public/OrderConfirmationPage'))
-const PaymentFailedPage = lazyWithRetry(() => import('./pages/public/PaymentFailedPage'))
-const OrderTrackingPage = lazyWithRetry(() => import('./pages/public/OrderTrackingPage'))
-const OrderHistoryPage = lazyWithRetry(() => import('./pages/public/OrderHistoryPage'))
-const LoginPage = lazyWithRetry(() => import('./pages/admin/LoginPage'))
-const DashboardPage = lazyWithRetry(() => import('./pages/admin/DashboardPage'))
-const OrdersPage = lazyWithRetry(() => import('./pages/admin/OrdersPage'))
-const ProductsPage = lazyWithRetry(() => import('./pages/admin/ProductsPage'))
-const CategoriesPage = lazyWithRetry(() => import('./pages/admin/CategoriesPage'))
-const SettingsPage = lazyWithRetry(() => import('./pages/admin/SettingsPage'))
-const ReviewsPage = lazyWithRetry(() => import('./pages/admin/ReviewsPage'))
-const CouponsPage = lazyWithRetry(() => import('./pages/admin/CouponsPage'))
+// Lazy load pages. Os importers vivem em routes/importers.js para que o
+// prefetch do Header aqueca exatamente estes mesmos chunks.
+const HomePage = lazyWithRetry(importarPagina.home)
+const MenuPage = lazyWithRetry(importarPagina.cardapio)
+const CartPage = lazyWithRetry(importarPagina.carrinho)
+const CheckoutPage = lazyWithRetry(importarPagina.checkout)
+const OrderConfirmationPage = lazyWithRetry(importarPagina.pedidoConfirmado)
+const PaymentFailedPage = lazyWithRetry(importarPagina.pagamentoFalhou)
+const OrderTrackingPage = lazyWithRetry(importarPagina.acompanhar)
+const OrderHistoryPage = lazyWithRetry(importarPagina.meusPedidos)
+const LoginPage = lazyWithRetry(importarPagina.login)
+const DashboardPage = lazyWithRetry(importarPagina.dashboard)
+const OrdersPage = lazyWithRetry(importarPagina.pedidos)
+const ProductsPage = lazyWithRetry(importarPagina.produtos)
+const CategoriesPage = lazyWithRetry(importarPagina.categorias)
+const SettingsPage = lazyWithRetry(importarPagina.configuracoes)
+const ReviewsPage = lazyWithRetry(importarPagina.avaliacoes)
+const CouponsPage = lazyWithRetry(importarPagina.cupons)
 
 export default function App() {
   const setSession = useAuthStore(s => s.setSession)
@@ -59,7 +61,7 @@ export default function App() {
       setSession(session)
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [setSession])
 
   return (
     <BrowserRouter>

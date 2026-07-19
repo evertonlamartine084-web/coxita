@@ -11,14 +11,14 @@ export default function LoyaltyCard({ goal }) {
   const percentage = Math.min((current / loyaltyGoal) * 100, 100)
 
   return (
-    <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm">
+    <div className="bg-cream border-[3px] border-brown p-5 shadow-[5px_5px_0_#5d2b04]">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 bg-secondary/20 rounded-xl flex items-center justify-center">
-          <HiStar className="text-secondary" size={22} />
+        <div className="w-10 h-10 bg-secondary border-2 border-brown flex items-center justify-center">
+          <HiStar className="text-primary" size={22} />
         </div>
         <div>
-          <h3 className="font-display font-bold text-text text-sm">Programa Fidelidade</h3>
-          <p className="text-text-light text-xs">A cada {loyaltyGoal} coxinhas, ganhe 1 gratis!</p>
+          <h3 className="font-display font-extrabold uppercase text-brown text-xl leading-none">Cartão fidelidade</h3>
+          <p className="text-text-light text-sm">A cada {loyaltyGoal} coxinhas, ganhe 1 grátis!</p>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ export default function LoyaltyCard({ goal }) {
 
       <p className="text-center text-xs text-text-light">
         {canRedeem ? (
-          <span className="text-accent font-bold">Voce tem {totalEarned} coxinha(s) gratis! Avise no pedido.</span>
+          <span className="text-accent font-bold">Você tem {totalEarned} coxinha(s) grátis! Avise no pedido.</span>
         ) : (
           <span>Faltam <strong className="text-primary">{loyaltyGoal - current}</strong> coxinhas para ganhar 1 gratis</span>
         )}

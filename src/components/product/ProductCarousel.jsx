@@ -37,7 +37,7 @@ export default function ProductCarousel({ products, title }) {
   return (
     <div className="relative">
       {title && (
-        <h2 className="font-display text-2xl md:text-3xl font-extrabold text-center mb-8">
+        <h2 className="font-display text-5xl md:text-6xl font-black uppercase leading-none text-left mb-8 text-brown">
           <span className="underline-hand">{title}</span>
         </h2>
       )}
@@ -47,7 +47,7 @@ export default function ProductCarousel({ products, title }) {
         {canScrollLeft && (
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-xl rounded-full p-2.5 text-primary hover:bg-primary hover:text-white transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-x-3 hover:scale-110 cursor-pointer"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-secondary border-2 border-brown p-2.5 text-brown hover:bg-brand transition-colors opacity-0 group-hover:opacity-100 -translate-x-3 cursor-pointer"
           >
             <HiChevronLeft size={22} />
           </button>
@@ -73,32 +73,13 @@ export default function ProductCarousel({ products, title }) {
         {canScrollRight && (
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-xl rounded-full p-2.5 text-primary hover:bg-primary hover:text-white transition-all duration-200 opacity-0 group-hover:opacity-100 translate-x-3 hover:scale-110 cursor-pointer"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-secondary border-2 border-brown p-2.5 text-brown hover:bg-brand transition-colors opacity-0 group-hover:opacity-100 translate-x-3 cursor-pointer"
           >
             <HiChevronRight size={22} />
           </button>
         )}
       </div>
 
-      {/* Scroll hint dots */}
-      {products.length > 1 && (
-        <div className="flex justify-center gap-1 mt-5">
-          {products.slice(0, Math.min(products.length, 6)).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                if (!scrollRef.current) return
-                const cardWidth = 300 + 20
-                scrollRef.current.scrollTo({ left: cardWidth * i, behavior: 'smooth' })
-              }}
-              className="w-2 h-2 rounded-full bg-primary/20 hover:bg-primary/60 transition-colors cursor-pointer"
-            />
-          ))}
-          {products.length > 6 && (
-            <span className="text-text-light text-xs ml-1">...</span>
-          )}
-        </div>
-      )}
     </div>
   )
 }

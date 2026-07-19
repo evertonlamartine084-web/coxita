@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getCoupons, createCoupon, deleteCoupon, updateCoupon } from '../../services/coupons'
-import { formatCurrency, formatDate } from '../../utils/format'
+import { formatCurrency } from '../../utils/format'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Loading from '../../components/ui/Loading'
@@ -34,7 +34,7 @@ export default function CouponsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.code || !form.discount_value) {
-      toast.error('Preencha codigo e valor')
+      toast.error('Preencha código e valor')
       return
     }
     setSaving(true)
@@ -52,7 +52,7 @@ export default function CouponsPage() {
       setShowForm(false)
       load()
     } catch (err) {
-      toast.error(err.message?.includes('unique') ? 'Codigo ja existe' : 'Erro ao criar cupom')
+      toast.error(err.message?.includes('unique') ? 'Código já existe' : 'Erro ao criar cupom')
     } finally {
       setSaving(false)
     }
@@ -94,7 +94,7 @@ export default function CouponsPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 mb-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Codigo *"
+              label="Código *"
               value={form.code}
               onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
               placeholder="Ex: COXINHA10"
@@ -156,7 +156,7 @@ export default function CouponsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium">Codigo</th>
+                  <th className="text-left px-4 py-3 font-medium">Código</th>
                   <th className="text-left px-4 py-3 font-medium">Desconto</th>
                   <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Min.</th>
                   <th className="text-left px-4 py-3 font-medium">Usos</th>

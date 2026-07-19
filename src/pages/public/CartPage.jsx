@@ -15,13 +15,13 @@ export default function CartPage() {
           <div className="absolute inset-0 bg-primary/5 rounded-full scale-150" />
           <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
         </div>
-        <h2 className="font-display text-2xl font-bold mb-2 text-text">Seu carrinho esta vazio</h2>
+        <h2 className="font-display text-3xl font-black uppercase mb-2 text-brown">Seu carrinho está vazio</h2>
         <p className="text-text-light mb-8 max-w-sm mx-auto">
           Que tal escolher umas coxinhas quentinhas e crocantes?
         </p>
         <Link to="/cardapio">
           <Button variant="festive" className="gap-2">
-            Ver cardapio
+            Ver cardápio
             <HiArrowRight size={18} />
           </Button>
         </Link>
@@ -30,12 +30,12 @@ export default function CartPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="" className="w-8 h-8 object-contain" />
-          <h1 className="font-display text-2xl font-extrabold text-text">Carrinho</h1>
+          <h1 className="font-display text-4xl font-black uppercase text-brown">Carrinho</h1>
         </div>
         <button
           onClick={clearCart}
@@ -46,14 +46,14 @@ export default function CartPage() {
       </div>
 
       {/* Items */}
-      <div className="bg-surface card-organic border border-border/60 p-5 mb-5 shadow-sm">
+      <div className="bg-surface border-2 border-brown/20 p-5 mb-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
         {items.map(item => (
-          <CartItem key={item.id} item={item} />
+          <CartItem key={item.lineId} item={item} />
         ))}
       </div>
 
       {/* Summary */}
-      <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm">
+      <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
         <div className="flex justify-between items-baseline mb-1">
           <span className="text-text-light text-sm">Subtotal</span>
           <span className="font-display font-extrabold text-xl text-text">{formatCurrency(getSubtotal())}</span>

@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
-import { useState, useEffect, useRef } from 'react'
+import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import toast from 'react-hot-toast'
@@ -49,12 +49,7 @@ export default function AdminLayout() {
     return () => clearInterval(interval)
   }, [])
 
-  // Reset pending count when visiting orders page
-  useEffect(() => {
-    if (location.pathname === '/admin/pedidos') {
-      setPendingCount(0)
-    }
-  }, [location.pathname])
+  const displayedPendingCount = location.pathname === '/admin/pedidos' ? 0 : pendingCount
 
   const handleLogout = async () => {
     await signOut()
@@ -62,47 +57,51 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="admin-shell min-h-screen flex bg-cream">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-4 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Coxita" className="w-8 h-8 object-contain" />
-            <h1 className="text-xl font-bold">Coxita Admin</h1>
+      <aside className={`fixed lg:sticky lg:top-0 lg:h-screen inset-y-0 left-0 z-50 w-72 bg-brown text-white transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-3 gingham-blue border-b-2 border-secondary" aria-hidden="true" />
+        <div className="p-5 border-b border-white/15">
+          <div className="bg-cream border-2 border-secondary p-3 shadow-[4px_4px_0_#ffcd5e]">
+            <img src="/wordmark.png" alt="Coxelli" className="h-10 w-auto object-contain" />
+            <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-brown mt-1">Painel da cozinha</p>
           </div>
         </div>
-        <nav className="p-4 space-y-1">
-          {navItems.map(({ to, icon: Icon, label }) => {
+        <nav className="p-4 space-y-1.5">
+          {navItems.map(({ to, icon, label }) => {
             const active = location.pathname === to
             return (
               <Link
                 key={to}
                 to={to}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline transition-colors ${
-                  active ? 'bg-primary text-white' : 'text-gray-300 hover:bg-gray-800'
+                onClick={() => {
+                  setSidebarOpen(false)
+                  if (to === '/admin/pedidos') setPendingCount(0)
+                }}
+                className={`flex items-center gap-3 px-3 py-3 border-2 no-underline font-semibold transition-colors ${
+                  active ? 'bg-secondary border-secondary text-brown shadow-[3px_3px_0_#3f6bb5]' : 'border-transparent text-cream/80 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <Icon size={20} />
+                {createElement(icon, { size: 20 })}
                 <span className="flex-1">{label}</span>
-                {to === '/admin/pedidos' && pendingCount > 0 && (
+                {to === '/admin/pedidos' && displayedPendingCount > 0 && (
                   <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                    {pendingCount}
+                    {displayedPendingCount}
                   </span>
                 )}
               </Link>
             )
           })}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/15 bg-brown">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 text-gray-300 hover:text-white w-full rounded-lg hover:bg-gray-800 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 text-cream/70 hover:text-white w-full border-2 border-transparent hover:border-white/20 transition-colors"
           >
             <HiLogout size={20} />
             <span>Sair</span>
@@ -112,11 +111,12 @@ export default function AdminLayout() {
 
       {/* Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white shadow-sm px-4 py-3 flex items-center lg:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-600 text-2xl mr-3">☰</button>
-          <span className="font-semibold">Coxita Admin</span>
+        <header className="bg-cream border-b-4 border-festa px-4 py-3 flex items-center lg:hidden sticky top-0 z-30">
+          <button onClick={() => setSidebarOpen(true)} className="text-brown text-2xl mr-3" aria-label="Abrir menu">☰</button>
+          <img src="/wordmark.png" alt="Coxelli" className="h-9 w-auto" />
+          <span className="ml-auto font-display text-xs font-extrabold uppercase tracking-widest text-festa">Admin</span>
         </header>
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="admin-content flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
           <Outlet />
         </main>
       </div>

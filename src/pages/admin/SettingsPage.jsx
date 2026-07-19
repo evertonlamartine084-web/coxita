@@ -22,7 +22,7 @@ const fields = [
 
 const bannerFields = [
   { key: 'banner_active', label: 'Banner ativo (sim/nao)', placeholder: 'sim ou nao' },
-  { key: 'banner_text', label: 'Texto do banner', placeholder: 'Ex: Combo familia com 20% OFF hoje!' },
+  { key: 'banner_text', label: 'Texto do banner', placeholder: 'Ex: Combo família com 20% OFF hoje!' },
   { key: 'banner_emoji', label: 'Emoji do banner', placeholder: 'Ex: 🔥' },
   { key: 'banner_link', label: 'Link do banner (opcional)', placeholder: '/cardapio' },
 ]

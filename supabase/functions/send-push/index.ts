@@ -16,7 +16,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 webpush.setVapidDetails(
-  "mailto:contato@coxita.com",
+  "mailto:contato@coxelli.com",
   VAPID_PUBLIC_KEY,
   VAPID_PRIVATE_KEY
 )
@@ -60,7 +60,7 @@ serve(async (req) => {
     let payload: string
     if (type === "chat") {
       payload = JSON.stringify({
-        title: `Coxita - Pedido #${order_number}`,
+        title: `Coxelli - Pedido #${order_number}`,
         body: message || "Nova mensagem da loja",
         url: `/acompanhar/${order_number}`,
       })

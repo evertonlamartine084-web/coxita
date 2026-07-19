@@ -22,7 +22,7 @@ export const useLoyaltyStore = create(
         }
       },
 
-      redeem: (goal) => {
+      redeem: () => {
         set({ redeemed: get().redeemed + 1 })
       },
     }),

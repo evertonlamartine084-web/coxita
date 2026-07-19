@@ -9,12 +9,13 @@ import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import ShareButtons from '../../components/share/ShareButtons'
 import { registerPushSubscription } from '../../services/pushNotifications'
+import { useVisualViewport } from '../../hooks/useVisualViewport'
 import toast from 'react-hot-toast'
 
 const STEPS = [
-  { key: 'pendente', label: 'Pedido recebido', icon: HiClock, description: 'Seu pedido foi recebido e esta aguardando confirmacao' },
+  { key: 'pendente', label: 'Pedido recebido', icon: HiClock, description: 'Seu pedido foi recebido e está aguardando confirmação' },
   { key: 'em_preparo', label: 'Em preparo', icon: HiRefresh, description: 'Estamos preparando suas coxinhas com carinho' },
-  { key: 'saiu_entrega', label: 'Saiu para entrega', icon: HiTruck, description: 'Seu pedido esta a caminho!' },
+  { key: 'saiu_entrega', label: 'Saiu para entrega', icon: HiTruck, description: 'Seu pedido está a caminho!' },
   { key: 'entregue', label: 'Entregue', icon: HiCheck, description: 'Pedido entregue. Bom apetite!' },
 ]
 
@@ -49,6 +50,8 @@ export default function OrderTrackingPage() {
   const chatEndRef = useRef(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const shouldScrollRef = useRef(false)
+  // Area visivel real (desconta o teclado no iOS); so escuta com o chat aberto.
+  const areaVisivel = useVisualViewport(chatOpen)
 
   const loadMessages = useCallback(async (orderId) => {
     if (!orderId) return
@@ -57,7 +60,9 @@ export default function OrderTrackingPage() {
       setMessages(msgs)
       const unread = msgs.filter(m => m.sender_type === 'admin' && !m.read_at).length
       setUnreadCount(unread)
-    } catch {}
+    } catch (error) {
+      console.warn('Não foi possível carregar as mensagens:', error)
+    }
   }, [])
 
   const handleSendMessage = async () => {
@@ -82,12 +87,12 @@ export default function OrderTrackingPage() {
       getOrderMessages(order.id).then(msgs => {
         const count = msgs.filter(m => m.sender_type === 'admin' && !m.read_at).length
         setUnreadCount(count)
-      }).catch(() => {})
+      }).catch(error => console.warn('Não foi possível verificar mensagens novas:', error))
     }
     checkUnread()
     const interval = setInterval(checkUnread, 15000)
     return () => clearInterval(interval)
-  }, [order?.id, chatOpen])
+  }, [order, chatOpen])
 
   // Block body scroll when chat modal is open
   useEffect(() => {
@@ -104,10 +109,10 @@ export default function OrderTrackingPage() {
     if (!chatOpen || !order) return
     shouldScrollRef.current = true
     loadMessages(order.id)
-    markMessagesRead(order.id, 'admin').catch(() => {})
+    markMessagesRead(order.id, 'admin').catch(error => console.warn('Não foi possível marcar as mensagens como lidas:', error))
     const interval = setInterval(() => loadMessages(order.id), 10000)
     return () => clearInterval(interval)
-  }, [chatOpen, order?.id, loadMessages])
+  }, [chatOpen, order, loadMessages])
 
   // Scroll inside chat only, not the page
   useEffect(() => {
@@ -121,7 +126,7 @@ export default function OrderTrackingPage() {
   useEffect(() => {
     getSettings().then(s => {
       if (s.estimated_delivery) setEstimatedDelivery(s.estimated_delivery)
-    }).catch(() => {})
+    }).catch(error => console.warn('Não foi possível carregar o prazo estimado:', error))
   }, [])
 
   const fetchOrder = useCallback(async (num, showLoading = false) => {
@@ -142,7 +147,7 @@ export default function OrderTrackingPage() {
       setNotFound(false)
       // Load review if delivered
       if (data.status === 'entregue') {
-        getReviewByOrderId(data.id).then(r => { if (r) setReview(r) }).catch(() => {})
+        getReviewByOrderId(data.id).then(r => { if (r) setReview(r) }).catch(error => console.warn('Não foi possível carregar a avaliação:', error))
       }
     } catch {
       setOrder(null)
@@ -154,7 +159,7 @@ export default function OrderTrackingPage() {
 
   useEffect(() => {
     fetchOrder(orderNumber || lastOrder, true)
-  }, [orderNumber])
+  }, [fetchOrder, lastOrder, orderNumber])
 
   // Auto-register push if permission already granted
   useEffect(() => {
@@ -162,9 +167,9 @@ export default function OrderTrackingPage() {
     if ('Notification' in window && Notification.permission === 'granted') {
       registerPushSubscription(order.order_number)
         .then(res => { if (res.granted) setNotifEnabled(true) })
-        .catch(() => {})
+        .catch(error => console.warn('Não foi possível registrar as notificações:', error))
     }
-  }, [order?.order_number])
+  }, [order])
 
   // Auto-refresh every 30s
   useEffect(() => {
@@ -190,9 +195,9 @@ export default function OrderTrackingPage() {
         comment: comment.trim() || null,
       })
       setReview(r)
-      toast.success('Obrigado pela avaliacao!')
+      toast.success('Obrigado pela avaliação!')
     } catch {
-      toast.error('Erro ao enviar avaliacao')
+      toast.error('Erro ao enviar avaliação')
     } finally {
       setSubmittingReview(false)
     }
@@ -203,22 +208,22 @@ export default function OrderTrackingPage() {
     try {
       const result = await registerPushSubscription(order?.order_number)
       if (!result.supported) {
-        toast.error('Seu navegador nao suporta notificacoes')
+        toast.error('Seu navegador não suporta notificações')
         return
       }
       if (!result.granted) {
-        toast.error('Permissao de notificacao negada')
+        toast.error('Permissão de notificação negada')
         return
       }
       setNotifEnabled(true)
-      toast.success('Notificacoes ativadas! Voce sera avisado mesmo fora do site.')
+      toast.success('Notificações ativadas! Você será avisado mesmo fora do site.')
     } catch (err) {
       console.error('Push registration error:', err)
       // Fallback to basic notifications
       const permission = await Notification.requestPermission()
       setNotifEnabled(permission === 'granted')
       if (permission === 'granted') {
-        toast.success('Notificacoes ativadas!')
+        toast.success('Notificações ativadas!')
       }
     }
   }
@@ -230,23 +235,23 @@ export default function OrderTrackingPage() {
   // No order found - show empty state
   if (!order) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-bg-warm to-bg">
+      <div className="min-h-screen bg-cream dots-paper">
         <div className="max-w-lg mx-auto px-4 py-20 text-center">
           <div className="relative inline-block mb-6">
             <div className="absolute inset-0 bg-primary/5 rounded-full scale-150" />
             <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
           </div>
           <h2 className="font-display text-2xl font-bold mb-2 text-text">
-            {notFound ? 'Pedido nao encontrado' : 'Nenhum pedido ainda'}
+            {notFound ? 'Pedido não encontrado' : 'Nenhum pedido ainda'}
           </h2>
           <p className="text-text-light mb-8 max-w-sm mx-auto">
             {notFound
-              ? 'O pedido que voce procura nao existe.'
-              : 'Faca seu primeiro pedido e acompanhe por aqui!'}
+              ? 'O pedido que você procura não existe.'
+              : 'Faça seu primeiro pedido e acompanhe por aqui!'}
           </p>
           <Link to="/cardapio">
             <Button variant="festive" className="gap-2">
-              Ver cardapio
+              Ver cardápio
               <HiArrowRight size={18} />
             </Button>
           </Link>
@@ -256,21 +261,22 @@ export default function OrderTrackingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-bg-warm to-bg">
-      <div className="max-w-lg mx-auto px-4 py-10">
+    <div className="min-h-screen bg-cream dots-paper">
+      <div className="max-w-xl mx-auto px-4 py-10 md:py-14">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <img src="/logo.png" alt="" className="w-12 h-12 object-contain" />
+          <div className="w-20 h-20 bg-secondary rounded-full border-3 border-brown flex items-center justify-center mx-auto mb-4 shadow-[4px_4px_0_#3f6bb5]">
+            <img src="/logo.png" alt="" className="w-16 h-16 object-contain" />
           </div>
-          <h1 className="font-display text-3xl font-extrabold text-text mb-1">Acompanhar pedido</h1>
+          <p className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-festa mb-1">Direto da cozinha</p>
+          <h1 className="font-display text-4xl md:text-5xl font-black uppercase text-brown mb-1">Acompanhar pedido</h1>
           <p className="text-text-light text-sm">Veja o status do seu pedido em tempo real</p>
         </div>
 
         {order && !loading && (
           <div className="space-y-5">
             {/* Order info card */}
-            <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm">
+            <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Pedido</p>
@@ -308,7 +314,7 @@ export default function OrderTrackingPage() {
                   <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">Agendado</span>
                   <span className="text-sm font-semibold text-text">
                     {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                    {' as '}
+                    {' às '}
                     {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -332,8 +338,8 @@ export default function OrderTrackingPage() {
                 <p className="text-text-light text-sm">Este pedido foi cancelado.</p>
               </div>
             ) : (
-              <div className="bg-surface card-organic border border-border/60 p-6 shadow-sm">
-                <h2 className="font-display text-lg font-bold text-text mb-6">Status do pedido</h2>
+              <div className="bg-surface border-2 border-brown/20 p-6 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
+                <h2 className="font-display text-xl font-extrabold uppercase text-brown mb-6">Status do pedido</h2>
 
                 <div className="relative">
                   {STEPS.map((step, i) => {
@@ -383,7 +389,7 @@ export default function OrderTrackingPage() {
                               isCurrent ? 'text-accent font-semibold' : 'text-text-light'
                             }`}
                           >
-                            {isCurrent ? step.description : isCompleted ? 'Concluido' : 'Aguardando'}
+                            {isCurrent ? step.description : isCompleted ? 'Concluído' : 'Aguardando'}
                           </p>
                         </div>
                       </div>
@@ -399,13 +405,13 @@ export default function OrderTrackingPage() {
                       className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/5 text-primary font-display font-bold text-sm hover:bg-primary/10 transition-colors cursor-pointer"
                     >
                       <HiBell size={16} />
-                      Ativar notificacoes
+                      Ativar notificações
                     </button>
                   )}
                   {notifEnabled && (
                     <p className="text-center text-accent text-xs font-semibold flex items-center justify-center gap-1">
                       <HiBell size={14} />
-                      Notificacoes ativadas
+                      Notificações ativadas
                     </p>
                   )}
                   <p className="text-center text-text-light text-xs">
@@ -419,7 +425,7 @@ export default function OrderTrackingPage() {
             {order.status !== 'cancelado' && order.status !== 'entregue' && !chatOpen && (
               <button
                 onClick={() => setChatOpen(true)}
-                className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-all cursor-pointer hover:scale-105"
+                className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-colors duration-[--duration-fast] ease-[--ease-interaction] cursor-pointer"
               >
                 <HiChat size={26} />
                 {unreadCount > 0 && (
@@ -432,15 +438,20 @@ export default function OrderTrackingPage() {
 
             {/* Chat modal */}
             {chatOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              // Ancorado na visualViewport, nao em vh: com o teclado aberto o
+              // iOS desloca a tela e 75vh transborda para tras do teclado.
+              <div
+                className="fixed left-0 right-0 z-50 flex items-center justify-center p-4"
+                style={{ top: areaVisivel.top, height: areaVisivel.height }}
+              >
                 <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
-                <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl flex flex-col h-[75vh] sm:h-[70vh]" style={{ overscrollBehavior: 'contain' }}>
+                <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl flex flex-col h-full max-h-[600px]" style={{ overscrollBehavior: 'contain' }}>
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center gap-3">
-                      <img src="/logo.png" alt="Coxita" className="w-9 h-9 rounded-full object-cover" />
+                      <img src="/logo.png" alt="Coxelli" className="w-9 h-9 rounded-full object-cover" />
                       <div>
-                        <p className="font-display font-bold text-sm text-text">Coxita</p>
+                        <p className="font-display font-bold text-sm text-text">Coxelli</p>
                         <p className="text-[11px] text-green-500 font-medium">Online</p>
                       </div>
                     </div>
@@ -468,7 +479,7 @@ export default function OrderTrackingPage() {
                               : 'bg-white border border-gray-200 text-text rounded-2xl rounded-bl-sm shadow-sm'
                           }`}>
                             {msg.sender_type === 'admin' && (
-                              <p className="text-[10px] font-bold text-primary mb-0.5">Coxita</p>
+                              <p className="text-[10px] font-bold text-primary mb-0.5">Coxelli</p>
                             )}
                             <p className="leading-relaxed">{msg.message}</p>
                             <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
@@ -512,16 +523,30 @@ export default function OrderTrackingPage() {
             )}
 
             {/* Items */}
-            <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm">
-              <h3 className="font-display font-bold text-text mb-3">Itens do pedido</h3>
+            <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
+              <h3 className="font-display font-extrabold uppercase text-brown mb-3">Itens do pedido</h3>
               <div className="space-y-2">
                 {order.order_items?.map(item => (
-                  <div key={item.id} className="flex justify-between items-center text-sm">
-                    <span className="text-text">
-                      <span className="font-bold text-primary">{item.quantity}x</span>{' '}
-                      {item.product_name}
-                    </span>
-                    <span className="font-semibold text-text">{formatCurrency(item.total_price)}</span>
+                  <div key={item.id} className="text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-text">
+                        <span className="font-bold text-primary">{item.quantity}x</span>{' '}
+                        {item.product_name}
+                      </span>
+                      <span className="font-semibold text-text">{formatCurrency(item.total_price)}</span>
+                    </div>
+                    {item.order_item_flavors?.length > 0 && (
+                      <ul className="mt-1 ml-5 space-y-0.5">
+                        {item.order_item_flavors.map(sabor => (
+                          <li key={sabor.id} className="text-text-light text-xs">
+                            <span className="font-semibold tabular-nums">
+                              {sabor.quantity * item.quantity}x
+                            </span>{' '}
+                            {sabor.flavor_name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 ))}
               </div>
@@ -545,7 +570,7 @@ export default function OrderTrackingPage() {
           <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm mt-5">
             {review ? (
               <div className="text-center">
-                <h3 className="font-display font-bold text-text mb-2">Sua avaliacao</h3>
+                <h3 className="font-display font-bold text-text mb-2">Sua avaliação</h3>
                 <div className="flex justify-center gap-1 mb-2">
                   {[1, 2, 3, 4, 5].map(star => (
                     <HiStar
@@ -563,7 +588,7 @@ export default function OrderTrackingPage() {
             ) : (
               <div>
                 <h3 className="font-display font-bold text-text mb-1 text-center">Como foi seu pedido?</h3>
-                <p className="text-text-light text-xs text-center mb-4">Sua opiniao nos ajuda a melhorar</p>
+                <p className="text-text-light text-xs text-center mb-4">Sua opinião nos ajuda a melhorar</p>
 
                 {/* Stars */}
                 <div className="flex justify-center gap-2 mb-4">
@@ -571,7 +596,7 @@ export default function OrderTrackingPage() {
                     <button
                       key={star}
                       onClick={() => setRating(star)}
-                      className="cursor-pointer transition-transform hover:scale-125"
+                      className="cursor-pointer transition-transform duration-[--duration-fast] ease-[--ease-interaction] hover:scale-110"
                     >
                       <HiStar
                         size={32}
@@ -596,7 +621,7 @@ export default function OrderTrackingPage() {
                   value={comment}
                   onChange={e => setComment(e.target.value)}
                   rows={3}
-                  placeholder="Deixe um comentario (opcional)"
+                  placeholder="Deixe um comentário (opcional)"
                   className="w-full px-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary resize-none transition-colors font-body text-sm mb-3"
                 />
 
@@ -605,7 +630,7 @@ export default function OrderTrackingPage() {
                   disabled={rating === 0 || submittingReview}
                   className="w-full py-3 rounded-xl font-bold font-display bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  {submittingReview ? 'Enviando...' : 'Enviar avaliacao'}
+                  {submittingReview ? 'Enviando...' : 'Enviar avaliação'}
                 </button>
               </div>
             )}
@@ -616,7 +641,7 @@ export default function OrderTrackingPage() {
         <Link to="/" className="block mt-8">
           <Button variant="outline" className="w-full gap-2">
             <HiHome size={18} />
-            Voltar ao inicio
+            Voltar ao início
           </Button>
         </Link>
       </div>

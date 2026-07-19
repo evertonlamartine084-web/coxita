@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts } from '../../services/orders'
 import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
@@ -28,7 +28,7 @@ export default function OrdersPage() {
   const [unreadCounts, setUnreadCounts] = useState({})
   const adminShouldScrollRef = useRef(false)
 
-  const loadOrders = (showLoading = false) => {
+  const loadOrders = useCallback((showLoading = false) => {
     if (showLoading) setLoading(true)
     getOrders(filter || null)
       .then(data => {
@@ -45,16 +45,16 @@ export default function OrdersPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-    getUnreadMessageCounts().then(setUnreadCounts).catch(() => {})
-  }
+    getUnreadMessageCounts().then(setUnreadCounts).catch(error => console.warn('Não foi possível carregar as mensagens não lidas:', error))
+  }, [filter])
 
-  useEffect(() => { loadOrders(true) }, [filter])
+  useEffect(() => { loadOrders(true) }, [loadOrders])
 
   // Auto-reload every 15 seconds (silent, no loading spinner)
   useEffect(() => {
     const interval = setInterval(() => loadOrders(false), 15000)
     return () => clearInterval(interval)
-  }, [filter])
+  }, [loadOrders])
 
   // Load chat messages when order is selected
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function OrdersPage() {
     load()
     const interval = setInterval(load, 5000)
     return () => clearInterval(interval)
-  }, [selectedOrder?.id])
+  }, [selectedOrder])
 
   useEffect(() => {
     if (adminShouldScrollRef.current) {
@@ -295,9 +295,27 @@ export default function OrdersPage() {
             <div className="border-t border-border pt-3">
               <h4 className="font-medium mb-2">Itens</h4>
               {selectedOrder.order_items?.map(item => (
-                <div key={item.id} className="flex justify-between text-sm py-1">
-                  <span>{item.quantity}x {item.product_name}</span>
-                  <span>{formatCurrency(item.total_price)}</span>
+                <div key={item.id} className="text-sm py-1">
+                  <div className="flex justify-between">
+                    <span>{item.quantity}x {item.product_name}</span>
+                    <span>{formatCurrency(item.total_price)}</span>
+                  </div>
+                  {item.order_item_flavors?.length > 0 && (
+                    <ul className="mt-1 ml-4 space-y-0.5">
+                      {item.order_item_flavors.map(sabor => (
+                        <li key={sabor.id} className="text-text-light text-xs">
+                          {/* quantity e por pacote; a cozinha precisa do total */}
+                          <span className="font-semibold tabular-nums">
+                            {sabor.quantity * item.quantity}x
+                          </span>{' '}
+                          {sabor.flavor_name}
+                          {item.quantity > 1 && (
+                            <span className="opacity-70"> ({sabor.quantity} por pacote)</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
               <div className="border-t border-border mt-2 pt-2 space-y-1 text-sm">

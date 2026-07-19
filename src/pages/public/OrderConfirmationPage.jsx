@@ -42,23 +42,23 @@ export default function OrderConfirmationPage() {
   if (loading) return <Loading />
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-bg-warm to-bg">
-      <div className="max-w-lg mx-auto px-4 py-10">
+    <div className="min-h-screen bg-cream dots-paper">
+      <div className="max-w-xl mx-auto px-4 py-10 md:py-14">
         {/* Success header */}
         <div className="text-center mb-8">
           <div className="relative inline-block mb-5">
-            <div className="absolute inset-0 bg-accent/10 rounded-full scale-[2] animate-ping opacity-30" />
-            <div className="relative w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
-              <img src="/logo.png" alt="" className="w-14 h-14 object-contain" />
+            <div className="relative w-24 h-24 bg-secondary rounded-full border-4 border-brown flex items-center justify-center mx-auto shadow-[5px_5px_0_#3f6bb5]">
+              <HiCheck className="text-brown" size={46} />
             </div>
           </div>
 
-          <h1 className="font-display text-3xl font-extrabold text-text mb-2">Pedido confirmado!</h1>
-          <p className="text-text-light">Seu pedido foi recebido com sucesso</p>
+          <p className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-festa mb-1">Já chegou na cozinha</p>
+          <h1 className="font-display text-4xl md:text-5xl font-black uppercase text-brown mb-2">Pedido confirmado!</h1>
+          <p className="text-text-light">Agora é só acompanhar o preparo.</p>
 
-          <div className="bg-surface card-organic border-2 border-dashed border-secondary p-6 my-6 shadow-sm">
-            <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Numero do pedido</p>
-            <p className="font-display text-4xl font-extrabold text-primary mt-1">#{orderNumber}</p>
+          <div className="bg-surface border-3 border-brown p-6 my-6 shadow-[5px_5px_0_#ffcd5e]">
+            <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Número do pedido</p>
+            <p className="font-display text-5xl font-black text-primary mt-1">#{orderNumber}</p>
           </div>
 
           {order?.scheduled_for && (
@@ -66,7 +66,7 @@ export default function OrderConfirmationPage() {
               <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Agendado para</p>
               <p className="font-display text-lg font-bold text-primary mt-1">
                 {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}
-                {' as '}
+                {' às '}
                 {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -81,7 +81,7 @@ export default function OrderConfirmationPage() {
                 <HiClipboardCopy className="text-accent" size={24} />
               </div>
               <h2 className="font-display text-lg font-bold text-accent">Pagamento via Pix</h2>
-              <p className="text-sm text-accent/70 mt-0.5">Faca o pagamento para confirmar</p>
+              <p className="text-sm text-accent/70 mt-0.5">Faça o pagamento para confirmar</p>
             </div>
 
             <div className="bg-white rounded-xl p-4 mb-3 shadow-sm">
@@ -128,7 +128,7 @@ export default function OrderConfirmationPage() {
             </div>
             <h2 className="font-display text-lg font-bold text-primary-dark">Pagamento em dinheiro</h2>
             <p className="text-sm text-text-warm mt-2">
-              Tenha <strong>{formatCurrency(order.total)}</strong> em maos na hora da entrega.
+              Tenha <strong>{formatCurrency(order.total)}</strong> em mãos na hora da entrega.
             </p>
             {order.change_for && (
               <p className="text-sm text-text-warm mt-1">
@@ -148,7 +148,7 @@ export default function OrderConfirmationPage() {
               Pagamento no {PAYMENT_LABELS[order.payment_method]}
             </h2>
             <p className="text-sm text-text-warm mt-2">
-              O pagamento de <strong>{formatCurrency(order.total)}</strong> sera feito na entrega/retirada.
+              O pagamento de <strong>{formatCurrency(order.total)}</strong> será feito na entrega ou retirada.
             </p>
           </div>
         )}
@@ -168,7 +168,7 @@ export default function OrderConfirmationPage() {
         <Link to="/" className="block mt-3">
           <Button variant="outline" className="w-full gap-2">
             <HiHome size={18} />
-            Voltar ao inicio
+            Voltar ao início
           </Button>
         </Link>
       </div>

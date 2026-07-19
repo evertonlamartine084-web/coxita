@@ -9,7 +9,7 @@ const PAYMENT_LABELS = {
 
 export function buildOrderMessage(order, items) {
   const lines = [
-    `🍗 *NOVO PEDIDO - COXITA* 🍗`,
+    `🍗 *NOVO PEDIDO - COXELLI* 🍗`,
     `━━━━━━━━━━━━━━━━━━`,
     `📋 *Pedido #${order.order_number}*`,
     ``,
@@ -34,6 +34,15 @@ export function buildOrderMessage(order, items) {
 
   items.forEach(item => {
     lines.push(`  ${item.quantity}x ${item.product_name || item.name} — ${formatCurrency(item.unit_price || item.price)}`)
+    // `flavors` vem do carrinho; `order_item_flavors`, do banco.
+    const sabores = item.flavors || item.order_item_flavors || []
+    sabores.forEach(sabor => {
+      // Quantidade gravada e por pacote. Aqui vai o total a fritar.
+      const total = sabor.quantity * item.quantity
+      const nome = sabor.flavor_name || sabor.name
+      const porPacote = item.quantity > 1 ? ` (${sabor.quantity} x ${item.quantity} pacotes)` : ''
+      lines.push(`      • ${total}x ${nome}${porPacote}`)
+    })
   })
 
   lines.push(`━━━━━━━━━━━━━━━━━━`)

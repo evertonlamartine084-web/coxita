@@ -1,8 +1,8 @@
 import toast from 'react-hot-toast'
 
-export default function ShareButtons({ orderNumber, total }) {
+export default function ShareButtons({ orderNumber }) {
   const siteUrl = window.location.origin
-  const message = `Acabei de pedir na Coxita! Pedido #${orderNumber} - Coxinhas artesanais incriveis! Pede tambem: ${siteUrl}`
+  const message = `Acabei de pedir na Coxelli! Pedido #${orderNumber} — salgados incríveis, com sabor que é do Nordeste. Pede também: ${siteUrl}`
 
   const shareWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
@@ -17,11 +17,13 @@ export default function ShareButtons({ orderNumber, total }) {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Coxita - Coxinhas Artesanais',
+          title: 'Coxelli - Sabor que é do Nordeste',
           text: message,
           url: siteUrl,
         })
-      } catch {}
+      } catch (error) {
+        if (error?.name !== 'AbortError') toast.error('Não foi possível compartilhar agora.')
+      }
     }
   }
 

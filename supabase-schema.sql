@@ -1,5 +1,5 @@
 -- ========================================
--- COXITA - Supabase Database Schema
+-- COXELLI - Supabase Database Schema
 -- ========================================
 
 -- 1. CATEGORIES
@@ -42,6 +42,7 @@ create table orders (
   customer_name text not null,
   customer_phone text not null,
   delivery_type text not null check (delivery_type in ('entrega', 'retirada')),
+  address_cep text,
   address text,
   neighborhood text,
   address_number text,
@@ -86,7 +87,7 @@ create table settings (
 
 -- Default settings
 insert into settings (key, value) values
-  ('store_name', 'Coxita'),
+  ('store_name', 'Coxelli'),
   ('logo_url', ''),
   ('whatsapp', ''),
   ('address', ''),
@@ -94,7 +95,7 @@ insert into settings (key, value) values
   ('delivery_fee', '5.00'),
   ('min_order', '15.00'),
   ('pix_key', ''),
-  ('pix_name', 'Coxita Ltda');
+  ('pix_name', 'Coxelli Salgados');
 
 -- Default categories
 insert into categories (name, slug, sort_order) values
@@ -134,7 +135,20 @@ create table reviews (
 create index idx_reviews_order on reviews(order_id);
 create index idx_reviews_rating on reviews(rating);
 
--- 8. PUSH SUBSCRIPTIONS (Web Push)
+-- 8. ORDER MESSAGES (chat do pedido)
+create table order_messages (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid references orders(id) on delete cascade not null,
+  sender_type text not null check (sender_type in ('customer', 'admin')),
+  message text not null,
+  read_at timestamptz,
+  created_at timestamptz default now()
+);
+
+create index idx_order_messages_order on order_messages(order_id);
+create index idx_order_messages_unread on order_messages(sender_type, read_at);
+
+-- 9. PUSH SUBSCRIPTIONS (Web Push)
 create table push_subscriptions (
   id uuid primary key default gen_random_uuid(),
   endpoint text not null,
@@ -158,6 +172,7 @@ alter table order_items enable row level security;
 alter table settings enable row level security;
 alter table coupons enable row level security;
 alter table reviews enable row level security;
+alter table order_messages enable row level security;
 alter table push_subscriptions enable row level security;
 
 -- Public read for categories, products, settings
@@ -188,6 +203,12 @@ create policy "orders_admin_all" on orders for all using (auth.role() = 'authent
 create policy "order_items_admin_all" on order_items for all using (auth.role() = 'authenticated');
 create policy "settings_admin_all" on settings for all using (auth.role() = 'authenticated');
 create policy "reviews_admin_all" on reviews for all using (auth.role() = 'authenticated');
+
+-- Chat do pedido: cliente acompanha pelo numero do pedido, sem login
+create policy "order_messages_public_read" on order_messages for select using (true);
+create policy "order_messages_public_insert" on order_messages for insert with check (true);
+create policy "order_messages_public_update" on order_messages for update using (true);
+create policy "order_messages_admin_all" on order_messages for all using (auth.role() = 'authenticated');
 
 -- Push subscriptions: public insert/read, admin all
 create policy "push_subs_public_insert" on push_subscriptions for insert with check (true);

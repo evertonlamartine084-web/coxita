@@ -30,7 +30,7 @@ export default function ReviewsPage() {
       <h1 className="text-2xl font-bold mb-6">Avaliacoes</h1>
 
       {reviews.length === 0 ? (
-        <p className="text-gray-500">Nenhuma avaliacao ainda.</p>
+        <p className="text-gray-500">Nenhuma avaliação ainda.</p>
       ) : (
         <>
           {/* Summary */}

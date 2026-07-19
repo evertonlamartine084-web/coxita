@@ -7,7 +7,7 @@ import { createOrder, getActiveOrderByNumbers } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import { createPaymentPreference } from '../../services/payment'
 import { notifyNewOrder } from '../../services/notifications'
-import { validateCoupon, useCoupon } from '../../services/coupons'
+import { validateCoupon, useCoupon as registerCouponUse } from '../../services/coupons'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
@@ -33,7 +33,7 @@ const initialForm = {
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
-  const { items, getSubtotal, deliveryFee, setDeliveryFee, getTotal, clearCart } = useCartStore()
+  const { items, getSubtotal, deliveryFee, setDeliveryFee, clearCart } = useCartStore()
   const addLoyaltyItems = useLoyaltyStore(s => s.addItems)
   const [form, setForm] = useState(initialForm)
   const [settings, setSettingsData] = useState({})
@@ -69,7 +69,7 @@ export default function CheckoutPage() {
         setCouponError(result.error)
         setAppliedCoupon(null)
       } else if (result.coupon.min_order > 0 && getSubtotal() < result.coupon.min_order) {
-        setCouponError(`Pedido minimo de ${formatCurrency(result.coupon.min_order)} para este cupom`)
+        setCouponError(`Pedido mínimo de ${formatCurrency(result.coupon.min_order)} para este cupom`)
         setAppliedCoupon(null)
       } else {
         setAppliedCoupon(result.coupon)
@@ -108,7 +108,7 @@ export default function CheckoutPage() {
     if (myOrders.length > 0) {
       getActiveOrderByNumbers(myOrders).then(order => {
         if (order) setActiveOrder(order)
-      }).catch(() => {})
+      }).catch(error => console.warn('Não foi possível verificar pedidos ativos:', error))
     }
 
     // Auto-fill with saved customer data
@@ -127,9 +127,11 @@ export default function CheckoutPage() {
           address_complement: data.address_complement || '',
           address_reference: data.address_reference || '',
         }))
-      } catch {}
+      } catch (error) {
+        console.warn('Dados salvos do cliente estão inválidos:', error)
+      }
     }
-  }, [])
+  }, [items.length, navigate, setDeliveryFee])
 
   const handleCepBlur = async () => {
     const cep = form.address_cep.replace(/\D/g, '')
@@ -145,7 +147,9 @@ export default function CheckoutPage() {
           neighborhood: data.bairro || f.neighborhood,
         }))
       }
-    } catch {}
+    } catch (error) {
+      console.warn('Não foi possível consultar o CEP:', error)
+    }
     finally { setCepLoading(false) }
   }
 
@@ -155,7 +159,7 @@ export default function CheckoutPage() {
     } else {
       setDeliveryFee(parseFloat(settings.delivery_fee || '0'))
     }
-  }, [form.delivery_type, settings])
+  }, [form.delivery_type, settings, setDeliveryFee])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -165,16 +169,16 @@ export default function CheckoutPage() {
 
   const validate = () => {
     const errs = {}
-    if (!form.customer_name.trim()) errs.customer_name = 'Nome obrigatorio'
-    if (!form.customer_phone.trim()) errs.customer_phone = 'Telefone obrigatorio'
+    if (!form.customer_name.trim()) errs.customer_name = 'Nome obrigatório'
+    if (!form.customer_phone.trim()) errs.customer_phone = 'Telefone obrigatório'
     if (form.delivery_type === 'entrega') {
-      if (!form.address.trim()) errs.address = 'Endereco obrigatorio'
-      if (!form.neighborhood.trim()) errs.neighborhood = 'Bairro obrigatorio'
-      if (!form.address_number.trim()) errs.address_number = 'Numero obrigatorio'
+      if (!form.address.trim()) errs.address = 'Endereço obrigatório'
+      if (!form.neighborhood.trim()) errs.neighborhood = 'Bairro obrigatório'
+      if (!form.address_number.trim()) errs.address_number = 'Número obrigatório'
     }
     if (form.order_type === 'agendado') {
       if (!form.scheduled_date) errs.scheduled_date = 'Selecione a data'
-      if (!form.scheduled_time) errs.scheduled_time = 'Selecione o horario'
+      if (!form.scheduled_time) errs.scheduled_time = 'Selecione o horário'
       if (form.scheduled_date && form.scheduled_time) {
         const scheduled = new Date(`${form.scheduled_date}T${form.scheduled_time}`)
         if (scheduled <= new Date()) errs.scheduled_date = 'Data/hora deve ser no futuro'
@@ -182,7 +186,7 @@ export default function CheckoutPage() {
     }
     const minOrder = parseFloat(settings.min_order || '0')
     if (minOrder > 0 && getSubtotal() < minOrder) {
-      errs.min_order = `Pedido minimo: ${formatCurrency(minOrder)}`
+      errs.min_order = `Pedido mínimo: ${formatCurrency(minOrder)}`
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -221,7 +225,7 @@ export default function CheckoutPage() {
 
       // Increment coupon usage
       if (appliedCoupon) {
-        useCoupon(appliedCoupon.id).catch(() => {})
+        registerCouponUse(appliedCoupon.id).catch(error => console.warn('Não foi possível atualizar o uso do cupom:', error))
       }
 
       // Loyalty points
@@ -246,7 +250,14 @@ export default function CheckoutPage() {
         address_reference: form.address_reference.trim(),
       }))
       localStorage.setItem('coxita-last-order-items', JSON.stringify(
-        items.map(i => ({ id: i.id, name: i.name, price: i.price, image_url: i.image_url }))
+        items.map(i => ({
+          id: i.id,
+          name: i.name,
+          price: i.price,
+          image_url: i.image_url,
+          pack_size: i.pack_size,
+          flavors: i.flavors,
+        }))
       ))
 
       if (form.payment_method === 'credito' || form.payment_method === 'debito') {
@@ -273,14 +284,15 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-bg-warm to-bg">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-cream dots-paper">
+      <div className="max-w-3xl mx-auto px-4 py-8 md:py-12">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <img src="/logo.png" alt="" className="w-10 h-10 object-contain" />
+        <div className="flex items-center gap-4 mb-8">
+          <img src="/logo.png" alt="" className="w-14 h-14 object-contain rounded-full border-2 border-brown bg-cream" />
           <div>
-            <h1 className="font-display text-2xl font-extrabold text-text">Finalizar pedido</h1>
-            <p className="text-text-light text-sm">Preencha os dados para enviar</p>
+            <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-festa">Última etapa</p>
+            <h1 className="font-display text-3xl md:text-4xl font-black uppercase text-brown leading-none">Finalizar pedido</h1>
+            <p className="text-text-light text-sm mt-1">Confira os dados antes de mandar para a cozinha.</p>
           </div>
         </div>
 
@@ -301,8 +313,8 @@ export default function CheckoutPage() {
 
         {activeOrder && (
           <div className="bg-secondary/10 border-2 border-secondary/30 rounded-xl p-5 mb-6 text-center">
-            <p className="text-lg font-display font-bold text-text mb-2">Voce ja tem um pedido em andamento!</p>
-            <p className="text-sm text-text-light mb-4">Pedido #{activeOrder.order_number} esta em aberto. Aguarde a conclusao para fazer outro.</p>
+            <p className="text-lg font-display font-bold text-text mb-2">Você já tem um pedido em andamento!</p>
+            <p className="text-sm text-text-light mb-4">O pedido #{activeOrder.order_number} está em aberto. Aguarde a conclusão para fazer outro.</p>
             <Link
               to={`/acompanhar/${activeOrder.order_number}`}
               className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl no-underline hover:bg-primary-dark transition-colors"
@@ -357,9 +369,9 @@ export default function CheckoutPage() {
             </div>
           </CheckoutSection>
 
-          {/* Endereco */}
+          {/* Endereço */}
           {form.delivery_type === 'entrega' && (
-            <CheckoutSection title="Endereco" step="">
+            <CheckoutSection title="Endereço" step="">
               <div className="relative">
                 <Input
                   label="CEP"
@@ -375,21 +387,21 @@ export default function CheckoutPage() {
               </div>
               <Input label="Rua *" name="address" value={form.address} onChange={handleChange} error={errors.address} />
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Numero *" name="address_number" value={form.address_number} onChange={handleChange} error={errors.address_number} />
+                <Input label="Número *" name="address_number" value={form.address_number} onChange={handleChange} error={errors.address_number} />
                 <Input label="Complemento" name="address_complement" value={form.address_complement} onChange={handleChange} />
               </div>
               <Input label="Bairro *" name="neighborhood" value={form.neighborhood} onChange={handleChange} error={errors.neighborhood} />
-              <Input label="Referencia" name="address_reference" value={form.address_reference} onChange={handleChange} placeholder="Proximo a..." />
+              <Input label="Referência" name="address_reference" value={form.address_reference} onChange={handleChange} placeholder="Próximo a..." />
             </CheckoutSection>
           )}
 
           {/* Quando receber */}
-          <CheckoutSection title="Quando voce quer?" step="">
+          <CheckoutSection title="Quando você quer?" step="">
             {storeClosed && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
                 <p className="text-sm font-bold text-yellow-700">Estamos fechados no momento</p>
                 <p className="text-xs text-yellow-600 mt-0.5">
-                  Horario: {settings.opening_time} - {settings.closing_time}. Agende seu pedido!
+                  Horário: {settings.opening_time}–{settings.closing_time}. Agende seu pedido!
                 </p>
               </div>
             )}
@@ -399,7 +411,7 @@ export default function CheckoutPage() {
                 onChange={() => !storeClosed && handleChange({ target: { name: 'order_type', value: 'agora' } })}
                 icon={<HiLightningBolt size={22} />}
                 label="Agora"
-                sublabel={storeClosed ? 'Indisponivel agora' : 'O mais rapido possivel'}
+                sublabel={storeClosed ? 'Indisponível agora' : 'O mais rápido possível'}
                 name="order_type"
                 value="agora"
                 disabled={storeClosed}
@@ -432,7 +444,7 @@ export default function CheckoutPage() {
                   {errors.scheduled_date && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.scheduled_date}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Horario *</label>
+                  <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Horário *</label>
                   <input
                     type="time"
                     name="scheduled_time"
@@ -454,8 +466,8 @@ export default function CheckoutPage() {
               {[
                 { value: 'pix', label: 'Pix', icon: <HiDeviceMobile size={20} /> },
                 { value: 'dinheiro', label: 'Dinheiro', icon: <HiCash size={20} /> },
-                { value: 'credito', label: 'Credito', icon: <HiCreditCard size={20} /> },
-                { value: 'debito', label: 'Debito', icon: <HiCreditCard size={20} /> },
+                { value: 'credito', label: 'Crédito', icon: <HiCreditCard size={20} /> },
+                { value: 'debito', label: 'Débito', icon: <HiCreditCard size={20} /> },
               ].map(opt => (
                 <label key={opt.value} className={`flex items-center gap-2.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                   form.payment_method === opt.value
@@ -502,15 +514,15 @@ export default function CheckoutPage() {
             )}
           </CheckoutSection>
 
-          {/* Observacoes */}
-          <CheckoutSection title="Observacoes" step="">
+          {/* Observações */}
+          <CheckoutSection title="Observações" step="">
             <textarea
               name="notes"
               value={form.notes}
               onChange={handleChange}
               rows={3}
               className="w-full px-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary resize-none transition-colors font-body text-sm"
-              placeholder="Alguma observacao sobre o pedido?"
+              placeholder="Alguma observação sobre o pedido?"
             />
           </CheckoutSection>
 
@@ -539,7 +551,7 @@ export default function CheckoutPage() {
                     type="text"
                     value={couponCode}
                     onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                    placeholder="Digite o codigo"
+                    placeholder="Digite o código"
                     className="flex-1 px-4 py-2.5 border-2 border-border rounded-xl outline-none focus:border-primary font-mono text-sm uppercase"
                   />
                   <button
@@ -560,10 +572,15 @@ export default function CheckoutPage() {
           <CheckoutSection title="Resumo do pedido" step="4">
             <div className="space-y-2">
               {items.map(item => (
-                <div key={item.id} className="flex justify-between text-sm py-1.5">
+                <div key={item.lineId} className="flex justify-between text-sm py-1.5">
                   <span className="text-text-warm">
                     <span className="font-bold text-primary mr-1">{item.quantity}x</span>
                     {item.name}
+                    {item.flavors?.length > 0 && (
+                      <span className="block text-text-light text-xs mt-0.5">
+                        {item.flavors.map(f => `${f.quantity * item.quantity}x ${f.name}`).join(', ')}
+                      </span>
+                    )}
                   </span>
                   <span className="font-semibold">{formatCurrency(item.price * item.quantity)}</span>
                 </div>
@@ -583,7 +600,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between text-sm text-text-light">
                 <span>Taxa de entrega</span>
                 <span className={deliveryFee === 0 ? 'text-accent font-semibold' : ''}>
-                  {deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Gratis'}
+                  {deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis'}
                 </span>
               </div>
               <div className="flex justify-between pt-3 border-t border-border">
@@ -599,7 +616,7 @@ export default function CheckoutPage() {
 
           <Button
             type="submit"
-            className="w-full pulse-glow"
+            className="w-full"
             size="lg"
             variant="festive"
             disabled={submitting}
@@ -614,14 +631,14 @@ export default function CheckoutPage() {
 
 function CheckoutSection({ title, step, children }) {
   return (
-    <section className="bg-surface card-organic border border-border/60 p-5 shadow-sm space-y-4">
+    <section className="bg-surface border-2 border-brown/20 p-5 md:p-6 shadow-[4px_4px_0_rgba(93,43,4,0.12)] space-y-4">
       <div className="flex items-center gap-2">
         {step && (
-          <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center font-display">
+          <span className="w-7 h-7 bg-secondary text-brown border border-brown text-xs font-extrabold flex items-center justify-center font-display">
             {step}
           </span>
         )}
-        <h2 className="font-display font-bold text-lg">{title}</h2>
+        <h2 className="font-display font-extrabold uppercase tracking-wide text-lg text-brown">{title}</h2>
       </div>
       {children}
     </section>

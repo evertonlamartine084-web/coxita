@@ -1,7 +1,7 @@
 // Service Worker for Web Push Notifications
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Coxita', body: 'Novidade no seu pedido!' }
+  let data = { title: 'Coxelli', body: 'Novidade no seu pedido!' }
 
   if (event.data) {
     try {
@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
       body: data.body,
       icon: '/logo-192.png',
       badge: '/logo-192.png',
-      tag: 'coxita-' + (data.url || 'general'),
+      tag: 'coxelli-' + (data.url || 'general'),
       renotify: true,
       requireInteraction: false,
       silent: false,
@@ -39,3 +39,4 @@ self.addEventListener('notificationclick', (event) => {
     })
   )
 })
+/* global clients */

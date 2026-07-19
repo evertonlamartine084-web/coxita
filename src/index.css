@@ -1,28 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #c2410c;
-  --color-primary-dark: #9a3412;
-  --color-primary-light: #ea580c;
-  --color-secondary: #facc15;
-  --color-secondary-dark: #eab308;
-  --color-accent: #15803d;
-  --color-accent-light: #22c55e;
-  --color-bg: #fffbf5;
-  --color-bg-warm: #fef3e2;
+  /* Cores da identidade Coxelli, como aparecem no logo e nas embalagens.
+     Use-as em superfícies e ilustração, nunca atrás de texto pequeno:
+     o laranja da marca só atinge 2.45:1 com branco. */
+  --color-brand: #f28c28;
+  --color-brand-amber: #ffb347;
+  --color-sun: #ffcd5e;
+  --color-cactus: #4c7d2c;
+  --color-brown: #5d2b04;
+  --color-cream: #fff2e3;
+
+  /* Escala interativa: laranja da marca escurecido até passar WCAG AA
+     (>=4.5:1 com branco), porque primary carrega texto e ícones. */
+  --color-primary: #bc5510;
+  --color-primary-dark: #9c4109;
+  --color-primary-light: #f28c28;
+  --color-secondary: #ffcd5e;
+  --color-secondary-dark: #ffb347;
+  --color-accent: #4c7d2c;
+  --color-accent-light: #5c9435;
+  --color-bg: #fff9f2;
+  --color-bg-warm: #fff2e3;
   --color-surface: #ffffff;
-  --color-surface-warm: #fff8ed;
-  --color-text: #292524;
-  --color-text-light: #78716c;
-  --color-text-warm: #44403c;
-  --color-border: #e7e5e4;
-  --color-border-warm: #d6d3d1;
+  --color-surface-warm: #fff6eb;
+  --color-text: #3d2410;
+  --color-text-light: #7d5e47;
+  --color-text-warm: #5d3418;
+  --color-border: #ebdfd0;
+  --color-border-warm: #dcc9b4;
   --color-danger: #dc2626;
   --color-success: #16a34a;
-  --color-festa: #7c3aed;
-  --color-festa-light: #a78bfa;
-  --font-display: 'Baloo 2', cursive;
-  --font-body: 'Nunito', sans-serif;
+  --color-festa: #3f6bb5;
+  --color-festa-light: #6b93cb;
+  --font-display: 'Barlow Condensed', Arial, sans-serif;
+  --font-body: 'Barlow', Arial, sans-serif;
+
+  /* Motion. Uma curva só para entrada (desacelera até parar, nunca ultrapassa
+     o alvo) e uma para interação. Sem bounce: overshoot chama atenção para a
+     animação em vez do conteúdo. */
+  --ease-entrance: cubic-bezier(0.28, 0.11, 0.32, 1);
+  --ease-interaction: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 180ms;
+  --duration-base: 320ms;
+  --duration-slow: 760ms;
 }
 
 body {
@@ -31,6 +52,7 @@ body {
   color: var(--color-text);
   margin: 0;
   -webkit-font-smoothing: antialiased;
+  font-size: 17px;
 }
 
 * {
@@ -39,149 +61,120 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
+  text-wrap: balance;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 
-/* Xadrez pattern - festa junina */
-.bg-xadrez {
-  background-image:
-    linear-gradient(45deg, rgba(194, 65, 12, 0.06) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(194, 65, 12, 0.06) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(194, 65, 12, 0.06) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(194, 65, 12, 0.06) 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+/* Entrada por scroll. Opacidade e um deslocamento curto — 16px, o suficiente
+   para o olho registrar direção sem que o texto "voe". O delay do stagger vem
+   inline via --reveal-delay. */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition:
+    opacity var(--duration-slow) var(--ease-entrance) var(--reveal-delay, 0ms),
+    transform var(--duration-slow) var(--ease-entrance) var(--reveal-delay, 0ms);
 }
 
-/* Bandeirinhas border */
-.bandeirinhas {
-  position: relative;
-}
-.bandeirinhas::after {
-  content: '';
-  position: absolute;
-  bottom: -12px;
-  left: 0;
-  right: 0;
-  height: 24px;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'%3E%3Cpath d='M0 0 L10 0 L5 18 Z' fill='%23facc15'/%3E%3Cpath d='M15 0 L25 0 L20 18 Z' fill='%23ea580c'/%3E%3Cpath d='M30 0 L40 0 L35 18 Z' fill='%2322c55e'/%3E%3Cpath d='M45 0 L55 0 L50 18 Z' fill='%237c3aed'/%3E%3C/svg%3E");
-  background-repeat: repeat-x;
-  background-size: 60px 24px;
-  z-index: 10;
+.reveal[data-visible='true'] {
+  opacity: 1;
+  transform: none;
 }
 
-/* Wave divider */
-.wave-divider {
-  position: relative;
-}
-.wave-divider::after {
-  content: '';
-  position: absolute;
-  bottom: -30px;
-  left: 0;
-  right: 0;
-  height: 30px;
-  background: var(--color-bg);
-  clip-path: ellipse(55% 100% at 50% 100%);
-  z-index: 5;
-}
-
-/* Animated shine on cards */
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.card-shine {
-  position: relative;
-  overflow: hidden;
-}
-.card-shine::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-  transform: translateX(-100%);
-  z-index: 1;
-  pointer-events: none;
-}
-.card-shine:hover::before {
-  animation: shimmer 0.6s ease-in-out;
-}
-
-/* Floating animation */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
-}
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* Wobble on hover */
-@keyframes wobble {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-3deg); }
-  75% { transform: rotate(3deg); }
-}
-.hover-wobble:hover {
-  animation: wobble 0.4s ease-in-out;
-}
-
-/* Pulse glow */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(194, 65, 12, 0.3); }
-  50% { box-shadow: 0 0 20px 5px rgba(194, 65, 12, 0.15); }
-}
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-/* Custom rounded shapes */
-.blob-shape {
-  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-}
-
-/* Handwritten underline effect */
-.underline-hand {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12'%3E%3Cpath d='M2 8 Q50 2, 100 7 Q150 12, 198 4' stroke='%23facc15' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: bottom center;
-  background-size: 100% 12px;
-  padding-bottom: 8px;
-}
-
-/* Organic card shape */
+/* Raio uniforme. O antigo era 1rem/1.5rem alternado, o que deixava cada card
+   visivelmente torto contra o grid. */
 .card-organic {
-  border-radius: 1rem 1.5rem 1rem 1.5rem;
+  border-radius: 0.25rem;
 }
 
-/* Stamp/badge style */
-.stamp {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border: 2px dashed currentColor;
-  border-radius: 0.5rem;
-  transform: rotate(-2deg);
-  font-weight: 700;
+/* Régua curta sob os títulos de seção, no lugar do rabisco SVG. */
+.underline-hand {
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+.underline-hand::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 3rem;
+  height: 2px;
+  background: var(--color-brand);
 }
 
-/* Dotted border pattern */
-.border-festive {
-  border: 3px dashed var(--color-secondary);
+::selection {
+  color: var(--color-text);
+  background: var(--color-sun);
 }
 
-/* Gradient text */
-.text-gradient {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary-dark));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.gingham-blue {
+  background-color: var(--color-festa);
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.13) 50%, transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.13) 50%, transparent 50%);
+  background-size: 24px 24px;
+}
+
+.dots-sun {
+  background-image: radial-gradient(rgba(93, 43, 4, 0.18) 1.5px, transparent 1.5px);
+  background-size: 18px 18px;
+}
+
+.dots-paper {
+  background-image: radial-gradient(rgba(93, 43, 4, 0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.print-shadow {
+  box-shadow: 5px 5px 0 var(--color-brown);
+}
+
+/* O painel usa a mesma marca, mas com superfícies mais sóbrias para leitura
+   rápida durante a operação. */
+.admin-content > div > h1,
+.admin-content > div > div:first-child h1 {
+  color: var(--color-brown);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.admin-content table {
+  font-size: 0.9rem;
+}
+
+.admin-content thead {
+  color: var(--color-brown);
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-content input:focus,
+.admin-content select:focus,
+.admin-content textarea:focus {
+  border-color: var(--color-primary);
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
