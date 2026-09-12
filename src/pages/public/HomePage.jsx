@@ -76,10 +76,10 @@ export default function HomePage() {
     comFoto(flavors) ||
     null
 
-  // Quando o sabor tem a foto de perto -- o salgado na mao, sem prato --, ela
-  // vale mais no hero: e a imagem feita para ocupar a tela inteira, enquanto a
-  // do cartao foi enquadrada para caber num quadradinho de catalogo.
-  const heroSrc = heroProduct?.image_closeup_url || heroProduct?.image_url
+  // A foto do topo e escolha do dono, no painel: e a imagem da loja, nao a do
+  // produto que por acaso tem foto. So quando ela nao esta preenchida e que a
+  // tela cai no catalogo -- e, em ultimo caso, no logo.
+  const heroSrc = settings.hero_image?.trim() || heroProduct?.image_url
 
   return (
     <>
@@ -161,10 +161,10 @@ export default function HomePage() {
                     que da volume sem sombra. */}
                 <div className="absolute inset-0 gingham-blue border-4 border-brown translate-x-3 translate-y-3" aria-hidden="true" />
                 <div className="relative aspect-square overflow-hidden bg-brown border-[6px] border-cream outline outline-[3px] outline-brown">
-                  {heroProduct ? (
+                  {heroSrc ? (
                     <img
                       src={heroSrc}
-                      alt={heroProduct.name}
+                      alt={heroProduct?.name ?? 'Coxelli'}
                       fetchPriority="high"
                       className="w-full h-full object-cover"
                     />

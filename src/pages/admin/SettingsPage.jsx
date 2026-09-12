@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 
 const fields = [
   { key: 'store_name', label: 'Nome da Loja' },
+  { key: 'hero_image', label: 'Imagem do topo da home', placeholder: 'Ex: /fotos/coxinha-frango-mao.webp' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'address', label: 'Endereço' },
   { key: 'opening_hours', label: 'Horário de Funcionamento (exibição)', placeholder: 'Ex: Seg-Sex: 11h-21h | Sáb-Dom: 11h-22h' },
