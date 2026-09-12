@@ -73,11 +73,28 @@
             "postalCode": "59133-302",
             "addressCountry": "BR"
       },
-      "areaServed": {
-            "@type": "City",
-            "name": "Natal",
-            "sameAs": "https://pt.wikipedia.org/wiki/Natal_(Rio_Grande_do_Norte)"
+      "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": -5.7372347,
+            "longitude": -35.2360433
       },
+      "areaServed": [
+            {
+                  "@type": "GeoCircle",
+                  "geoMidpoint": {
+                        "@type": "GeoCoordinates",
+                        "latitude": -5.7372347,
+                        "longitude": -35.2360433
+                  },
+                  "geoRadius": "15000",
+                  "description": "15 km a partir da loja, na Pajuçara"
+            },
+            {
+                  "@type": "City",
+                  "name": "Natal",
+                  "sameAs": "https://pt.wikipedia.org/wiki/Natal_(Rio_Grande_do_Norte)"
+            }
+      ],
       "hasMenu": "https://coxelli.com.br/cardapio",
       "acceptsReservations": "False",
       "openingHoursSpecification": [

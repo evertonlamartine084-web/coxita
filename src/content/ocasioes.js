@@ -30,6 +30,7 @@ export const OCASIOES = {
     texto: [
       'A conta que mais dá errado em festa é a dos salgados. Pede-se de menos com medo de sobrar, e a bandeja esvazia na primeira hora — ou pede-se de mais e metade vai para a geladeira.',
       'A média que a gente vê se repetir é de 8 salgados por pessoa numa festa de algumas horas, sem refeição servida depois. Se a festa for curta ou tiver bolo e doces em quantidade, 6 resolve. Se for longa, começar cedo e não ter jantar, conte 10.',
+      'A cozinha fica na Pajuçara, em Natal, e a gente entrega num raio de 15 km dali — a fritura é programada para o horário que você combinar, não para a manhã de um evento que começa à tarde.',
     ],
     dicas: [
       ['Monte com 3 ou 4 sabores', 'Bandeja de um sabor só cansa. Com três, cada convidado acha o dele — e sobra menos, porque ninguém come dez unidades do mesmo recheio.'],
@@ -54,6 +55,10 @@ export const OCASIOES = {
         pergunta: 'Dá para misturar sabores no mesmo cento?',
         resposta: 'Dá. O cento aceita até 4 sabores, escolhidos de 25 em 25 unidades. O meio cento aceita 2 e o de 75 aceita 3.',
       },
+      {
+        pergunta: 'Vocês entregam na minha casa?',
+        resposta: 'Entregamos num raio de 15 km da loja, que fica na Pajuçara, em Natal/RN. Coloque seu endereço no checkout que o sistema confirma se está dentro da área antes de você fechar o pedido.',
+      },
     ],
   },
 
@@ -68,6 +73,7 @@ export const OCASIOES = {
     texto: [
       'Aniversário tem bolo, doce e refrigerante disputando espaço com o salgado — mas é o salgado que some primeiro, principalmente na primeira hora, quando todo mundo chega junto.',
       'Para festa de criança, a conta muda: criança come menos por unidade, mas repete mais, e escolhe sempre os mesmos dois ou três sabores. Vale concentrar em enroladinho, coxinha de frango e bolinha de queijo em vez de espalhar em quatro sabores que metade não vai encostar.',
+      'A entrega vai até 15 km da loja, na Pajuçara, e no horário que você marcar — em festa de criança, o salgado precisa estar na mesa antes de o pessoal chegar, não junto com o bolo.',
     ],
     dicas: [
       ['Festa infantil: menos sabores, mais do mesmo', 'Criança não experimenta. Enroladinho de salsicha, coxinha de frango e bolinha de queijo cobrem quase toda a mesa.'],
@@ -86,7 +92,7 @@ export const OCASIOES = {
       },
       {
         pergunta: 'Vocês entregam no dia da festa, no horário?',
-        resposta: 'Entregamos. Combine o horário no pedido que a gente programa a fritura para o salgado chegar quente.',
+        resposta: 'Entregamos, em Natal e num raio de 15 km da loja, na Pajuçara. Combine o horário no pedido que a gente programa a fritura para o salgado chegar quente.',
       },
     ],
   },
@@ -102,6 +108,7 @@ export const OCASIOES = {
     texto: [
       'Em casamento, o salgado quase nunca é a comida principal — ele cobre a recepção, aquele intervalo entre a chegada dos convidados e o jantar. Por isso a conta é mais baixa: de 4 a 6 por pessoa dá conta, contra os 8 de uma festa comum.',
       'O que muda é a escolha dos sabores. Recepção pede salgado que continue apresentável depois de meia hora em bandeja, e que não suje a mão de quem está de roupa boa. Os empanados e assados se comportam melhor nisso que os muito cremosos.',
+      'Atendemos casamentos em Natal e num raio de 15 km da loja, na Pajuçara — o que alcança a maior parte dos espaços de evento da cidade e da vizinhança.',
     ],
     dicas: [
       ['Conte só a recepção', 'Se tem jantar servido, 4 a 6 por pessoa bastam. Sem jantar, suba para 8 e trate como festa.'],
@@ -117,6 +124,10 @@ export const OCASIOES = {
       {
         pergunta: 'Vocês atendem eventos grandes, de 200 convidados ou mais?',
         resposta: 'Atendemos, com antecedência combinada. Chame no WhatsApp com a data e o número de convidados que a gente fecha a programação da cozinha.',
+      },
+      {
+        pergunta: 'A entrega chega no espaço do evento?',
+        resposta: 'Chega, desde que o local esteja dentro de 15 km da loja, na Pajuçara, em Natal/RN. Passe o endereço do espaço junto com o horário da recepção que a gente programa a saída.',
       },
       {
         pergunta: 'Quais salgados aguentam melhor a bandeja?',
@@ -136,6 +147,7 @@ export const OCASIOES = {
     texto: [
       'Coffee break de reunião e treinamento come menos que festa: de 4 a 5 por pessoa, porque a pessoa come em pé, entre uma coisa e outra, e volta para a sala. Confraternização de fim de ano é outra conta — aí vale tratar como festa, com 8.',
       'O que o evento corporativo pede e a festa não pede é previsibilidade: hora certa de entrega, nota fiscal e um sabor que não obrigue ninguém a escolher entre comer e continuar apresentável na reunião seguinte.',
+      'Entregamos em empresas de Natal e num raio de 15 km da loja, na Pajuçara, no horário fechado com você — coffee break que chega depois do intervalo não serviu para nada.',
     ],
     dicas: [
       ['Coffee break: 4 a 5 por pessoa', 'Confraternização com bebida e sem jantar: 8, como festa.'],
@@ -155,6 +167,10 @@ export const OCASIOES = {
       {
         pergunta: 'Dá para entregar em horário fixo?',
         resposta: 'Dá. Combine o horário no pedido — a fritura é programada para o salgado chegar quente naquele horário.',
+      },
+      {
+        pergunta: 'Vocês entregam no endereço da empresa?',
+        resposta: 'Entregamos dentro de 15 km da loja, na Pajuçara, em Natal/RN. Informe o endereço e o andar ou sala no pedido, que a entrega sobe até onde o evento acontece.',
       },
     ],
   },

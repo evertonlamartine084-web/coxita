@@ -32,7 +32,7 @@ const PERGUNTAS = [
   },
   {
     pergunta: 'Onde vocês entregam em Natal?',
-    resposta: 'A loja fica na Pajuçara e entregamos em Natal e região. Confirme o endereço no checkout ou pelo WhatsApp antes de fechar o pedido.',
+    resposta: 'A loja fica na Pajuçara e a entrega vai até 15 km dali, o que cobre boa parte de Natal e da vizinhança. Coloque seu endereço no checkout que o sistema confirma se está dentro da área antes de você fechar o pedido.',
   },
   {
     pergunta: 'Os salgados são feitos na hora?',

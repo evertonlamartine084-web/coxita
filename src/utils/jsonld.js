@@ -10,6 +10,8 @@
  * schema o que nao esta visivel e o caminho curto para perder o rich result.
  */
 
+import { areaAtendida } from '../content/entrega'
+
 const SITE = 'https://coxelli.com.br'
 
 /** Trilha de navegacao. Troca a URL crua por "Início > Salgados > Coxinha" na busca. */
@@ -39,5 +41,28 @@ export function faqJsonLd(itens, url) {
       name: item.pergunta,
       acceptedAnswer: { '@type': 'Answer', text: item.resposta },
     })),
+  }
+}
+
+/**
+ * O servico que a pagina de ocasiao descreve, e onde ele e prestado.
+ *
+ * Sem isto, uma pagina de ocasiao e texto solto: o buscador le "salgados para
+ * casamento" e nao tem como ligar aquilo a um fornecedor nem a uma cidade. O
+ * `areaServed` carrega o raio de entrega de verdade (ver content/entrega.js), e
+ * o `provider` aponta para a loja ja declarada no index.html -- e o mesmo
+ * negocio, nao um segundo.
+ */
+export function servicoJsonLd({ nome, descricao, url }) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    '@id': `${url}#servico`,
+    name: nome,
+    description: descricao,
+    serviceType: 'Entrega de salgados para eventos',
+    provider: { '@id': `${SITE}/#loja` },
+    areaServed: areaAtendida(),
+    hasOfferCatalog: { '@id': `${SITE}/cardapio#menu` },
   }
 }

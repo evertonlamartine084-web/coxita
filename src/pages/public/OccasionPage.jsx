@@ -8,7 +8,7 @@ import { LISTA_OCASIOES, ocasiaoPorSlug } from '../../content/ocasioes'
 import { conteudoDoSabor } from '../../content/sabores'
 import Breadcrumbs from '../../components/content/Breadcrumbs'
 import Faq from '../../components/content/Faq'
-import { breadcrumbJsonLd, faqJsonLd } from '../../utils/jsonld'
+import { breadcrumbJsonLd, faqJsonLd, servicoJsonLd } from '../../utils/jsonld'
 import CalculadoraSalgados from '../../components/content/CalculadoraSalgados'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
@@ -65,6 +65,7 @@ export default function OccasionPage() {
   const dadosEstruturados = useMemo(() => {
     if (!ocasiao) return null
     return [
+      servicoJsonLd({ nome: ocasiao.tituloSeo, descricao: ocasiao.descricao, url }),
       breadcrumbJsonLd(trilha),
       faqJsonLd(ocasiao.faq, url),
     ]
