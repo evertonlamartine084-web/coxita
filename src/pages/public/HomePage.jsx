@@ -4,6 +4,7 @@ import { HiClock, HiLocationMarker, HiPhone, HiArrowRight, HiRefresh } from 'rea
 import LoyaltyCard from '../../components/loyalty/LoyaltyCard'
 import { getFeaturedProducts, getProducts, peekProducts } from '../../services/products'
 import { getFlavors, peekFlavors } from '../../services/flavors'
+import { ehPacote } from '../../utils/pacote'
 import { getSettings, peekSettings } from '../../services/settings'
 import FlavorShowcase from '../../components/product/FlavorShowcase'
 import FlavorSpotlight from '../../components/product/FlavorSpotlight'
@@ -64,7 +65,16 @@ export default function HomePage() {
   if (loading) return <Loading />
 
   const bannerActive = ['sim', 'true', '1', 'on', 'yes'].includes((settings.banner_active || '').toLowerCase().trim()) && settings.banner_text
-  const heroProduct = featured.find(product => product.image_url) || allProducts.find(product => product.image_url)
+  // A vitrine da home e comida da casa: pacote primeiro, sabor depois. Bebida
+  // fica de fora de proposito -- e revenda, e ate hoje so entrava aqui porque
+  // era o unico item com foto, o que punha uma lata de refrigerante como cara
+  // da loja.
+  const comFoto = lista => lista.find(item => item.image_url)
+  const heroProduct =
+    comFoto(featured.filter(ehPacote)) ||
+    comFoto(allProducts.filter(ehPacote)) ||
+    comFoto(flavors) ||
+    null
 
   return (
     <>
