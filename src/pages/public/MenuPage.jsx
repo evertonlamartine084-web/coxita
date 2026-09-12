@@ -65,6 +65,7 @@ export default function MenuPage() {
   // escolha inteira, nao ha o que montar de 25 em 25.
   const abaDeSaborUnico = pacotesDaAba.length > 0 && pacotesDaAba.every(p => p.fixed_flavor_id)
 
+
   // Cardapio em Schema.org. O index.html ja declara a loja e aponta hasMenu para
   // ca; sem isto o Google sabe que existe um cardapio mas nao o que tem dentro.
   // Preco sai do proprio produto -- marcar valor diferente do exibido e o tipo de
@@ -141,6 +142,13 @@ export default function MenuPage() {
     return !busca || f.name.toLowerCase().includes(busca) || f.description?.toLowerCase().includes(busca)
   })
 
+  // Numa aba dessas, listar os pacotes junto com os sabores e dizer a mesma
+  // coisa duas vezes: os quatro tamanhos de sertanejo ja aparecem quando o
+  // cliente clica no sabor. Fica so a lista com foto, que e a mais curta e a
+  // que mostra o produto. Os pacotes seguem em "Todos" e na busca.
+  const escondeOsPacotes = abaDeSaborUnico && saboresDaAba.length > 0
+  const produtosVisiveis = escondeOsPacotes ? [] : filtered
+
   if (loading) return <Loading />
 
   return (
@@ -215,23 +223,23 @@ export default function MenuPage() {
 
         {/* Products grid */}
         <div className="max-w-6xl mx-auto px-4 py-8">
-          {filtered.length === 0 && saboresFiltrados.length === 0 ? (
+          {produtosVisiveis.length === 0 && saboresFiltrados.length === 0 ? (
             <div className="text-center py-16">
               <img width={512} height={512} src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
               <p className="text-text-light font-display text-lg">Nenhum produto nesta categoria.</p>
             </div>
           ) : (
             <>
-              {filtered.length > 0 && (
+              {produtosVisiveis.length > 0 && (
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                  {filtered.map(p => (
+                  {produtosVisiveis.map(p => (
                     <ProductCard key={p.id} product={p} />
                   ))}
                 </div>
               )}
 
               {saboresFiltrados.length > 0 && (
-                <div className={filtered.length > 0 ? 'mt-12' : ''}>
+                <div className={produtosVisiveis.length > 0 ? 'mt-12' : ''}>
                   <h2 className="font-display text-2xl uppercase text-brown mb-1">Escolha os sabores</h2>
                   <p className="text-text-light text-sm mb-5">
                     {abaDeSaborUnico
