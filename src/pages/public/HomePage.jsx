@@ -76,6 +76,11 @@ export default function HomePage() {
     comFoto(flavors) ||
     null
 
+  // Quando o sabor tem a foto de perto -- o salgado na mao, sem prato --, ela
+  // vale mais no hero: e a imagem feita para ocupar a tela inteira, enquanto a
+  // do cartao foi enquadrada para caber num quadradinho de catalogo.
+  const heroSrc = heroProduct?.image_closeup_url || heroProduct?.image_url
+
   return (
     <>
         <Seo titulo="Salgados em Natal/RN, feitos na hora" descricao="Coxelli Salgados, na Pajuçara, em Natal/RN. Monte seu cento de salgados, misture os sabores e receba pronto pra servir: coxinha, risole, pastelzinho e mais." caminho="/" />
@@ -158,7 +163,7 @@ export default function HomePage() {
                 <div className="relative aspect-square overflow-hidden bg-brown border-[6px] border-cream outline outline-[3px] outline-brown">
                   {heroProduct ? (
                     <img
-                      src={heroProduct.image_url}
+                      src={heroSrc}
                       alt={heroProduct.name}
                       fetchPriority="high"
                       className="w-full h-full object-cover"
