@@ -5,7 +5,7 @@ import { getProducts, peekProducts } from '../../services/products'
 import { getCategories, peekCategories } from '../../services/categories'
 import { getFlavors, peekFlavors } from '../../services/flavors'
 import { useFavoritesStore } from '../../store/favoritesStore'
-import { ehPacote, pacotesDoSabor } from '../../utils/pacote'
+import { ehPacote, pacotesDoSabor, saboresDoPacote } from '../../utils/pacote'
 import { catalogText } from '../../utils/catalogText'
 import ProductCard from '../../components/product/ProductCard'
 import FlavorCard from '../../components/product/FlavorCard'
@@ -58,12 +58,19 @@ export default function MenuPage() {
     p => p.categories?.slug === activeCategory && ehPacote(p)
   )
   const gruposDaAba = [...new Set(pacotesDaAba.map(p => p.flavor_group).filter(Boolean))]
+
+  // A vitrine mostra o que os pacotes da aba aceitam de verdade -- quem
+  // responde isso e `saboresDoPacote`, a mesma funcao que o picker usa. Assim
+  // liberar um pacote para misturar grupos aparece na lista sem tocar aqui.
+  const pacoteMisto = pacotesDaAba.find(p => !p.fixed_flavor_id)
   const saboresDaAba =
     activeCategory === 'all'
       ? flavors
-      : gruposDaAba.length === 1
-        ? flavors.filter(f => f.group_slug === gruposDaAba[0])
-        : []
+      : pacoteMisto
+        ? saboresDoPacote(pacoteMisto, flavors)
+        : gruposDaAba.length === 1
+          ? flavors.filter(f => f.group_slug === gruposDaAba[0])
+          : []
 
   // Pacote de sabor unico ja tem preco por sabor: escolher o tamanho e a
   // escolha inteira, nao ha o que montar de 25 em 25.
@@ -156,18 +163,12 @@ export default function MenuPage() {
     return ca - cb || (a.sort_order ?? 0) - (b.sort_order ?? 0)
   })
 
-  // Numa aba dessas, listar os pacotes junto com os sabores e dizer a mesma
-  // coisa duas vezes: os quatro tamanhos de sertanejo ja aparecem quando o
-  // cliente clica no sabor. Fica so a lista com foto, que e a mais curta e a
-  // que mostra o produto. Os pacotes seguem em "Todos" e na busca.
-  const escondeOsPacotes = abaDeSaborUnico && saboresDaAba.length > 0
-  // Em "Todos", o pacote de sabor fixo sai pelo mesmo motivo da aba de
-  // pasteis: o sabor logo acima ja leva aos quatro tamanhos dele.
-  const produtosVisiveis = escondeOsPacotes
-    ? []
-    : activeCategory === 'all'
-      ? ordenados.filter(p => !p.fixed_flavor_id)
-      : ordenados
+  // Onde ha sabor na tela, o pacote sai: clicar num sabor ja abre os tamanhos
+  // dele, entao listar os dois era dizer a mesma coisa duas vezes -- e a
+  // metade sem foto ficava em cima. Some so o pacote; bebida, que nao tem
+  // sabor para montar, continua na lista. Quem procura "cento" acha na busca.
+  const escondeOsPacotes = saboresDaAba.length > 0
+  const produtosVisiveis = escondeOsPacotes ? ordenados.filter(p => !ehPacote(p)) : ordenados
 
   // Quem abre o cardapio inteiro ve primeiro o que tem foto; o pacote, que e
   // so texto e preco, vem depois. Dentro de uma aba a ordem se inverte: ali o
