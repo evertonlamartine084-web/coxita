@@ -5,8 +5,11 @@ import { getProducts, peekProducts } from '../../services/products'
 import { getCategories, peekCategories } from '../../services/categories'
 import { getFlavors, peekFlavors } from '../../services/flavors'
 import { useFavoritesStore } from '../../store/favoritesStore'
+import { ehPacote, pacotesDoSabor } from '../../utils/pacote'
 import { catalogText } from '../../utils/catalogText'
 import ProductCard from '../../components/product/ProductCard'
+import FlavorCard from '../../components/product/FlavorCard'
+import FlavorToCart from '../../components/product/FlavorToCart'
 import Loading from '../../components/ui/Loading'
 import Seo from '../../components/ui/Seo'
 
@@ -23,6 +26,7 @@ export default function MenuPage() {
   const [params] = useSearchParams()
   const [activeCategory, setActiveCategory] = useState(() => params.get('aba') || 'all')
   const [search, setSearch] = useState('')
+  const [saborNoCarrinho, setSaborNoCarrinho] = useState(null)
   const [loading, setLoading] = useState(!produtosEmCache || !categoriasEmCache)
   const favorites = useFavoritesStore(s => s.favorites)
 
@@ -37,10 +41,22 @@ export default function MenuPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // O cardapio vende pacote; recheio nao tem aba propria. Os sabores de pastel
-  // seguem no JSON-LD como secao sem preco, e a pagina de cada um continua no ar
-  // em /salgados/<sabor>.
+  // O cardapio vende pacote; os sabores de pastel seguem no JSON-LD como secao
+  // sem preco, e a pagina de cada um continua no ar em /salgados/<sabor>.
   const pasteis = flavors.filter(f => f.group_slug === 'pasteis')
+
+  const pacotes = products.filter(ehPacote)
+
+  // O pacote de salgados nao diz o que vai dentro: quem escolhe, escolhe pelo
+  // recheio. Entao a aba desse pacote mostra tambem os sabores que ele aceita,
+  // e clicar num deles abre o pacote com 25 unidades ja marcadas. Os pasteis
+  // nao entram aqui porque la cada sabor ja e um produto, com preco proprio.
+  const pacoteLivre = pacotes.find(p => !p.fixed_flavor_id)
+  const abaDeMontar = pacoteLivre?.categories?.slug
+  const saboresDaAba =
+    activeCategory === abaDeMontar
+      ? flavors.filter(f => f.group_slug === pacoteLivre.flavor_group)
+      : []
 
   // Cardapio em Schema.org. O index.html ja declara a loja e aponta hasMenu para
   // ca; sem isto o Google sabe que existe um cardapio mas nao o que tem dentro.
@@ -109,6 +125,13 @@ export default function MenuPage() {
     const busca = search.toLowerCase().trim()
     const matchSearch = !busca || p.name.toLowerCase().includes(busca) || p.description?.toLowerCase().includes(busca)
     return matchCategory && matchSearch
+  })
+
+  // A busca vale para os dois: procurar "queijo" com a aba aberta tem que achar
+  // tanto o pacote quanto o sabor.
+  const saboresFiltrados = saboresDaAba.filter(f => {
+    const busca = search.toLowerCase().trim()
+    return !busca || f.name.toLowerCase().includes(busca) || f.description?.toLowerCase().includes(busca)
   })
 
   if (loading) return <Loading />
@@ -185,20 +208,52 @@ export default function MenuPage() {
 
         {/* Products grid */}
         <div className="max-w-6xl mx-auto px-4 py-8">
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && saboresFiltrados.length === 0 ? (
             <div className="text-center py-16">
               <img width={512} height={512} src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
               <p className="text-text-light font-display text-lg">Nenhum produto nesta categoria.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-              {filtered.map(p => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
+            <>
+              {filtered.length > 0 && (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                  {filtered.map(p => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+                </div>
+              )}
+
+              {saboresFiltrados.length > 0 && (
+                <div className={filtered.length > 0 ? 'mt-12' : ''}>
+                  <h2 className="font-display text-2xl uppercase text-brown mb-1">Escolha os sabores</h2>
+                  <p className="text-text-light text-sm mb-5">
+                    Todo pacote e montado de 25 em 25. Clique num sabor para escolher o tamanho.
+                  </p>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                    {saboresFiltrados.map(sabor => (
+                      <FlavorCard
+                        key={sabor.id}
+                        sabor={sabor}
+                        aoAdicionar={
+                          pacotesDoSabor(sabor, pacotes).length > 0 ? setSaborNoCarrinho : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {saborNoCarrinho && (
+        <FlavorToCart
+          sabor={saborNoCarrinho}
+          pacotes={pacotesDoSabor(saborNoCarrinho, pacotes)}
+          aoFechar={() => setSaborNoCarrinho(null)}
+        />
+      )}
     </>
   )
 }
