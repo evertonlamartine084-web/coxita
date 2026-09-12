@@ -142,12 +142,22 @@ export default function MenuPage() {
     return !busca || f.name.toLowerCase().includes(busca) || f.description?.toLowerCase().includes(busca)
   })
 
+  // O sort_order do produto so ordena dentro da categoria dele: em "Todos", sem
+  // isto, as bebidas caem no meio dos pacotes. A ordem das abas manda -- e a
+  // mesma que o dono arruma no admin -- e o produto desempata dentro dela.
+  const ordemDaAba = new Map(categories.map((c, i) => [c.slug, i]))
+  const ordenados = [...filtered].sort((a, b) => {
+    const ca = ordemDaAba.get(a.categories?.slug) ?? Infinity
+    const cb = ordemDaAba.get(b.categories?.slug) ?? Infinity
+    return ca - cb || (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  })
+
   // Numa aba dessas, listar os pacotes junto com os sabores e dizer a mesma
   // coisa duas vezes: os quatro tamanhos de sertanejo ja aparecem quando o
   // cliente clica no sabor. Fica so a lista com foto, que e a mais curta e a
   // que mostra o produto. Os pacotes seguem em "Todos" e na busca.
   const escondeOsPacotes = abaDeSaborUnico && saboresDaAba.length > 0
-  const produtosVisiveis = escondeOsPacotes ? [] : filtered
+  const produtosVisiveis = escondeOsPacotes ? [] : ordenados
 
   if (loading) return <Loading />
 
