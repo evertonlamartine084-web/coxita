@@ -191,6 +191,14 @@ export default function BairroPage() {
                 )
               })}
             </ul>
+
+            <Link
+              to="/salgados"
+              className="inline-flex items-center gap-1.5 mt-6 font-display font-extrabold uppercase text-sm tracking-[0.08em] text-primary no-underline hover:text-brown"
+            >
+              Ver os 15 sabores
+              <HiArrowRight size={14} />
+            </Link>
           </section>
         )}
 
@@ -219,6 +227,28 @@ export default function BairroPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
+
+        {/* ============ PEDIDO ============ */}
+        {/* O header e sticky e ja carrega "Pedir agora", mas quem rola ate aqui
+            esta lendo, nao olhando para o topo. Este bloco e o unico ponto da
+            pagina onde o pedido aparece por extenso, com o bairro no titulo. */}
+        <section className="max-w-4xl mx-auto px-4 py-14 md:py-16">
+          <div className="bg-brand dots-sun border-[3px] border-brown shadow-[7px_7px_0_#5d2b04] p-7 md:p-10 text-center">
+            <h2 className="font-display text-4xl md:text-5xl font-black uppercase leading-[0.9] text-brown mb-3">
+              Peça para {bairro.nome}
+            </h2>
+            <p className="text-brown/85 text-lg leading-relaxed max-w-xl mx-auto mb-7">
+              De 25 a 100 salgados, com até 4 sabores no mesmo pacote. Você monta, a gente frita na
+              hora e leva até a {bairro.zona}.
+            </p>
+            <Link to="/cardapio" className="no-underline">
+              <Button size="lg" className="gap-2">
+                Montar meu pedido
+                <HiArrowRight size={18} />
+              </Button>
+            </Link>
           </div>
         </section>
 
