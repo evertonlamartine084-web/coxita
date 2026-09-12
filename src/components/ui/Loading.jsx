@@ -11,7 +11,7 @@
 export default function Loading() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[85vh] py-20">
-      <img
+      <img width={512} height={512}
         src="/logo.png"
         alt="Carregando..."
         className="w-16 h-16 object-contain animate-bounce mb-3 opacity-60"

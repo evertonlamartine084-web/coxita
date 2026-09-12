@@ -55,7 +55,7 @@ export default function InstallBar() {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2">
-        <img src="/logo-192.png" alt="" className="size-7 shrink-0 rounded" />
+        <img width={192} height={192} src="/logo-192.png" alt="" className="size-7 shrink-0 rounded" />
 
         <p className="min-w-0 flex-1 text-sm leading-tight">
           <span className="font-display font-extrabold uppercase tracking-[0.03em]">

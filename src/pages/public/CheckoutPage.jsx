@@ -359,7 +359,7 @@ export default function CheckoutPage() {
         <div className="max-w-3xl mx-auto px-4 py-8 md:py-12">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
-            <img src="/logo.png" alt="" className="w-14 h-14 object-contain rounded-full border-2 border-brown bg-cream" />
+            <img width={512} height={512} src="/logo.png" alt="" className="w-14 h-14 object-contain rounded-full border-2 border-brown bg-cream" />
             <div>
               <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-festa">Última etapa</p>
               <h1 className="font-display text-3xl md:text-4xl font-black uppercase text-brown leading-none">Finalizar pedido</h1>

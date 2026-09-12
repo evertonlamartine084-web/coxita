@@ -52,7 +52,7 @@ export default function ProductCard({ product }) {
           <>
             {!imgLoaded && (
               <div className="absolute inset-0 w-full h-32 sm:h-56 bg-bg-warm animate-pulse flex items-center justify-center">
-                <img src="/logo.png" alt="" className="w-16 h-16 opacity-20 object-contain" />
+                <img width={512} height={512} src="/logo.png" alt="" className="w-16 h-16 opacity-20 object-contain" />
               </div>
             )}
             <img
@@ -65,7 +65,7 @@ export default function ProductCard({ product }) {
           </>
         ) : (
           <div className="w-full h-32 sm:h-56 bg-bg-warm flex items-center justify-center">
-            <img src="/logo.png" alt="" className="w-12 h-12 sm:w-20 sm:h-20 opacity-30 object-contain" />
+            <img width={512} height={512} src="/logo.png" alt="" className="w-12 h-12 sm:w-20 sm:h-20 opacity-30 object-contain" />
           </div>
         )}
 

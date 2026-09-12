@@ -46,7 +46,7 @@ export default function InstallPrompt() {
       </button>
 
       <div className="flex items-start gap-3">
-        <img src="/logo-192.png" alt="" className="size-12 shrink-0 rounded-lg" />
+        <img width={192} height={192} src="/logo-192.png" alt="" className="size-12 shrink-0 rounded-lg" />
         <div className="min-w-0 pr-5">
           <p className="font-display text-lg font-extrabold uppercase leading-tight tracking-[0.02em] text-brown">
             Baixe nosso app

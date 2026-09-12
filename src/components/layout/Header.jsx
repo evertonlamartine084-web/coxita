@@ -39,7 +39,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-cream border-b-4 border-festa">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="flex items-center no-underline" aria-label="Coxelli — página inicial">
-          <img src="/wordmark.png" alt="Coxelli" className="h-11 md:h-12 w-auto" />
+          <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-11 md:h-12 w-auto" />
         </Link>
 
         {/* Desktop nav */}

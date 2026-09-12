@@ -139,7 +139,7 @@ export default function MenuPage() {
         <div className="bg-secondary dots-sun border-b-[6px] border-brown pt-8 pb-7">
           <div className="max-w-6xl mx-auto px-4">
             <div className="flex items-center gap-4 mb-6">
-              <img src="/logo.png" alt="" className="w-16 h-16 object-contain bg-cream rounded-full border-2 border-brown" />
+              <img width={512} height={512} src="/logo.png" alt="" className="w-16 h-16 object-contain bg-cream rounded-full border-2 border-brown" />
               <div>
                 <h1 className="font-display text-5xl md:text-6xl font-black uppercase leading-none text-brown">Cardápio</h1>
                 <p className="text-brown font-semibold text-base mt-0.5">Escolha o tamanho. Depois, misture os sabores.</p>
@@ -212,7 +212,7 @@ export default function MenuPage() {
           {activeCategory === 'pasteis' ? (
             pasteisFiltrados.length === 0 ? (
               <div className="text-center py-16">
-                <img src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
+                <img width={512} height={512} src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
                 <p className="text-text-light font-display text-lg">Nenhum pastel com esse nome.</p>
               </div>
             ) : (
@@ -230,7 +230,7 @@ export default function MenuPage() {
             )
           ) : filtered.length === 0 ? (
             <div className="text-center py-16">
-              <img src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
+              <img width={512} height={512} src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
               <p className="text-text-light font-display text-lg">Nenhum produto nesta categoria.</p>
             </div>
           ) : (

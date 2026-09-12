@@ -164,7 +164,7 @@ export default function HomePage() {
                     />
                   )}
                 </div>
-                <img src="/logo.png" alt="" aria-hidden="true" className="absolute -top-7 -right-3 md:-right-8 w-24 md:w-32 h-auto bg-cream rounded-full border-4 border-brown rotate-3" />
+                <img width={512} height={512} src="/logo.png" alt="" aria-hidden="true" className="absolute -top-7 -right-3 md:-right-8 w-24 md:w-32 h-auto bg-cream rounded-full border-4 border-brown rotate-3" />
                 <div className="absolute -bottom-1 -left-3 bg-secondary text-brown px-4 py-2 font-display font-extrabold uppercase tracking-wide text-lg -rotate-2 border-2 border-brown shadow-[3px_3px_0_#5d2b04]">
                   Frito e entregue no capricho
                 </div>

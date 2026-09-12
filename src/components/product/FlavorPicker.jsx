@@ -163,7 +163,7 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, e
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <img src="/logo.png" alt="" className="w-6 h-6 opacity-25 object-contain" />
+                        <img width={512} height={512} src="/logo.png" alt="" className="w-6 h-6 opacity-25 object-contain" />
                       )}
                     </div>
 

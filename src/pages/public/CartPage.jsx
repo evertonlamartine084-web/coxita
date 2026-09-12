@@ -33,7 +33,7 @@ export default function CartPage() {
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           <div className="relative inline-block mb-6">
             <div className="absolute inset-0 bg-primary/5 rounded-full scale-150" />
-            <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
+            <img width={512} height={512} src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
           </div>
           <h2 className="font-display text-3xl font-black uppercase mb-2 text-brown">Seu carrinho está vazio</h2>
           <p className="text-text-light mb-8 max-w-sm mx-auto">
@@ -55,7 +55,7 @@ export default function CartPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="" className="w-8 h-8 object-contain" />
+          <img width={512} height={512} src="/logo.png" alt="" className="w-8 h-8 object-contain" />
           <h1 className="font-display text-4xl font-black uppercase text-brown">Carrinho</h1>
         </div>
         <button

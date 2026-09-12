@@ -250,7 +250,7 @@ export default function OrderTrackingPage() {
         <div className="max-w-lg mx-auto px-4 py-20 text-center">
           <div className="relative inline-block mb-6">
             <div className="absolute inset-0 bg-primary/5 rounded-full scale-150" />
-            <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
+            <img width={512} height={512} src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
           </div>
           <h2 className="font-display text-2xl font-bold mb-2 text-text">
             {notFound ? 'Pedido não encontrado' : 'Nenhum pedido por aqui'}
@@ -342,7 +342,7 @@ export default function OrderTrackingPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 bg-secondary rounded-full border-3 border-brown flex items-center justify-center mx-auto mb-4 shadow-[4px_4px_0_#3f6bb5]">
-              <img src="/logo.png" alt="" className="w-16 h-16 object-contain" />
+              <img width={512} height={512} src="/logo.png" alt="" className="w-16 h-16 object-contain" />
             </div>
             <p className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-festa mb-1">Direto da cozinha</p>
             <h1 className="font-display text-4xl md:text-5xl font-black uppercase text-brown mb-1">Acompanhar pedido</h1>
@@ -525,7 +525,7 @@ export default function OrderTrackingPage() {
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                       <div className="flex items-center gap-3">
-                        <img src="/logo.png" alt="Coxelli" className="w-9 h-9 rounded-full object-cover" />
+                        <img width={512} height={512} src="/logo.png" alt="Coxelli" className="w-9 h-9 rounded-full object-cover" />
                         <div>
                           <p className="font-display font-bold text-sm text-text">Coxelli</p>
                           <p className="text-[11px] text-green-500 font-medium">Online</p>

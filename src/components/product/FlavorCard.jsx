@@ -43,7 +43,7 @@ export default function FlavorCard({ sabor, aoAdicionar, compacto = false }) {
             </>
           ) : (
             <div className={`w-full ${alturaFoto} flex items-center justify-center`}>
-              <img src="/logo.png" alt="" className={`${compacto ? 'w-14 h-14' : 'w-20 h-20'} opacity-25 object-contain`} />
+              <img width={512} height={512} src="/logo.png" alt="" className={`${compacto ? 'w-14 h-14' : 'w-20 h-20'} opacity-25 object-contain`} />
             </div>
           )}
         </div>

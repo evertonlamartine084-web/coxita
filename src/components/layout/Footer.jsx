@@ -16,7 +16,7 @@ export default function Footer() {
             {/* Brand */}
             <div className="text-center sm:text-left">
               <div className="mb-4">
-                <img src="/wordmark.png" alt="Coxelli" className="h-14 w-auto mx-auto md:mx-0" />
+                <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-14 w-auto mx-auto md:mx-0" />
                 <p className="text-secondary text-sm font-semibold mt-3">Salgado bom, feito por gente.</p>
               </div>
               <p className="text-white/70 text-sm leading-relaxed max-w-xs mx-auto md:mx-0">

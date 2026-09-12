@@ -70,7 +70,7 @@ export default function AdminLayout() {
         <div className="h-3 gingham-blue border-b-2 border-secondary" aria-hidden="true" />
         <div className="p-5 border-b border-white/15">
           <div className="bg-cream border-2 border-secondary p-3 shadow-[4px_4px_0_#ffcd5e]">
-            <img src="/wordmark.png" alt="Coxelli" className="h-10 w-auto object-contain" />
+            <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-10 w-auto object-contain" />
             <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-brown mt-1">Painel da cozinha</p>
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function AdminLayout() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-cream border-b-4 border-festa px-4 py-3 flex items-center lg:hidden sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="text-brown text-2xl mr-3" aria-label="Abrir menu">☰</button>
-          <img src="/wordmark.png" alt="Coxelli" className="h-9 w-auto" />
+          <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-9 w-auto" />
           <span className="ml-auto font-display text-xs font-extrabold uppercase tracking-widest text-festa">Admin</span>
         </header>
         <main className="admin-content flex-1 p-4 md:p-6 lg:p-8 overflow-auto">

@@ -16,7 +16,7 @@ export default function CartItem({ item }) {
         />
       ) : (
         <div className="w-18 h-18 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center shrink-0">
-          <img src="/logo.png" alt="" className="w-10 h-10 opacity-30 object-contain" />
+          <img width={512} height={512} src="/logo.png" alt="" className="w-10 h-10 opacity-30 object-contain" />
         </div>
       )}
 
