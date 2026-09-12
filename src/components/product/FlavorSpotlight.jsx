@@ -30,7 +30,7 @@ export default function FlavorSpotlight({ flavors }) {
           </h2>
         </div>
 
-        <Link to="/cardapio?aba=pasteis" className="hidden md:block shrink-0">
+        <Link to="/cardapio?aba=centos-pasteis" className="hidden md:block shrink-0">
           <span className="inline-flex items-center gap-2 bg-secondary text-brown font-display font-extrabold uppercase tracking-wide px-5 py-3 border-2 border-brown shadow-[4px_4px_0_#3d2410] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#3d2410] transition-[transform,box-shadow] duration-[--duration-fast] ease-[--ease-interaction]">
             Ver os pastéis
             <HiArrowRight size={16} />
@@ -41,7 +41,7 @@ export default function FlavorSpotlight({ flavors }) {
       <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 list-none p-0 m-0">
         {comCloseup.map(sabor => (
           <li key={sabor.id}>
-            <Link to="/cardapio?aba=pasteis" className="block group">
+            <Link to="/cardapio?aba=centos-pasteis" className="block group">
               {/* Mesma moldura do resto do site, aqui em creme sobre o escuro:
                   e o que amarra a faixa ao cartaz das outras secoes. */}
               <div className="bg-cream p-2 border-[3px] border-brown shadow-[4px_4px_0_#3d2410] group-hover:translate-x-[2px] group-hover:translate-y-[2px] group-hover:shadow-[2px_2px_0_#3d2410] transition-[transform,box-shadow] duration-[--duration-fast] ease-[--ease-interaction]">
@@ -60,7 +60,7 @@ export default function FlavorSpotlight({ flavors }) {
         ))}
       </ul>
 
-      <Link to="/cardapio?aba=pasteis" className="md:hidden block mt-6">
+      <Link to="/cardapio?aba=centos-pasteis" className="md:hidden block mt-6">
         <span className="w-full inline-flex items-center justify-center gap-2 bg-secondary text-brown font-display font-extrabold uppercase tracking-wide px-5 py-3 border-2 border-brown shadow-[4px_4px_0_#3d2410]">
           Ver os pastéis
           <HiArrowRight size={16} />

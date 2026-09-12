@@ -5,11 +5,8 @@ import { getProducts, peekProducts } from '../../services/products'
 import { getCategories, peekCategories } from '../../services/categories'
 import { getFlavors, peekFlavors } from '../../services/flavors'
 import { useFavoritesStore } from '../../store/favoritesStore'
-import { ehPacote, pacotesDoSabor } from '../../utils/pacote'
 import { catalogText } from '../../utils/catalogText'
 import ProductCard from '../../components/product/ProductCard'
-import FlavorCard from '../../components/product/FlavorCard'
-import FlavorToCart from '../../components/product/FlavorToCart'
 import Loading from '../../components/ui/Loading'
 import Seo from '../../components/ui/Seo'
 
@@ -25,7 +22,6 @@ export default function MenuPage() {
   // efeito) evita o flash de "Todos" antes de trocar.
   const [params] = useSearchParams()
   const [activeCategory, setActiveCategory] = useState(() => params.get('aba') || 'all')
-  const [saborNoCarrinho, setSaborNoCarrinho] = useState(null)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(!produtosEmCache || !categoriasEmCache)
   const favorites = useFavoritesStore(s => s.favorites)
@@ -41,19 +37,10 @@ export default function MenuPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // A aba de pasteis mostra os sabores com foto, nao os pacotes: quem escolhe
-  // pastel escolhe pelo recheio. O preco vem do pacote, que a aba "Centos de
-  // Pasteis" vende e que o cartao de sabor abre no clique.
+  // O cardapio vende pacote; recheio nao tem aba propria. Os sabores de pastel
+  // seguem no JSON-LD como secao sem preco, e a pagina de cada um continua no ar
+  // em /salgados/<sabor>.
   const pasteis = flavors.filter(f => f.group_slug === 'pasteis')
-
-  const q = search.toLowerCase().trim()
-  const pasteisFiltrados = pasteis.filter(f =>
-    !q || f.name.toLowerCase().includes(q) || f.description?.toLowerCase().includes(q)
-  )
-
-  // Sabor so vai ao carrinho dentro de um pacote, entao sem pacote no cardapio
-  // o botao nao aparece -- e melhor nao ter botao do que ter um que trava.
-  const pacotes = products.filter(ehPacote)
 
   // Cardapio em Schema.org. O index.html ja declara a loja e aponta hasMenu para
   // ca; sem isto o Google sabe que existe um cardapio mas nao o que tem dentro.
@@ -192,43 +179,13 @@ export default function MenuPage() {
                   {cat.name}
                 </CategoryPill>
               ))}
-              {/* Ultima pill: pastel nao e produto vendavel, e recheio de pacote.
-                  Fica depois das categorias reais para nao sugerir que da pra
-                  comprar avulso. */}
-              {pasteis.length > 0 && (
-                <CategoryPill
-                  active={activeCategory === 'pasteis'}
-                  onClick={() => setActiveCategory('pasteis')}
-                >
-                  Pastéis
-                </CategoryPill>
-              )}
             </div>
           </div>
         </div>
 
         {/* Products grid */}
         <div className="max-w-6xl mx-auto px-4 py-8">
-          {activeCategory === 'pasteis' ? (
-            pasteisFiltrados.length === 0 ? (
-              <div className="text-center py-16">
-                <img width={512} height={512} src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
-                <p className="text-text-light font-display text-lg">Nenhum pastel com esse nome.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                {pasteisFiltrados.map(sabor => (
-                  <FlavorCard
-                    key={sabor.id}
-                    sabor={sabor}
-                    aoAdicionar={
-                      pacotesDoSabor(sabor, pacotes).length > 0 ? setSaborNoCarrinho : undefined
-                    }
-                  />
-                ))}
-              </div>
-            )
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="text-center py-16">
               <img width={512} height={512} src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto mb-4 opacity-30" />
               <p className="text-text-light font-display text-lg">Nenhum produto nesta categoria.</p>
@@ -242,14 +199,6 @@ export default function MenuPage() {
           )}
         </div>
       </div>
-
-      {saborNoCarrinho && (
-        <FlavorToCart
-          sabor={saborNoCarrinho}
-          pacotes={pacotesDoSabor(saborNoCarrinho, pacotes)}
-          aoFechar={() => setSaborNoCarrinho(null)}
-        />
-      )}
     </>
   )
 }
