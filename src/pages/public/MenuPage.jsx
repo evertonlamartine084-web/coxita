@@ -47,16 +47,23 @@ export default function MenuPage() {
 
   const pacotes = products.filter(ehPacote)
 
-  // O pacote de salgados nao diz o que vai dentro: quem escolhe, escolhe pelo
-  // recheio. Entao a aba desse pacote mostra tambem os sabores que ele aceita,
-  // e clicar num deles abre o pacote com 25 unidades ja marcadas. Os pasteis
-  // nao entram aqui porque la cada sabor ja e um produto, com preco proprio.
-  const pacoteLivre = pacotes.find(p => !p.fixed_flavor_id)
-  const abaDeMontar = pacoteLivre?.categories?.slug
+  // Pacote nao diz o que vai dentro: quem compra escolhe pelo recheio. Entao
+  // toda aba de pacote mostra tambem os sabores que ele aceita, e clicar num
+  // deles leva ao pacote com esse sabor.
+  //
+  // O grupo sai dos proprios produtos da aba, nao de slug escrito a mao --
+  // renomear a categoria no admin nao quebra a tela. Aba com dois grupos
+  // ("Todos") nao ganha a secao: sairia o catalogo de sabores inteiro repetido.
+  const pacotesDaAba = products.filter(
+    p => p.categories?.slug === activeCategory && ehPacote(p)
+  )
+  const gruposDaAba = [...new Set(pacotesDaAba.map(p => p.flavor_group).filter(Boolean))]
   const saboresDaAba =
-    activeCategory === abaDeMontar
-      ? flavors.filter(f => f.group_slug === pacoteLivre.flavor_group)
-      : []
+    gruposDaAba.length === 1 ? flavors.filter(f => f.group_slug === gruposDaAba[0]) : []
+
+  // Pacote de sabor unico ja tem preco por sabor: escolher o tamanho e a
+  // escolha inteira, nao ha o que montar de 25 em 25.
+  const abaDeSaborUnico = pacotesDaAba.length > 0 && pacotesDaAba.every(p => p.fixed_flavor_id)
 
   // Cardapio em Schema.org. O index.html ja declara a loja e aponta hasMenu para
   // ca; sem isto o Google sabe que existe um cardapio mas nao o que tem dentro.
@@ -227,7 +234,9 @@ export default function MenuPage() {
                 <div className={filtered.length > 0 ? 'mt-12' : ''}>
                   <h2 className="font-display text-2xl uppercase text-brown mb-1">Escolha os sabores</h2>
                   <p className="text-text-light text-sm mb-5">
-                    Todo pacote e montado de 25 em 25. Clique num sabor para escolher o tamanho.
+                    {abaDeSaborUnico
+                      ? 'Clique num sabor para escolher o tamanho do pacote.'
+                      : 'Todo pacote é montado de 25 em 25. Clique num sabor para começar.'}
                   </p>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                     {saboresFiltrados.map(sabor => (
