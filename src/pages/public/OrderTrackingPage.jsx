@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { HiHome, HiRefresh, HiCheck, HiClock, HiTruck, HiX, HiArrowRight, HiBell, HiStar, HiChat, HiPaperAirplane } from 'react-icons/hi'
-import { getOrderByNumber, getOrderMessages, sendOrderMessage, markMessagesRead } from '../../services/orders'
+import { consultarPedido, consultarPedidoPorToken, getOrderMessagesPorToken, sendOrderMessagePorToken, markMessagesReadPorToken } from '../../services/orders'
+import { guardarToken, tokenDoPedido } from '../../utils/pedidosLocais'
 import { getSettings } from '../../services/settings'
 import { createReview, getReviewByOrderId } from '../../services/reviews'
 import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../../utils/format'
@@ -11,6 +12,7 @@ import ShareButtons from '../../components/share/ShareButtons'
 import { registerPushSubscription } from '../../services/pushNotifications'
 import { useVisualViewport } from '../../hooks/useVisualViewport'
 import toast from 'react-hot-toast'
+import Seo from '../../components/ui/Seo'
 
 const STEPS = [
   { key: 'pendente', label: 'Pedido recebido', icon: HiClock, description: 'Seu pedido foi recebido e está aguardando confirmação' },
@@ -32,6 +34,11 @@ function sendNotification(title, body) {
 
 export default function OrderTrackingPage() {
   const { orderNumber } = useParams()
+  // o formulário abaixo é RECUPERAÇÃO, não o caminho normal: quem veio pelo link (ou pediu
+  // neste aparelho) nunca o vê, porque o código já abre o pedido sozinho.
+  const [buscaNumero, setBuscaNumero] = useState('')
+  const [buscaTelefone, setBuscaTelefone] = useState('')
+  const [mostrarRecuperar, setMostrarRecuperar] = useState(false)
   const lastOrder = localStorage.getItem('coxita-last-order')
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -53,10 +60,10 @@ export default function OrderTrackingPage() {
   // Area visivel real (desconta o teclado no iOS); so escuta com o chat aberto.
   const areaVisivel = useVisualViewport(chatOpen)
 
-  const loadMessages = useCallback(async (orderId) => {
-    if (!orderId) return
+  const loadMessages = useCallback(async (token) => {
+    if (!token) return
     try {
-      const msgs = await getOrderMessages(orderId)
+      const msgs = await getOrderMessagesPorToken(token)
       setMessages(msgs)
       const unread = msgs.filter(m => m.sender_type === 'admin' && !m.read_at).length
       setUnreadCount(unread)
@@ -69,10 +76,10 @@ export default function OrderTrackingPage() {
     if (!newMessage.trim() || !order || sendingMsg) return
     setSendingMsg(true)
     try {
-      await sendOrderMessage(order.id, 'customer', newMessage.trim())
+      await sendOrderMessagePorToken(order.public_token, newMessage.trim())
       setNewMessage('')
       shouldScrollRef.current = true
-      await loadMessages(order.id)
+      await loadMessages(order.public_token)
     } catch {
       toast.error('Erro ao enviar mensagem')
     } finally {
@@ -84,7 +91,7 @@ export default function OrderTrackingPage() {
   useEffect(() => {
     if (!order || chatOpen) return
     const checkUnread = () => {
-      getOrderMessages(order.id).then(msgs => {
+      getOrderMessagesPorToken(order.public_token).then(msgs => {
         const count = msgs.filter(m => m.sender_type === 'admin' && !m.read_at).length
         setUnreadCount(count)
       }).catch(error => console.warn('Não foi possível verificar mensagens novas:', error))
@@ -108,9 +115,9 @@ export default function OrderTrackingPage() {
   useEffect(() => {
     if (!chatOpen || !order) return
     shouldScrollRef.current = true
-    loadMessages(order.id)
-    markMessagesRead(order.id, 'admin').catch(error => console.warn('Não foi possível marcar as mensagens como lidas:', error))
-    const interval = setInterval(() => loadMessages(order.id), 10000)
+    loadMessages(order.public_token)
+    markMessagesReadPorToken(order.public_token).catch(error => console.warn('Não foi possível marcar as mensagens como lidas:', error))
+    const interval = setInterval(() => loadMessages(order.public_token), 10000)
     return () => clearInterval(interval)
   }, [chatOpen, order, loadMessages])
 
@@ -136,11 +143,15 @@ export default function OrderTrackingPage() {
     }
     if (showLoading) setLoading(true)
     try {
-      const data = await getOrderByNumber(parseInt(num))
+      // um código tem 16 caracteres; número de pedido é curto e só dígitos
+      const ehToken = typeof num === 'string' && num.length >= 16
+      const data = ehToken
+        ? await consultarPedidoPorToken(num)
+        : await consultarPedidoPorToken(tokenDoPedido(num) ?? '')
       // Notify on status change
       if (prevStatusRef.current && prevStatusRef.current !== data.status) {
         const label = STATUS_LABELS[data.status] || data.status
-        sendNotification(`Pedido #${data.order_number}`, `Status atualizado: ${label}`)
+        sendNotification(`Pedido #${data.codigo_cliente ?? data.order_number}`, `Status atualizado: ${label}`)
       }
       prevStatusRef.current = data.status
       setOrder(data)
@@ -242,13 +253,76 @@ export default function OrderTrackingPage() {
             <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
           </div>
           <h2 className="font-display text-2xl font-bold mb-2 text-text">
-            {notFound ? 'Pedido não encontrado' : 'Nenhum pedido ainda'}
+            {notFound ? 'Pedido não encontrado' : 'Nenhum pedido por aqui'}
           </h2>
-          <p className="text-text-light mb-8 max-w-sm mx-auto">
+          <p className="text-text-light mb-6 max-w-sm mx-auto">
             {notFound
-              ? 'O pedido que você procura não existe.'
-              : 'Faça seu primeiro pedido e acompanhe por aqui!'}
+              ? 'Confira o número e o telefone usados no pedido.'
+              : 'Abra o link que você recebeu ao fazer o pedido para acompanhar.'}
           </p>
+
+          {mostrarRecuperar ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const num = buscaNumero.trim()
+                const tel = buscaTelefone.trim()
+                consultarPedido(num, tel)
+                  .then((pedido) => {
+                    // guarda o código: da próxima vez abre direto, sem formulário
+                    guardarToken(pedido.order_number, pedido.public_token)
+                    setOrder(pedido)
+                    setNotFound(false)
+                    setMostrarRecuperar(false)
+                  })
+                  .catch(() => setNotFound(true))
+              }}
+              className="mx-auto mb-8 max-w-sm space-y-3 text-left"
+            >
+              <label className="block">
+                <span className="mb-1 block font-display text-xs font-extrabold uppercase tracking-[0.06em] text-text-warm">
+                  Número do pedido
+                </span>
+                <input
+                  inputMode="numeric"
+                  value={buscaNumero}
+                  onChange={(e) => setBuscaNumero(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Ex: 137"
+                  className="w-full rounded-sm border-2 border-border-warm bg-white px-3 py-2.5 text-base outline-none focus:border-primary"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block font-display text-xs font-extrabold uppercase tracking-[0.06em] text-text-warm">
+                  Telefone do pedido
+                </span>
+                <input
+                  inputMode="tel"
+                  value={buscaTelefone}
+                  onChange={(e) => setBuscaTelefone(e.target.value)}
+                  placeholder="(00) 00000-0000"
+                  className="w-full rounded-sm border-2 border-border-warm bg-white px-3 py-2.5 text-base outline-none focus:border-primary"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={!buscaNumero || !buscaTelefone.trim()}
+                className="w-full cursor-pointer rounded-sm border-2 border-brown bg-brown px-6 py-3 font-display text-base font-extrabold uppercase tracking-[0.04em] text-white shadow-[4px_4px_0_#ffcd5e] transition-colors hover:border-primary hover:bg-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Ver meu pedido
+              </button>
+            </form>
+          ) : (
+            <div className="mb-8">
+              <button
+                type="button"
+                onClick={() => setMostrarRecuperar(true)}
+                className="cursor-pointer text-sm text-primary underline decoration-2 underline-offset-4 transition-colors hover:text-brown"
+              >
+                Perdeu o link do seu pedido?
+              </button>
+            </div>
+          )}
+
           <Link to="/cardapio">
             <Button variant="festive" className="gap-2">
               Ver cardápio
@@ -261,390 +335,393 @@ export default function OrderTrackingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream dots-paper">
-      <div className="max-w-xl mx-auto px-4 py-10 md:py-14">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-secondary rounded-full border-3 border-brown flex items-center justify-center mx-auto mb-4 shadow-[4px_4px_0_#3f6bb5]">
-            <img src="/logo.png" alt="" className="w-16 h-16 object-contain" />
-          </div>
-          <p className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-festa mb-1">Direto da cozinha</p>
-          <h1 className="font-display text-4xl md:text-5xl font-black uppercase text-brown mb-1">Acompanhar pedido</h1>
-          <p className="text-text-light text-sm">Veja o status do seu pedido em tempo real</p>
-        </div>
-
-        {order && !loading && (
-          <div className="space-y-5">
-            {/* Order info card */}
-            <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Pedido</p>
-                  <p className="font-display text-3xl font-extrabold text-primary">#{order.order_number}</p>
-                </div>
-                <button
-                  onClick={() => fetchOrder(order.order_number)}
-                  className="p-2 text-text-light hover:text-primary hover:bg-primary/5 rounded-xl transition-colors cursor-pointer"
-                  title="Atualizar"
-                >
-                  <HiRefresh size={22} />
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-text-light text-xs">Cliente</p>
-                  <p className="font-semibold text-text">{order.customer_name}</p>
-                </div>
-                <div>
-                  <p className="text-text-light text-xs">Pagamento</p>
-                  <p className="font-semibold text-text">{PAYMENT_LABELS[order.payment_method]}</p>
-                </div>
-                <div>
-                  <p className="text-text-light text-xs">Total</p>
-                  <p className="font-semibold text-text">{formatCurrency(order.total)}</p>
-                </div>
-                <div>
-                  <p className="text-text-light text-xs">Feito em</p>
-                  <p className="font-semibold text-text">{formatDate(order.created_at)}</p>
-                </div>
-              </div>
-
-              {order.scheduled_for && (
-                <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
-                  <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">Agendado</span>
-                  <span className="text-sm font-semibold text-text">
-                    {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                    {' às '}
-                    {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              )}
-
-              {estimatedDelivery && !order.scheduled_for && order.status !== 'entregue' && order.status !== 'cancelado' && (
-                <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
-                  <HiClock size={16} className="text-accent" />
-                  <span className="text-sm font-semibold text-text">Tempo estimado: <span className="text-accent">{estimatedDelivery}</span></span>
-                </div>
-              )}
+    <>
+      <Seo titulo="Acompanhar pedido" noindex />
+      <div className="min-h-screen bg-cream dots-paper">
+        <div className="max-w-xl mx-auto px-4 py-10 md:py-14">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-secondary rounded-full border-3 border-brown flex items-center justify-center mx-auto mb-4 shadow-[4px_4px_0_#3f6bb5]">
+              <img src="/logo.png" alt="" className="w-16 h-16 object-contain" />
             </div>
+            <p className="font-display text-xs font-extrabold uppercase tracking-[0.14em] text-festa mb-1">Direto da cozinha</p>
+            <h1 className="font-display text-4xl md:text-5xl font-black uppercase text-brown mb-1">Acompanhar pedido</h1>
+            <p className="text-text-light text-sm">Veja o status do seu pedido em tempo real</p>
+          </div>
 
-            {/* Status tracker */}
-            {order.status === 'cancelado' ? (
-              <div className="bg-danger/5 card-organic border-2 border-danger/30 p-6 text-center">
-                <div className="w-14 h-14 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <HiX className="text-danger" size={28} />
-                </div>
-                <h2 className="font-display text-xl font-bold text-danger mb-1">Pedido cancelado</h2>
-                <p className="text-text-light text-sm">Este pedido foi cancelado.</p>
-              </div>
-            ) : (
-              <div className="bg-surface border-2 border-brown/20 p-6 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
-                <h2 className="font-display text-xl font-extrabold uppercase text-brown mb-6">Status do pedido</h2>
-
-                <div className="relative">
-                  {STEPS.map((step, i) => {
-                    const isCompleted = i <= currentStep
-                    const isCurrent = i === currentStep
-                    const Icon = step.icon
-
-                    return (
-                      <div key={step.key} className="flex gap-4 relative">
-                        {/* Line */}
-                        {i < STEPS.length - 1 && (
-                          <div
-                            className={`absolute left-[19px] top-[40px] w-0.5 h-[calc(100%-20px)] transition-colors duration-500 ${
-                              i < currentStep ? 'bg-accent' : 'bg-border'
-                            }`}
-                          />
-                        )}
-
-                        {/* Circle */}
-                        <div
-                          className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${
-                            isCurrent
-                              ? 'bg-accent text-white shadow-lg shadow-accent/30 scale-110'
-                              : isCompleted
-                              ? 'bg-accent text-white'
-                              : 'bg-border/50 text-text-light'
-                          }`}
-                        >
-                          {isCompleted && !isCurrent ? (
-                            <HiCheck size={18} />
-                          ) : (
-                            <Icon size={18} className={isCurrent ? 'animate-pulse' : ''} />
-                          )}
-                        </div>
-
-                        {/* Text */}
-                        <div className={`pb-8 ${i === STEPS.length - 1 ? 'pb-0' : ''}`}>
-                          <p
-                            className={`font-display font-bold text-sm transition-colors ${
-                              isCompleted ? 'text-text' : 'text-text-light'
-                            }`}
-                          >
-                            {step.label}
-                          </p>
-                          <p
-                            className={`text-xs mt-0.5 transition-colors ${
-                              isCurrent ? 'text-accent font-semibold' : 'text-text-light'
-                            }`}
-                          >
-                            {isCurrent ? step.description : isCompleted ? 'Concluído' : 'Aguardando'}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Notifications + Auto refresh */}
-                <div className="mt-6 pt-4 border-t border-border/50 space-y-3">
-                  {'Notification' in window && !notifEnabled && (
-                    <button
-                      onClick={requestNotifications}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/5 text-primary font-display font-bold text-sm hover:bg-primary/10 transition-colors cursor-pointer"
-                    >
-                      <HiBell size={16} />
-                      Ativar notificações
-                    </button>
-                  )}
-                  {notifEnabled && (
-                    <p className="text-center text-accent text-xs font-semibold flex items-center justify-center gap-1">
-                      <HiBell size={14} />
-                      Notificações ativadas
-                    </p>
-                  )}
-                  <p className="text-center text-text-light text-xs">
-                    Atualiza automaticamente a cada 30 segundos
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Chat floating button */}
-            {order.status !== 'cancelado' && order.status !== 'entregue' && !chatOpen && (
-              <button
-                onClick={() => setChatOpen(true)}
-                className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-colors duration-[--duration-fast] ease-[--ease-interaction] cursor-pointer"
-              >
-                <HiChat size={26} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* Chat modal */}
-            {chatOpen && (
-              // Ancorado na visualViewport, nao em vh: com o teclado aberto o
-              // iOS desloca a tela e 75vh transborda para tras do teclado.
-              <div
-                className="fixed left-0 right-0 z-50 flex items-center justify-center p-4"
-                style={{ top: areaVisivel.top, height: areaVisivel.height }}
-              >
-                <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
-                <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl flex flex-col h-full max-h-[600px]" style={{ overscrollBehavior: 'contain' }}>
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                      <img src="/logo.png" alt="Coxelli" className="w-9 h-9 rounded-full object-cover" />
-                      <div>
-                        <p className="font-display font-bold text-sm text-text">Coxelli</p>
-                        <p className="text-[11px] text-green-500 font-medium">Online</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setChatOpen(false)}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
-                    >
-                      <HiX size={20} className="text-text-light" />
-                    </button>
+          {order && !loading && (
+            <div className="space-y-5">
+              {/* Order info card */}
+              <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Pedido</p>
+                    <p className="font-display text-3xl font-extrabold text-primary">#{order.codigo_cliente ?? order.order_number}</p>
                   </div>
+                  <button
+                    onClick={() => fetchOrder(order.order_number)}
+                    className="p-2 text-text-light hover:text-primary hover:bg-primary/5 rounded-xl transition-colors cursor-pointer"
+                    title="Atualizar"
+                  >
+                    <HiRefresh size={22} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-text-light text-xs">Cliente</p>
+                    <p className="font-semibold text-text">{order.customer_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-text-light text-xs">Pagamento</p>
+                    <p className="font-semibold text-text">{PAYMENT_LABELS[order.payment_method]}</p>
+                  </div>
+                  <div>
+                    <p className="text-text-light text-xs">Total</p>
+                    <p className="font-semibold text-text">{formatCurrency(order.total)}</p>
+                  </div>
+                  <div>
+                    <p className="text-text-light text-xs">Feito em</p>
+                    <p className="font-semibold text-text">{formatDate(order.created_at)}</p>
+                  </div>
+                </div>
 
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/80">
-                    {messages.length === 0 ? (
-                      <div className="text-center py-12">
-                        <HiChat size={36} className="text-gray-300 mx-auto mb-2" />
-                        <p className="text-text-light text-sm">Envie uma mensagem para a loja</p>
-                      </div>
-                    ) : (
-                      messages.map(msg => (
-                        <div key={msg.id} className={`flex ${msg.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[80%] px-3 py-2 text-sm ${
-                            msg.sender_type === 'customer'
-                              ? 'bg-primary text-white rounded-2xl rounded-br-sm'
-                              : 'bg-white border border-gray-200 text-text rounded-2xl rounded-bl-sm shadow-sm'
-                          }`}>
-                            {msg.sender_type === 'admin' && (
-                              <p className="text-[10px] font-bold text-primary mb-0.5">Coxelli</p>
+                {order.scheduled_for && (
+                  <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
+                    <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">Agendado</span>
+                    <span className="text-sm font-semibold text-text">
+                      {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                      {' às '}
+                      {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
+
+                {estimatedDelivery && !order.scheduled_for && order.status !== 'entregue' && order.status !== 'cancelado' && (
+                  <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
+                    <HiClock size={16} className="text-accent" />
+                    <span className="text-sm font-semibold text-text">Tempo estimado: <span className="text-accent">{estimatedDelivery}</span></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Status tracker */}
+              {order.status === 'cancelado' ? (
+                <div className="bg-danger/5 card-organic border-2 border-danger/30 p-6 text-center">
+                  <div className="w-14 h-14 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <HiX className="text-danger" size={28} />
+                  </div>
+                  <h2 className="font-display text-xl font-bold text-danger mb-1">Pedido cancelado</h2>
+                  <p className="text-text-light text-sm">Este pedido foi cancelado.</p>
+                </div>
+              ) : (
+                <div className="bg-surface border-2 border-brown/20 p-6 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
+                  <h2 className="font-display text-xl font-extrabold uppercase text-brown mb-6">Status do pedido</h2>
+
+                  <div className="relative">
+                    {STEPS.map((step, i) => {
+                      const isCompleted = i <= currentStep
+                      const isCurrent = i === currentStep
+                      const Icon = step.icon
+
+                      return (
+                        <div key={step.key} className="flex gap-4 relative">
+                          {/* Line */}
+                          {i < STEPS.length - 1 && (
+                            <div
+                              className={`absolute left-[19px] top-[40px] w-0.5 h-[calc(100%-20px)] transition-colors duration-500 ${
+                                i < currentStep ? 'bg-accent' : 'bg-border'
+                              }`}
+                            />
+                          )}
+
+                          {/* Circle */}
+                          <div
+                            className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${
+                              isCurrent
+                                ? 'bg-accent text-white shadow-lg shadow-accent/30 scale-110'
+                                : isCompleted
+                                ? 'bg-accent text-white'
+                                : 'bg-border/50 text-text-light'
+                            }`}
+                          >
+                            {isCompleted && !isCurrent ? (
+                              <HiCheck size={18} />
+                            ) : (
+                              <Icon size={18} className={isCurrent ? 'animate-pulse' : ''} />
                             )}
-                            <p className="leading-relaxed">{msg.message}</p>
-                            <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
-                              <span className="text-[10px]">
-                                {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              {msg.sender_type === 'customer' && (
-                                <span className={`text-[11px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
-                                  {msg.read_at ? '✓✓' : '✓'}
-                                </span>
-                              )}
-                            </div>
+                          </div>
+
+                          {/* Text */}
+                          <div className={`pb-8 ${i === STEPS.length - 1 ? 'pb-0' : ''}`}>
+                            <p
+                              className={`font-display font-bold text-sm transition-colors ${
+                                isCompleted ? 'text-text' : 'text-text-light'
+                              }`}
+                            >
+                              {step.label}
+                            </p>
+                            <p
+                              className={`text-xs mt-0.5 transition-colors ${
+                                isCurrent ? 'text-accent font-semibold' : 'text-text-light'
+                              }`}
+                            >
+                              {isCurrent ? step.description : isCompleted ? 'Concluído' : 'Aguardando'}
+                            </p>
                           </div>
                         </div>
-                      ))
-                    )}
-                    <div ref={chatEndRef} />
+                      )
+                    })}
                   </div>
 
-                  {/* Input */}
-                  <div className="p-3 border-t border-gray-100 flex gap-2 bg-white rounded-b-2xl">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={e => setNewMessage(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Digite sua mensagem..."
-                      className="flex-1 px-4 py-2.5 border-2 border-border rounded-full text-sm outline-none focus:border-primary transition-colors"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim() || sendingMsg}
-                      className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      <HiPaperAirplane size={18} />
-                    </button>
+                  {/* Notifications + Auto refresh */}
+                  <div className="mt-6 pt-4 border-t border-border/50 space-y-3">
+                    {'Notification' in window && !notifEnabled && (
+                      <button
+                        onClick={requestNotifications}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/5 text-primary font-display font-bold text-sm hover:bg-primary/10 transition-colors cursor-pointer"
+                      >
+                        <HiBell size={16} />
+                        Ativar notificações
+                      </button>
+                    )}
+                    {notifEnabled && (
+                      <p className="text-center text-accent text-xs font-semibold flex items-center justify-center gap-1">
+                        <HiBell size={14} />
+                        Notificações ativadas
+                      </p>
+                    )}
+                    <p className="text-center text-text-light text-xs">
+                      Atualiza automaticamente a cada 30 segundos
+                    </p>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Items */}
-            <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
-              <h3 className="font-display font-extrabold uppercase text-brown mb-3">Itens do pedido</h3>
-              <div className="space-y-2">
-                {order.order_items?.map(item => (
-                  <div key={item.id} className="text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-text">
-                        <span className="font-bold text-primary">{item.quantity}x</span>{' '}
-                        {item.product_name}
-                      </span>
-                      <span className="font-semibold text-text">{formatCurrency(item.total_price)}</span>
+              {/* Chat floating button */}
+              {order.status !== 'cancelado' && order.status !== 'entregue' && !chatOpen && (
+                <button
+                  onClick={() => setChatOpen(true)}
+                  className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-primary text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-colors duration-[--duration-fast] ease-[--ease-interaction] cursor-pointer"
+                >
+                  <HiChat size={26} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* Chat modal */}
+              {chatOpen && (
+                // Ancorado na visualViewport, nao em vh: com o teclado aberto o
+                // iOS desloca a tela e 75vh transborda para tras do teclado.
+                <div
+                  className="fixed left-0 right-0 z-50 flex items-center justify-center p-4"
+                  style={{ top: areaVisivel.top, height: areaVisivel.height }}
+                >
+                  <div className="absolute inset-0 bg-black/40" onClick={() => setChatOpen(false)} />
+                  <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl flex flex-col h-full max-h-[600px]" style={{ overscrollBehavior: 'contain' }}>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <img src="/logo.png" alt="Coxelli" className="w-9 h-9 rounded-full object-cover" />
+                        <div>
+                          <p className="font-display font-bold text-sm text-text">Coxelli</p>
+                          <p className="text-[11px] text-green-500 font-medium">Online</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setChatOpen(false)}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                      >
+                        <HiX size={20} className="text-text-light" />
+                      </button>
                     </div>
-                    {item.order_item_flavors?.length > 0 && (
-                      <ul className="mt-1 ml-5 space-y-0.5">
-                        {item.order_item_flavors.map(sabor => (
-                          <li key={sabor.id} className="text-text-light text-xs">
-                            <span className="font-semibold tabular-nums">
-                              {sabor.quantity * item.quantity}x
-                            </span>{' '}
-                            {sabor.flavor_name}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/80">
+                      {messages.length === 0 ? (
+                        <div className="text-center py-12">
+                          <HiChat size={36} className="text-gray-300 mx-auto mb-2" />
+                          <p className="text-text-light text-sm">Envie uma mensagem para a loja</p>
+                        </div>
+                      ) : (
+                        messages.map(msg => (
+                          <div key={msg.id} className={`flex ${msg.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] px-3 py-2 text-sm ${
+                              msg.sender_type === 'customer'
+                                ? 'bg-primary text-white rounded-2xl rounded-br-sm'
+                                : 'bg-white border border-gray-200 text-text rounded-2xl rounded-bl-sm shadow-sm'
+                            }`}>
+                              {msg.sender_type === 'admin' && (
+                                <p className="text-[10px] font-bold text-primary mb-0.5">Coxelli</p>
+                              )}
+                              <p className="leading-relaxed">{msg.message}</p>
+                              <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'customer' ? 'text-white/60' : 'text-text-light'}`}>
+                                <span className="text-[10px]">
+                                  {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {msg.sender_type === 'customer' && (
+                                  <span className={`text-[11px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                                    {msg.read_at ? '✓✓' : '✓'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Input */}
+                    <div className="p-3 border-t border-gray-100 flex gap-2 bg-white rounded-b-2xl">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={e => setNewMessage(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Digite sua mensagem..."
+                        className="flex-1 px-4 py-2.5 border-2 border-border rounded-full text-sm outline-none focus:border-primary transition-colors"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim() || sendingMsg}
+                        className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <HiPaperAirplane size={18} />
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="mt-3 pt-3 border-t border-border/50 flex justify-between">
-                <span className="font-display font-bold text-text">Total</span>
-                <span className="font-display font-extrabold text-primary text-lg">{formatCurrency(order.total)}</span>
+                </div>
+              )}
+
+              {/* Items */}
+              <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
+                <h3 className="font-display font-extrabold uppercase text-brown mb-3">Itens do pedido</h3>
+                <div className="space-y-2">
+                  {order.order_items?.map(item => (
+                    <div key={item.id} className="text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-text">
+                          <span className="font-bold text-primary">{item.quantity}x</span>{' '}
+                          {item.product_name}
+                        </span>
+                        <span className="font-semibold text-text">{formatCurrency(item.total_price)}</span>
+                      </div>
+                      {item.order_item_flavors?.length > 0 && (
+                        <ul className="mt-1 ml-5 space-y-0.5">
+                          {item.order_item_flavors.map(sabor => (
+                            <li key={sabor.id} className="text-text-light text-xs">
+                              <span className="font-semibold tabular-nums">
+                                {sabor.quantity * item.quantity}x
+                              </span>{' '}
+                              {sabor.flavor_name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-border/50 flex justify-between">
+                  <span className="font-display font-bold text-text">Total</span>
+                  <span className="font-display font-extrabold text-primary text-lg">{formatCurrency(order.total)}</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Share */}
-        {order && (
-          <div className="mt-5">
-            <ShareButtons orderNumber={order.order_number} />
-          </div>
-        )}
+          {/* Share */}
+          {order && (
+            <div className="mt-5">
+              <ShareButtons orderNumber={order.order_number} />
+            </div>
+          )}
 
-        {/* Review section - only when delivered */}
-        {order && order.status === 'entregue' && (
-          <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm mt-5">
-            {review ? (
-              <div className="text-center">
-                <h3 className="font-display font-bold text-text mb-2">Sua avaliação</h3>
-                <div className="flex justify-center gap-1 mb-2">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <HiStar
-                      key={star}
-                      size={24}
-                      className={star <= review.rating ? 'text-secondary' : 'text-border'}
-                    />
-                  ))}
-                </div>
-                {review.comment && (
-                  <p className="text-text-light text-sm italic">"{review.comment}"</p>
-                )}
-                <p className="text-accent text-xs font-semibold mt-2">Obrigado pelo feedback!</p>
-              </div>
-            ) : (
-              <div>
-                <h3 className="font-display font-bold text-text mb-1 text-center">Como foi seu pedido?</h3>
-                <p className="text-text-light text-xs text-center mb-4">Sua opinião nos ajuda a melhorar</p>
-
-                {/* Stars */}
-                <div className="flex justify-center gap-2 mb-4">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
-                      onClick={() => setRating(star)}
-                      className="cursor-pointer transition-transform duration-[--duration-fast] ease-[--ease-interaction] hover:scale-110"
-                    >
+          {/* Review section - only when delivered */}
+          {order && order.status === 'entregue' && (
+            <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm mt-5">
+              {review ? (
+                <div className="text-center">
+                  <h3 className="font-display font-bold text-text mb-2">Sua avaliação</h3>
+                  <div className="flex justify-center gap-1 mb-2">
+                    {[1, 2, 3, 4, 5].map(star => (
                       <HiStar
-                        size={32}
-                        className={`transition-colors ${star <= rating ? 'text-secondary' : 'text-border hover:text-secondary/50'}`}
+                        key={star}
+                        size={24}
+                        className={star <= review.rating ? 'text-secondary' : 'text-border'}
                       />
-                    </button>
-                  ))}
+                    ))}
+                  </div>
+                  {review.comment && (
+                    <p className="text-text-light text-sm italic">"{review.comment}"</p>
+                  )}
+                  <p className="text-accent text-xs font-semibold mt-2">Obrigado pelo feedback!</p>
                 </div>
+              ) : (
+                <div>
+                  <h3 className="font-display font-bold text-text mb-1 text-center">Como foi seu pedido?</h3>
+                  <p className="text-text-light text-xs text-center mb-4">Sua opinião nos ajuda a melhorar</p>
 
-                {rating > 0 && (
-                  <p className="text-center text-sm font-display font-bold text-secondary mb-3">
-                    {rating === 1 && 'Pode melhorar'}
-                    {rating === 2 && 'Regular'}
-                    {rating === 3 && 'Bom'}
-                    {rating === 4 && 'Muito bom!'}
-                    {rating === 5 && 'Excelente!'}
-                  </p>
-                )}
+                  {/* Stars */}
+                  <div className="flex justify-center gap-2 mb-4">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button
+                        key={star}
+                        onClick={() => setRating(star)}
+                        className="cursor-pointer transition-transform duration-[--duration-fast] ease-[--ease-interaction] hover:scale-110"
+                      >
+                        <HiStar
+                          size={32}
+                          className={`transition-colors ${star <= rating ? 'text-secondary' : 'text-border hover:text-secondary/50'}`}
+                        />
+                      </button>
+                    ))}
+                  </div>
 
-                {/* Comment */}
-                <textarea
-                  value={comment}
-                  onChange={e => setComment(e.target.value)}
-                  rows={3}
-                  placeholder="Deixe um comentário (opcional)"
-                  className="w-full px-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary resize-none transition-colors font-body text-sm mb-3"
-                />
+                  {rating > 0 && (
+                    <p className="text-center text-sm font-display font-bold text-secondary mb-3">
+                      {rating === 1 && 'Pode melhorar'}
+                      {rating === 2 && 'Regular'}
+                      {rating === 3 && 'Bom'}
+                      {rating === 4 && 'Muito bom!'}
+                      {rating === 5 && 'Excelente!'}
+                    </p>
+                  )}
 
-                <button
-                  onClick={handleSubmitReview}
-                  disabled={rating === 0 || submittingReview}
-                  className="w-full py-3 rounded-xl font-bold font-display bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {submittingReview ? 'Enviando...' : 'Enviar avaliação'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+                  {/* Comment */}
+                  <textarea
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                    rows={3}
+                    placeholder="Deixe um comentário (opcional)"
+                    className="w-full px-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary resize-none transition-colors font-body text-sm mb-3"
+                  />
 
-        {/* Back home */}
-        <Link to="/" className="block mt-8">
-          <Button variant="outline" className="w-full gap-2">
-            <HiHome size={18} />
-            Voltar ao início
-          </Button>
-        </Link>
+                  <button
+                    onClick={handleSubmitReview}
+                    disabled={rating === 0 || submittingReview}
+                    className="w-full py-3 rounded-xl font-bold font-display bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {submittingReview ? 'Enviando...' : 'Enviar avaliação'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Back home */}
+          <Link to="/" className="block mt-8">
+            <Button variant="outline" className="w-full gap-2">
+              <HiHome size={18} />
+              Voltar ao início
+            </Button>
+          </Link>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

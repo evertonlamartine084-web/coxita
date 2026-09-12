@@ -1,21 +1,29 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
-import { createOrder, getActiveOrderByNumbers } from '../../services/orders'
+import { createOrder, getPedidosPorTokens } from '../../services/orders'
 import { getSettings } from '../../services/settings'
-import { createPaymentPreference } from '../../services/payment'
+import { pagarComCartao, gerarPix } from '../../services/cielo'
+import { guardarToken, linkDoPedido, lerTokens } from '../../utils/pedidosLocais'
+import { mascararCpf, cpfValido } from '../../utils/cpf'
+import CardForm from '../../components/checkout/CardForm'
+import PixPayment from '../../components/checkout/PixPayment'
+import Modal from '../../components/ui/Modal'
 import { notifyNewOrder } from '../../services/notifications'
 import { validateCoupon, useCoupon as registerCouponUse } from '../../services/coupons'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
+import { calcularDescontoAvista, ehAVista, rotuloDoDesconto } from '../../utils/descontoAvista'
 import toast from 'react-hot-toast'
+import Seo from '../../components/ui/Seo'
 
 const initialForm = {
   customer_name: '',
   customer_phone: '',
+  customer_cpf: '',
   delivery_type: 'entrega',
   address_cep: '',
   address: '',
@@ -39,6 +47,13 @@ export default function CheckoutPage() {
   const [settings, setSettingsData] = useState({})
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  // pagamento online (Cielo): o pedido já existe no banco e a cobrança acontece sem sair daqui
+  const [pagamento, setPagamento] = useState(null) // { modo: 'cartao'|'pix', order, pix? }
+  const [processandoPag, setProcessandoPag] = useState(false)
+  // carrinho vazio manda de volta pro /carrinho (ver efeito abaixo). Ao concluir um pagamento
+  // ele fica vazio de propósito, e sem esta trava o cliente era jogado no carrinho vazio em vez
+  // da tela de "pedido confirmado".
+  const finalizando = useRef(false)
   const [cepLoading, setCepLoading] = useState(false)
   const [couponCode, setCouponCode] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState(null)
@@ -47,13 +62,21 @@ export default function CheckoutPage() {
   const [activeOrder, setActiveOrder] = useState(null)
   const [storeClosed, setStoreClosed] = useState(false)
 
-  const getDiscount = () => {
+  const getDescontoCupom = () => {
     if (!appliedCoupon) return 0
     if (appliedCoupon.discount_type === 'percent') {
       return getSubtotal() * (appliedCoupon.discount_value / 100)
     }
     return Math.min(appliedCoupon.discount_value, getSubtotal())
   }
+
+  // Pix e dinheiro nao pagam maquininha, e o desconto devolve essa taxa. Incide
+  // sobre o subtotal ja sem o cupom -- desconto sobre desconto poderia passar
+  // do proprio subtotal num cupom generoso.
+  const getDescontoAvista = () =>
+    calcularDescontoAvista(getSubtotal() - getDescontoCupom(), form.payment_method, settings)
+
+  const getDiscount = () => getDescontoCupom() + getDescontoAvista()
 
   const getFinalTotal = () => {
     return Math.max(0, getSubtotal() - getDiscount() + deliveryFee)
@@ -84,7 +107,7 @@ export default function CheckoutPage() {
   }
 
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !finalizando.current) {
       navigate('/carrinho')
       return
     }
@@ -103,11 +126,12 @@ export default function CheckoutPage() {
       }
     })
 
-    // Check for active order
-    const myOrders = JSON.parse(localStorage.getItem('coxita-my-orders') || '[]')
-    if (myOrders.length > 0) {
-      getActiveOrderByNumbers(myOrders).then(order => {
-        if (order) setActiveOrder(order)
+    // Pedido ainda em andamento deste aparelho, buscado pelos códigos guardados localmente
+    const tokens = Object.values(lerTokens())
+    if (tokens.length > 0) {
+      getPedidosPorTokens(tokens).then(pedidos => {
+        const emAberto = pedidos.find(o => !['entregue', 'cancelado'].includes(o.status))
+        if (emAberto) setActiveOrder(emAberto)
       }).catch(error => console.warn('Não foi possível verificar pedidos ativos:', error))
     }
 
@@ -171,6 +195,11 @@ export default function CheckoutPage() {
     const errs = {}
     if (!form.customer_name.trim()) errs.customer_name = 'Nome obrigatório'
     if (!form.customer_phone.trim()) errs.customer_phone = 'Telefone obrigatório'
+    // vazio é válido (nota sem identificação); preenchido tem que ser um CPF de verdade, senão
+    // o erro só apareceria na emissão da nota, com o pedido já entregue
+    if (form.customer_cpf.trim() && !cpfValido(form.customer_cpf)) {
+      errs.customer_cpf = 'CPF inválido. Deixe em branco se não quiser na nota.'
+    }
     if (form.delivery_type === 'entrega') {
       if (!form.address.trim()) errs.address = 'Endereço obrigatório'
       if (!form.neighborhood.trim()) errs.neighborhood = 'Bairro obrigatório'
@@ -201,6 +230,8 @@ export default function CheckoutPage() {
       const orderData = {
         customer_name: form.customer_name.trim(),
         customer_phone: form.customer_phone.trim(),
+        // opcional: vazio significa nota sem identificação do consumidor
+        customer_cpf: form.customer_cpf.replace(/\D/g, '') || null,
         delivery_type: form.delivery_type,
         address_cep: form.delivery_type === 'entrega' ? form.address_cep.replace(/\D/g, '') || null : null,
         address: form.delivery_type === 'entrega' ? form.address.trim() : null,
@@ -215,6 +246,7 @@ export default function CheckoutPage() {
         subtotal: getSubtotal(),
         delivery_fee: deliveryFee,
         discount: getDiscount(),
+        discount_avista: getDescontoAvista(),
         coupon_code: appliedCoupon?.code || null,
         total: getFinalTotal(),
       }
@@ -232,6 +264,8 @@ export default function CheckoutPage() {
       const totalQty = items.reduce((sum, i) => sum + i.quantity, 0)
       addLoyaltyItems(totalQty)
 
+      // o código é o que abre o pedido depois; sem ele o cliente teria que provar quem é
+      guardarToken(order.order_number, order.public_token)
       localStorage.setItem('coxita-last-order', order.order_number.toString())
       localStorage.setItem('coxita-customer-phone', form.customer_phone.trim())
 
@@ -260,21 +294,25 @@ export default function CheckoutPage() {
         }))
       ))
 
-      if (form.payment_method === 'credito' || form.payment_method === 'debito') {
-        try {
-          const payment = await createPaymentPreference(order, items)
-          clearCart()
-          window.location.href = payment.init_point
-          return
-        } catch (payErr) {
-          console.error('Erro ao criar pagamento:', payErr)
-          toast.error('Erro ao processar pagamento. Tente outro metodo.')
-          return
-        }
+      // Pagamento online: abre a cobrança AQUI, sem redirect. O carrinho só é limpo quando o
+      // pagamento fecha — se o cliente desistir no meio, ele não perde o que montou.
+      if (form.payment_method === 'cartao') {
+        setPagamento({ modo: 'cartao', order })
+        return
       }
 
-      clearCart()
-      navigate(`/pedido-confirmado/${order.order_number}`)
+      if (form.payment_method === 'pix_online') {
+        try {
+          const pix = await gerarPix(order.id)
+          setPagamento({ modo: 'pix', order, pix })
+        } catch (err) {
+          console.error('Erro ao gerar Pix:', err)
+          toast.error('Não foi possível gerar o Pix. Escolha outra forma de pagamento.')
+        }
+        return
+      }
+
+      concluir(order)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao enviar pedido. Tente novamente.')
@@ -283,349 +321,438 @@ export default function CheckoutPage() {
     }
   }
 
+  const concluir = (order) => {
+    finalizando.current = true
+    clearCart()
+    navigate(`/pedido-confirmado/${order.order_number}`)
+  }
+
+  const aoPagarCartao = async (cartao, parcelas) => {
+    setProcessandoPag(true)
+    try {
+      const r = await pagarComCartao(pagamento.order.id, cartao, parcelas)
+      if (r.ok) {
+        toast.success('Pagamento aprovado!')
+        concluir(pagamento.order)
+      } else {
+        // a recusa é do banco emissor, não um erro nosso: o pedido continua de pé e a pessoa
+        // pode tentar outro cartão sem refazer nada
+        toast.error(r.mensagem || 'Pagamento não autorizado. Tente outro cartão.')
+      }
+    } catch (err) {
+      console.error('Erro no pagamento:', err)
+      toast.error('Não foi possível processar o pagamento. Tente novamente.')
+    } finally {
+      setProcessandoPag(false)
+    }
+  }
+
+  const aoPixConfirmado = () => {
+    toast.success('Pagamento confirmado!')
+    concluir(pagamento.order)
+  }
+
   return (
-    <div className="min-h-screen bg-cream dots-paper">
-      <div className="max-w-3xl mx-auto px-4 py-8 md:py-12">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <img src="/logo.png" alt="" className="w-14 h-14 object-contain rounded-full border-2 border-brown bg-cream" />
-          <div>
-            <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-festa">Última etapa</p>
-            <h1 className="font-display text-3xl md:text-4xl font-black uppercase text-brown leading-none">Finalizar pedido</h1>
-            <p className="text-text-light text-sm mt-1">Confira os dados antes de mandar para a cozinha.</p>
-          </div>
-        </div>
-
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2 mb-8">
-          {['Dados', 'Entrega', 'Pagamento', 'Confirmar'].map((step, i) => (
-            <div key={step} className="flex items-center gap-2 flex-1">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-display ${
-                i === 0 ? 'bg-primary text-white' : 'bg-stone-200 text-stone-400'
-              }`}>
-                {i + 1}
-              </div>
-              <span className="text-xs text-text-light hidden sm:block">{step}</span>
-              {i < 3 && <div className="flex-1 h-0.5 bg-stone-200 rounded" />}
+    <>
+        <Seo titulo="Finalizar pedido" caminho="/checkout" noindex />
+      <div className="min-h-screen bg-cream dots-paper">
+        <div className="max-w-3xl mx-auto px-4 py-8 md:py-12">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <img src="/logo.png" alt="" className="w-14 h-14 object-contain rounded-full border-2 border-brown bg-cream" />
+            <div>
+              <p className="font-display text-xs font-extrabold uppercase tracking-[0.12em] text-festa">Última etapa</p>
+              <h1 className="font-display text-3xl md:text-4xl font-black uppercase text-brown leading-none">Finalizar pedido</h1>
+              <p className="text-text-light text-sm mt-1">Confira os dados antes de mandar para a cozinha.</p>
             </div>
-          ))}
-        </div>
-
-        {activeOrder && (
-          <div className="bg-secondary/10 border-2 border-secondary/30 rounded-xl p-5 mb-6 text-center">
-            <p className="text-lg font-display font-bold text-text mb-2">Você já tem um pedido em andamento!</p>
-            <p className="text-sm text-text-light mb-4">O pedido #{activeOrder.order_number} está em aberto. Aguarde a conclusão para fazer outro.</p>
-            <Link
-              to={`/acompanhar/${activeOrder.order_number}`}
-              className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl no-underline hover:bg-primary-dark transition-colors"
-            >
-              Acompanhar pedido #{activeOrder.order_number}
-            </Link>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className={`space-y-5 ${activeOrder ? 'opacity-50 pointer-events-none' : ''}`}>
-          {/* Dados pessoais */}
-          <CheckoutSection title="Seus dados" step="1">
-            <Input
-              label="Nome *"
-              name="customer_name"
-              value={form.customer_name}
-              onChange={handleChange}
-              error={errors.customer_name}
-              placeholder="Seu nome completo"
-            />
-            <Input
-              label="Telefone *"
-              name="customer_phone"
-              value={form.customer_phone}
-              onChange={handleChange}
-              error={errors.customer_phone}
-              placeholder="(00) 00000-0000"
-            />
-          </CheckoutSection>
+          {/* Progress indicator */}
+          <div className="flex items-center gap-2 mb-8">
+            {['Dados', 'Entrega', 'Pagamento', 'Confirmar'].map((step, i) => (
+              <div key={step} className="flex items-center gap-2 flex-1">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-display ${
+                  i === 0 ? 'bg-primary text-white' : 'bg-stone-200 text-stone-400'
+                }`}>
+                  {i + 1}
+                </div>
+                <span className="text-xs text-text-light hidden sm:block">{step}</span>
+                {i < 3 && <div className="flex-1 h-0.5 bg-stone-200 rounded" />}
+              </div>
+            ))}
+          </div>
 
-          {/* Tipo de entrega */}
-          <CheckoutSection title="Tipo de entrega" step="2">
-            <div className="flex gap-3">
-              <DeliveryOption
-                active={form.delivery_type === 'entrega'}
-                onChange={() => handleChange({ target: { name: 'delivery_type', value: 'entrega' } })}
-                icon={<HiTruck size={22} />}
-                label="Entrega"
-                sublabel="Receba em casa"
-                name="delivery_type"
-                value="entrega"
-              />
-              <DeliveryOption
-                active={form.delivery_type === 'retirada'}
-                onChange={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
-                icon={<HiOfficeBuilding size={22} />}
-                label="Retirada"
-                sublabel="Buscar no local"
-                name="delivery_type"
-                value="retirada"
-              />
+          {activeOrder && (
+            <div className="bg-secondary/10 border-2 border-secondary/30 rounded-xl p-5 mb-6 text-center">
+              <p className="text-lg font-display font-bold text-text mb-2">Você já tem um pedido em andamento!</p>
+              <p className="text-sm text-text-light mb-4">O pedido #{activeOrder.codigo_cliente ?? activeOrder.order_number} está em aberto. Aguarde a conclusão para fazer outro.</p>
+              <Link
+                to={linkDoPedido(activeOrder.order_number)}
+                className="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl no-underline hover:bg-primary-dark transition-colors"
+              >
+                Acompanhar pedido #{activeOrder.codigo_cliente ?? activeOrder.order_number}
+              </Link>
             </div>
-          </CheckoutSection>
-
-          {/* Endereço */}
-          {form.delivery_type === 'entrega' && (
-            <CheckoutSection title="Endereço" step="">
-              <div className="relative">
-                <Input
-                  label="CEP"
-                  name="address_cep"
-                  value={form.address_cep}
-                  onChange={handleChange}
-                  onBlur={handleCepBlur}
-                  placeholder="00000-000"
-                />
-                {cepLoading && (
-                  <span className="absolute right-3 top-9 text-xs text-primary font-semibold animate-pulse">Buscando...</span>
-                )}
-              </div>
-              <Input label="Rua *" name="address" value={form.address} onChange={handleChange} error={errors.address} />
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Número *" name="address_number" value={form.address_number} onChange={handleChange} error={errors.address_number} />
-                <Input label="Complemento" name="address_complement" value={form.address_complement} onChange={handleChange} />
-              </div>
-              <Input label="Bairro *" name="neighborhood" value={form.neighborhood} onChange={handleChange} error={errors.neighborhood} />
-              <Input label="Referência" name="address_reference" value={form.address_reference} onChange={handleChange} placeholder="Próximo a..." />
-            </CheckoutSection>
           )}
 
-          {/* Quando receber */}
-          <CheckoutSection title="Quando você quer?" step="">
-            {storeClosed && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
-                <p className="text-sm font-bold text-yellow-700">Estamos fechados no momento</p>
-                <p className="text-xs text-yellow-600 mt-0.5">
-                  Horário: {settings.opening_time}–{settings.closing_time}. Agende seu pedido!
-                </p>
-              </div>
-            )}
-            <div className="flex gap-3">
-              <DeliveryOption
-                active={form.order_type === 'agora' && !storeClosed}
-                onChange={() => !storeClosed && handleChange({ target: { name: 'order_type', value: 'agora' } })}
-                icon={<HiLightningBolt size={22} />}
-                label="Agora"
-                sublabel={storeClosed ? 'Indisponível agora' : 'O mais rápido possível'}
-                name="order_type"
-                value="agora"
-                disabled={storeClosed}
+          <form onSubmit={handleSubmit} className={`space-y-5 ${activeOrder ? 'opacity-50 pointer-events-none' : ''}`}>
+            {/* Dados pessoais */}
+            <CheckoutSection title="Seus dados" step="1">
+              <Input
+                label="Nome *"
+                name="customer_name"
+                value={form.customer_name}
+                onChange={handleChange}
+                error={errors.customer_name}
+                placeholder="Seu nome completo"
               />
-              <DeliveryOption
-                active={form.order_type === 'agendado'}
-                onChange={() => handleChange({ target: { name: 'order_type', value: 'agendado' } })}
-                icon={<HiClock size={22} />}
-                label="Agendar"
-                sublabel="Escolher dia e hora"
-                name="order_type"
-                value="agendado"
+              <Input
+                label="Telefone *"
+                name="customer_phone"
+                value={form.customer_phone}
+                onChange={handleChange}
+                error={errors.customer_phone}
+                placeholder="(00) 00000-0000"
               />
-            </div>
+              {/* Opcional de propósito: cada campo obrigatório a mais derruba conversão, e quem
+                  não informar recebe nota como consumidor não identificado. */}
+              <Input
+                label="CPF na nota (opcional)"
+                name="customer_cpf"
+                value={form.customer_cpf}
+                onChange={(e) =>
+                  setForm(f => ({ ...f, customer_cpf: mascararCpf(e.target.value) }))
+                }
+                error={errors.customer_cpf}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+              />
+            </CheckoutSection>
 
-            {form.order_type === 'agendado' && (
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Data *</label>
-                  <input
-                    type="date"
-                    name="scheduled_date"
-                    value={form.scheduled_date}
-                    onChange={handleChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
-                      errors.scheduled_date ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
-                    }`}
-                  />
-                  {errors.scheduled_date && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.scheduled_date}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Horário *</label>
-                  <input
-                    type="time"
-                    name="scheduled_time"
-                    value={form.scheduled_time}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
-                      errors.scheduled_time ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
-                    }`}
-                  />
-                  {errors.scheduled_time && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.scheduled_time}</p>}
-                </div>
-              </div>
-            )}
-          </CheckoutSection>
-
-          {/* Pagamento */}
-          <CheckoutSection title="Pagamento" step="3">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { value: 'pix', label: 'Pix', icon: <HiDeviceMobile size={20} /> },
-                { value: 'dinheiro', label: 'Dinheiro', icon: <HiCash size={20} /> },
-                { value: 'credito', label: 'Crédito', icon: <HiCreditCard size={20} /> },
-                { value: 'debito', label: 'Débito', icon: <HiCreditCard size={20} /> },
-              ].map(opt => (
-                <label key={opt.value} className={`flex items-center gap-2.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                  form.payment_method === opt.value
-                    ? 'border-primary bg-primary/5 shadow-sm'
-                    : 'border-border hover:border-primary/30'
-                }`}>
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value={opt.value}
-                    checked={form.payment_method === opt.value}
-                    onChange={handleChange}
-                    className="sr-only"
-                  />
-                  <span className={`${form.payment_method === opt.value ? 'text-primary' : 'text-text-light'}`}>
-                    {opt.icon}
-                  </span>
-                  <span className="font-semibold text-sm">{opt.label}</span>
-                </label>
-              ))}
-            </div>
-
-            {form.payment_method === 'dinheiro' && (
-              <div className="mt-4">
-                <Input
-                  label="Troco para quanto?"
-                  name="change_for"
-                  type="number"
-                  value={form.change_for}
-                  onChange={handleChange}
-                  placeholder="Ex: 50.00"
+            {/* Tipo de entrega */}
+            <CheckoutSection title="Tipo de entrega" step="2">
+              <div className="flex gap-3">
+                <DeliveryOption
+                  active={form.delivery_type === 'entrega'}
+                  onChange={() => handleChange({ target: { name: 'delivery_type', value: 'entrega' } })}
+                  icon={<HiTruck size={22} />}
+                  label="Entrega"
+                  sublabel="Receba em casa"
+                  name="delivery_type"
+                  value="entrega"
+                />
+                <DeliveryOption
+                  active={form.delivery_type === 'retirada'}
+                  onChange={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
+                  icon={<HiOfficeBuilding size={22} />}
+                  label="Retirada"
+                  sublabel="Buscar no local"
+                  name="delivery_type"
+                  value="retirada"
                 />
               </div>
-            )}
+            </CheckoutSection>
 
-            {form.payment_method === 'pix' && settings.pix_key && (
-              <div className="mt-4 p-4 bg-accent/5 rounded-xl border border-accent/20">
-                <p className="text-sm font-bold text-accent">Chave Pix:</p>
-                <p className="text-sm text-accent/80 font-mono mt-1 break-all">{settings.pix_key}</p>
-                {settings.pix_name && (
-                  <p className="text-xs text-accent/60 mt-1">Nome: {settings.pix_name}</p>
-                )}
-              </div>
-            )}
-          </CheckoutSection>
-
-          {/* Observações */}
-          <CheckoutSection title="Observações" step="">
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary resize-none transition-colors font-body text-sm"
-              placeholder="Alguma observação sobre o pedido?"
-            />
-          </CheckoutSection>
-
-          {/* Cupom */}
-          <CheckoutSection title="Cupom de desconto" step="">
-            {appliedCoupon ? (
-              <div className="flex items-center justify-between bg-accent/5 border border-accent/30 rounded-xl p-3">
-                <div>
-                  <span className="font-mono font-bold text-accent">{appliedCoupon.code}</span>
-                  <span className="text-sm text-accent ml-2">
-                    -{appliedCoupon.discount_type === 'percent' ? `${appliedCoupon.discount_value}%` : formatCurrency(appliedCoupon.discount_value)}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setAppliedCoupon(null); setCouponCode('') }}
-                  className="text-danger text-sm font-semibold cursor-pointer"
-                >
-                  Remover
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                    placeholder="Digite o código"
-                    className="flex-1 px-4 py-2.5 border-2 border-border rounded-xl outline-none focus:border-primary font-mono text-sm uppercase"
+            {/* Endereço */}
+            {form.delivery_type === 'entrega' && (
+              <CheckoutSection title="Endereço" step="">
+                <div className="relative">
+                  <Input
+                    label="CEP"
+                    name="address_cep"
+                    value={form.address_cep}
+                    onChange={handleChange}
+                    onBlur={handleCepBlur}
+                    placeholder="00000-000"
                   />
-                  <button
-                    type="button"
-                    onClick={handleApplyCoupon}
-                    disabled={couponLoading || !couponCode.trim()}
-                    className="px-5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    {couponLoading ? '...' : 'Aplicar'}
-                  </button>
+                  {cepLoading && (
+                    <span className="absolute right-3 top-9 text-xs text-primary font-semibold animate-pulse">Buscando...</span>
+                  )}
                 </div>
-                {couponError && <p className="text-danger text-xs mt-1.5 font-semibold">{couponError}</p>}
-              </div>
+                <Input label="Rua *" name="address" value={form.address} onChange={handleChange} error={errors.address} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Número *" name="address_number" value={form.address_number} onChange={handleChange} error={errors.address_number} />
+                  <Input label="Complemento" name="address_complement" value={form.address_complement} onChange={handleChange} />
+                </div>
+                <Input label="Bairro *" name="neighborhood" value={form.neighborhood} onChange={handleChange} error={errors.neighborhood} />
+                <Input label="Referência" name="address_reference" value={form.address_reference} onChange={handleChange} placeholder="Próximo a..." />
+              </CheckoutSection>
             )}
-          </CheckoutSection>
 
-          {/* Resumo */}
-          <CheckoutSection title="Resumo do pedido" step="4">
-            <div className="space-y-2">
-              {items.map(item => (
-                <div key={item.lineId} className="flex justify-between text-sm py-1.5">
-                  <span className="text-text-warm">
-                    <span className="font-bold text-primary mr-1">{item.quantity}x</span>
-                    {item.name}
-                    {item.flavors?.length > 0 && (
-                      <span className="block text-text-light text-xs mt-0.5">
-                        {item.flavors.map(f => `${f.quantity * item.quantity}x ${f.name}`).join(', ')}
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-semibold">{formatCurrency(item.price * item.quantity)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="border-t-2 border-dashed border-border mt-4 pt-4 space-y-2">
-              <div className="flex justify-between text-sm text-text-light">
-                <span>Subtotal</span>
-                <span>{formatCurrency(getSubtotal())}</span>
-              </div>
-              {getDiscount() > 0 && (
-                <div className="flex justify-between text-sm text-accent font-semibold">
-                  <span>Desconto ({appliedCoupon.code})</span>
-                  <span>-{formatCurrency(getDiscount())}</span>
+            {/* Quando receber */}
+            <CheckoutSection title="Quando você quer?" step="">
+              {storeClosed && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
+                  <p className="text-sm font-bold text-yellow-700">Estamos fechados no momento</p>
+                  <p className="text-xs text-yellow-600 mt-0.5">
+                    Horário: {settings.opening_time}–{settings.closing_time}. Agende seu pedido!
+                  </p>
                 </div>
               )}
-              <div className="flex justify-between text-sm text-text-light">
-                <span>Taxa de entrega</span>
-                <span className={deliveryFee === 0 ? 'text-accent font-semibold' : ''}>
-                  {deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis'}
-                </span>
+              <div className="flex gap-3">
+                <DeliveryOption
+                  active={form.order_type === 'agora' && !storeClosed}
+                  onChange={() => !storeClosed && handleChange({ target: { name: 'order_type', value: 'agora' } })}
+                  icon={<HiLightningBolt size={22} />}
+                  label="Agora"
+                  sublabel={storeClosed ? 'Indisponível agora' : 'O mais rápido possível'}
+                  name="order_type"
+                  value="agora"
+                  disabled={storeClosed}
+                />
+                <DeliveryOption
+                  active={form.order_type === 'agendado'}
+                  onChange={() => handleChange({ target: { name: 'order_type', value: 'agendado' } })}
+                  icon={<HiClock size={22} />}
+                  label="Agendar"
+                  sublabel="Escolher dia e hora"
+                  name="order_type"
+                  value="agendado"
+                />
               </div>
-              <div className="flex justify-between pt-3 border-t border-border">
-                <span className="font-display font-extrabold text-lg">Total</span>
-                <span className="font-display font-extrabold text-2xl text-primary">{formatCurrency(getFinalTotal())}</span>
+
+              {form.order_type === 'agendado' && (
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Data *</label>
+                    <input
+                      type="date"
+                      name="scheduled_date"
+                      value={form.scheduled_date}
+                      onChange={handleChange}
+                      min={new Date().toISOString().split('T')[0]}
+                      className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
+                        errors.scheduled_date ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
+                      }`}
+                    />
+                    {errors.scheduled_date && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.scheduled_date}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-text-warm mb-1.5 font-display">Horário *</label>
+                    <input
+                      type="time"
+                      name="scheduled_time"
+                      value={form.scheduled_time}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
+                        errors.scheduled_time ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
+                      }`}
+                    />
+                    {errors.scheduled_time && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.scheduled_time}</p>}
+                  </div>
+                </div>
+              )}
+            </CheckoutSection>
+
+            {/* Pagamento */}
+            <CheckoutSection title="Pagamento" step="3">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { value: 'pix_online', label: 'Pix agora', icon: <HiDeviceMobile size={20} /> },
+                  { value: 'cartao', label: 'Cartão agora', icon: <HiCreditCard size={20} /> },
+                  { value: 'dinheiro', label: 'Dinheiro na entrega', icon: <HiCash size={20} /> },
+                  { value: 'credito', label: 'Cartão na entrega', icon: <HiCreditCard size={20} /> },
+                ].map(opt => (
+                  <label key={opt.value} className={`flex items-center gap-2.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                    form.payment_method === opt.value
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border hover:border-primary/30'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value={opt.value}
+                      checked={form.payment_method === opt.value}
+                      onChange={handleChange}
+                      className="sr-only"
+                    />
+                    <span className={`${form.payment_method === opt.value ? 'text-primary' : 'text-text-light'}`}>
+                      {opt.icon}
+                    </span>
+                    <span className="font-semibold text-sm flex-1">{opt.label}</span>
+                    {/* O selo vive na propria opcao: e no momento de escolher que
+                        o desconto muda a decisao, nao depois, no resumo. */}
+                    {ehAVista(opt.value) && rotuloDoDesconto(settings) && (
+                      <span className="text-[11px] font-extrabold font-display text-accent whitespace-nowrap">
+                        -{rotuloDoDesconto(settings)}
+                      </span>
+                    )}
+                  </label>
+                ))}
               </div>
-            </div>
-          </CheckoutSection>
 
-          {errors.min_order && (
-            <p className="text-danger text-sm text-center font-semibold bg-danger/5 py-3 rounded-xl">{errors.min_order}</p>
-          )}
+              {form.payment_method === 'dinheiro' && (
+                <div className="mt-4">
+                  <Input
+                    label="Troco para quanto?"
+                    name="change_for"
+                    type="number"
+                    value={form.change_for}
+                    onChange={handleChange}
+                    placeholder="Ex: 50.00"
+                  />
+                </div>
+              )}
 
-          <Button
-            type="submit"
-            className="w-full"
-            size="lg"
-            variant="festive"
-            disabled={submitting}
+              {form.payment_method === 'pix' && settings.pix_key && (
+                <div className="mt-4 p-4 bg-accent/5 rounded-xl border border-accent/20">
+                  <p className="text-sm font-bold text-accent">Chave Pix:</p>
+                  <p className="text-sm text-accent/80 font-mono mt-1 break-all">{settings.pix_key}</p>
+                  {settings.pix_name && (
+                    <p className="text-xs text-accent/60 mt-1">Nome: {settings.pix_name}</p>
+                  )}
+                </div>
+              )}
+            </CheckoutSection>
+
+            {/* Observações */}
+            <CheckoutSection title="Observações" step="">
+              <textarea
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
+                rows={3}
+                className="w-full px-4 py-3 border-2 border-border rounded-xl outline-none focus:border-primary resize-none transition-colors font-body text-sm"
+                placeholder="Alguma observação sobre o pedido?"
+              />
+            </CheckoutSection>
+
+            {/* Cupom */}
+            <CheckoutSection title="Cupom de desconto" step="">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-accent/5 border border-accent/30 rounded-xl p-3">
+                  <div>
+                    <span className="font-mono font-bold text-accent">{appliedCoupon.code}</span>
+                    <span className="text-sm text-accent ml-2">
+                      -{appliedCoupon.discount_type === 'percent' ? `${appliedCoupon.discount_value}%` : formatCurrency(appliedCoupon.discount_value)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setAppliedCoupon(null); setCouponCode('') }}
+                    className="text-danger text-sm font-semibold cursor-pointer"
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                      placeholder="Digite o código"
+                      className="flex-1 px-4 py-2.5 border-2 border-border rounded-xl outline-none focus:border-primary font-mono text-sm uppercase"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className="px-5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {couponLoading ? '...' : 'Aplicar'}
+                    </button>
+                  </div>
+                  {couponError && <p className="text-danger text-xs mt-1.5 font-semibold">{couponError}</p>}
+                </div>
+              )}
+            </CheckoutSection>
+
+            {/* Resumo */}
+            <CheckoutSection title="Resumo do pedido" step="4">
+              <div className="space-y-2">
+                {items.map(item => (
+                  <div key={item.lineId} className="flex justify-between text-sm py-1.5">
+                    <span className="text-text-warm">
+                      <span className="font-bold text-primary mr-1">{item.quantity}x</span>
+                      {item.name}
+                      {item.flavors?.length > 0 && (
+                        <span className="block text-text-light text-xs mt-0.5">
+                          {item.flavors.map(f => `${f.quantity * item.quantity}x ${f.name}`).join(', ')}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-semibold">{formatCurrency(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t-2 border-dashed border-border mt-4 pt-4 space-y-2">
+                <div className="flex justify-between text-sm text-text-light">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(getSubtotal())}</span>
+                </div>
+                {getDescontoCupom() > 0 && (
+                  <div className="flex justify-between text-sm text-accent font-semibold">
+                    <span>Desconto ({appliedCoupon.code})</span>
+                    <span>-{formatCurrency(getDescontoCupom())}</span>
+                  </div>
+                )}
+                {getDescontoAvista() > 0 && (
+                  <div className="flex justify-between text-sm text-accent font-semibold">
+                    <span>Desconto à vista ({rotuloDoDesconto(settings)})</span>
+                    <span>-{formatCurrency(getDescontoAvista())}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm text-text-light">
+                  <span>Taxa de entrega</span>
+                  <span className={deliveryFee === 0 ? 'text-accent font-semibold' : ''}>
+                    {deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis'}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-3 border-t border-border">
+                  <span className="font-display font-extrabold text-lg">Total</span>
+                  <span className="font-display font-extrabold text-2xl text-primary">{formatCurrency(getFinalTotal())}</span>
+                </div>
+              </div>
+            </CheckoutSection>
+
+            {errors.min_order && (
+              <p className="text-danger text-sm text-center font-semibold bg-danger/5 py-3 rounded-xl">{errors.min_order}</p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              variant="festive"
+              disabled={submitting}
+            >
+              {submitting ? 'Enviando pedido...' : 'Confirmar pedido'}
+            </Button>
+          </form>
+        </div>
+
+        {pagamento && (
+          <Modal
+            isOpen
+            onClose={() => {
+              // fechar não cancela o pedido: ele fica gravado como aguardando pagamento, e o
+              // cliente consegue retomar pelo "Acompanhar pedido"
+              setPagamento(null)
+              toast('Pedido guardado. Você pode pagar depois em "Acompanhar pedido".')
+            }}
+            title={pagamento.modo === 'pix' ? 'Pagamento via Pix' : 'Pagamento com cartão'}
           >
-            {submitting ? 'Enviando pedido...' : 'Confirmar pedido'}
-          </Button>
-        </form>
+            {pagamento.modo === 'cartao' ? (
+              <CardForm
+                total={Number(pagamento.order.total)}
+                onPagar={aoPagarCartao}
+                processando={processandoPag}
+              />
+            ) : (
+              <PixPayment
+                orderId={pagamento.order.id}
+                qrBase64={pagamento.pix?.qr_base64}
+                qrTexto={pagamento.pix?.qr_texto}
+                total={Number(pagamento.order.total)}
+                onPago={aoPixConfirmado}
+              />
+            )}
+          </Modal>
+        )}
       </div>
-    </div>
+    </>
   )
 }
 

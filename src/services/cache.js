@@ -55,6 +55,20 @@ export function peek(chave, ttl = TTL_PADRAO) {
   return fresca(entrada, ttl) ? entrada.dados : undefined
 }
 
+/**
+ * Planta dados no cache sem ir a rede.
+ *
+ * Usado no boot com o que o build embutiu no HTML: o primeiro render ja sai com
+ * cardapio na mao, em vez de "Carregando...". `gravadoEm` e o instante do boot,
+ * nao o do build -- os dados valem o TTL normal e o fetch de verdade, que roda
+ * logo em seguida, corrige qualquer preco que tenha mudado desde o deploy.
+ */
+export function semear(chave, dados) {
+  if (dados === undefined || dados === null) return
+  if (entradas.has(chave)) return
+  entradas.set(chave, { dados, gravadoEm: Date.now() })
+}
+
 /** Invalida toda chave que comeca com o prefixo. Chamar apos escrever. */
 export function invalidar(prefixo) {
   for (const chave of [...entradas.keys()]) {

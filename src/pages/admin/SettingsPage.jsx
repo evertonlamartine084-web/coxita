@@ -18,6 +18,10 @@ const fields = [
   { key: 'pix_key', label: 'Chave Pix' },
   { key: 'pix_name', label: 'Nome no Pix' },
   { key: 'loyalty_goal', label: 'Fidelidade: coxinhas para ganhar 1 grátis', type: 'number' },
+  // O preço do cardápio já cobre a taxa do crédito (ver Margens). Enquanto
+  // este número for igual ou menor que essa taxa, o desconto não sai da
+  // margem -- sai do que a maquininha deixou de cobrar.
+  { key: 'desconto_avista_percent', label: 'Desconto no pix/dinheiro (%)', type: 'number' },
 ]
 
 const bannerFields = [

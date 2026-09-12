@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi'
-import { catalogText } from '../../utils/catalogText'
+import FlavorCard from './FlavorCard'
 
 /**
  * Vitrine dos sabores disponiveis.
@@ -65,7 +65,7 @@ export default function FlavorShowcase({ flavors, title }) {
         >
           {flavors.map(sabor => (
             <li key={sabor.id} className="snap-start shrink-0 w-[190px] sm:w-[210px]">
-              <CartaoSabor sabor={sabor} />
+              <FlavorCard sabor={sabor} compacto />
             </li>
           ))}
         </ul>
@@ -78,40 +78,6 @@ export default function FlavorShowcase({ flavors, title }) {
           >
             <HiChevronRight size={22} />
           </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function CartaoSabor({ sabor }) {
-  const [carregou, setCarregou] = useState(false)
-
-  return (
-    <div className="bg-cream overflow-hidden border-[3px] border-brown h-full shadow-[4px_4px_0_#5d2b04]">
-      <div className="relative bg-bg-warm">
-        {sabor.image_url ? (
-          <>
-            {!carregou && <div className="absolute inset-0 h-36 animate-pulse bg-bg-warm" />}
-            <img
-              src={sabor.image_url}
-              alt={catalogText(sabor.name)}
-              loading="lazy"
-              onLoad={() => setCarregou(true)}
-              className={`w-full h-36 object-cover transition-opacity duration-500 ${carregou ? 'opacity-100' : 'opacity-0'}`}
-            />
-          </>
-        ) : (
-          <div className="w-full h-36 flex items-center justify-center">
-            <img src="/logo.png" alt="" className="w-14 h-14 opacity-25 object-contain" />
-          </div>
-        )}
-      </div>
-
-      <div className="p-3.5">
-        <h3 className="font-display font-extrabold uppercase text-lg text-brown leading-tight">{catalogText(sabor.name)}</h3>
-        {sabor.description && (
-          <p className="text-text-light text-xs mt-1 leading-relaxed line-clamp-2">{catalogText(sabor.description)}</p>
         )}
       </div>
     </div>

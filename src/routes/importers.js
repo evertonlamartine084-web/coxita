@@ -9,6 +9,9 @@
 export const importarPagina = {
   home: () => import('../pages/public/HomePage'),
   cardapio: () => import('../pages/public/MenuPage'),
+  sabores: () => import('../pages/public/FlavorsIndexPage'),
+  sabor: () => import('../pages/public/FlavorPage'),
+  ocasiao: () => import('../pages/public/OccasionPage'),
   carrinho: () => import('../pages/public/CartPage'),
   checkout: () => import('../pages/public/CheckoutPage'),
   pedidoConfirmado: () => import('../pages/public/OrderConfirmationPage'),
@@ -18,7 +21,10 @@ export const importarPagina = {
   login: () => import('../pages/admin/LoginPage'),
   dashboard: () => import('../pages/admin/DashboardPage'),
   pedidos: () => import('../pages/admin/OrdersPage'),
+  clientes: () => import('../pages/admin/CustomersPage'),
+  blingCallback: () => import('../pages/admin/BlingCallbackPage'),
   produtos: () => import('../pages/admin/ProductsPage'),
+  margens: () => import('../pages/admin/MargensPage'),
   categorias: () => import('../pages/admin/CategoriesPage'),
   configuracoes: () => import('../pages/admin/SettingsPage'),
   avaliacoes: () => import('../pages/admin/ReviewsPage'),
@@ -28,6 +34,7 @@ export const importarPagina = {
 const paginaPorRota = {
   '/': 'home',
   '/cardapio': 'cardapio',
+  '/salgados': 'sabores',
   '/carrinho': 'carrinho',
   '/checkout': 'checkout',
   '/meus-pedidos': 'meusPedidos',

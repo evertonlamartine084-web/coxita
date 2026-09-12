@@ -40,3 +40,17 @@ como um kit cedido pelo distribuidor) e rode:
 ```
 ./scripts/importar-fotos-bebidas.sh <pasta-com-as-fotos>
 ```
+
+## Pastelzinhos
+
+As fotos dos cinco pastelzinhos (frango, carne, sertanejo, pizza, queijo e
+presunto) são **da própria Coxelli** — fotografadas pela casa. Não exigem
+atribuição e podem ser usadas livremente em qualquer material.
+
+Ficam em `public/fotos/`, servidas pela CDN junto com o site, e não no Supabase
+Storage: são cinco arquivos fixos do cardápio, então versioná-las com o código
+sai mais simples e mais rápido do que manter um bucket.
+
+O material bruto (12 fotos, incluindo as tomadas na mão, que mostram o recheio
+de perto) está em `Identidade visual/pasteis/`, já recortado em quadrado e
+convertido em WebP. Fora do build — só as cinco escolhidas estão em `public/`.

@@ -27,3 +27,6 @@ dist-ssr
 
 # Backups de env
 .env.backup-*
+
+# Artefatos do Playwright MCP (screenshots e snapshots de sessao)
+.playwright-mcp/

@@ -1,31 +1,52 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { HiArrowRight, HiArrowLeft } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
+import { getSettings, peekSettings } from '../../services/settings'
+import { calcularDescontoAvista, rotuloDoDesconto } from '../../utils/descontoAvista'
 import CartItem from '../../components/cart/CartItem'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
+import Seo from '../../components/ui/Seo'
 
 export default function CartPage() {
   const { items, getSubtotal, clearCart } = useCartStore()
+  // Le do cache quando ele existe: o carrinho e a tela seguinte ao cardapio,
+  // que ja carregou settings, e piscar o aviso de desconto seria pior que nao
+  // mostrar.
+  const [settings, setSettings] = useState(() => peekSettings() ?? {})
+
+  useEffect(() => {
+    let cancelado = false
+    getSettings()
+      .then(dados => { if (!cancelado) setSettings(dados) })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [])
+
+  const descontoAvista = calcularDescontoAvista(getSubtotal(), 'pix', settings)
 
   if (items.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <div className="relative inline-block mb-6">
-          <div className="absolute inset-0 bg-primary/5 rounded-full scale-150" />
-          <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
+      <>
+        <Seo titulo="Carrinho" caminho="/carrinho" noindex />
+        <div className="max-w-2xl mx-auto px-4 py-20 text-center">
+          <div className="relative inline-block mb-6">
+            <div className="absolute inset-0 bg-primary/5 rounded-full scale-150" />
+            <img src="/logo.png" alt="" className="relative w-24 h-24 object-contain mx-auto opacity-40" />
+          </div>
+          <h2 className="font-display text-3xl font-black uppercase mb-2 text-brown">Seu carrinho está vazio</h2>
+          <p className="text-text-light mb-8 max-w-sm mx-auto">
+            Que tal escolher umas coxinhas quentinhas e crocantes?
+          </p>
+          <Link to="/cardapio">
+            <Button variant="festive" className="gap-2">
+              Ver cardápio
+              <HiArrowRight size={18} />
+            </Button>
+          </Link>
         </div>
-        <h2 className="font-display text-3xl font-black uppercase mb-2 text-brown">Seu carrinho está vazio</h2>
-        <p className="text-text-light mb-8 max-w-sm mx-auto">
-          Que tal escolher umas coxinhas quentinhas e crocantes?
-        </p>
-        <Link to="/cardapio">
-          <Button variant="festive" className="gap-2">
-            Ver cardápio
-            <HiArrowRight size={18} />
-          </Button>
-        </Link>
-      </div>
+      </>
     )
   }
 
@@ -58,6 +79,16 @@ export default function CartPage() {
           <span className="text-text-light text-sm">Subtotal</span>
           <span className="font-display font-extrabold text-xl text-text">{formatCurrency(getSubtotal())}</span>
         </div>
+        {descontoAvista > 0 && (
+          <div className="flex items-baseline justify-between mb-2">
+            <span className="text-accent text-sm font-semibold">
+              No pix ou dinheiro ({rotuloDoDesconto(settings)} off)
+            </span>
+            <span className="font-display font-extrabold text-lg text-accent">
+              {formatCurrency(getSubtotal() - descontoAvista)}
+            </span>
+          </div>
+        )}
         <p className="text-text-light text-xs mb-5">Taxa de entrega calculada no checkout</p>
 
         <Link to="/checkout" className="block">

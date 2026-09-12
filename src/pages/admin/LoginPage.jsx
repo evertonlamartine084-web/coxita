@@ -17,8 +17,10 @@ export default function LoginPage() {
     try {
       await signIn(email, password)
       navigate('/admin')
-    } catch {
-      toast.error('E-mail ou senha inválidos.')
+    } catch (err) {
+      toast.error(
+        err?.causa === 'conexao' ? err.message : 'E-mail ou senha inválidos.'
+      )
     } finally {
       setLoading(false)
     }

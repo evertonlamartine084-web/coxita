@@ -13,6 +13,15 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray
 }
 
+/** As chaves vêm como ArrayBuffer; compara byte a byte. */
+function mesmaChave(a, b) {
+  if (!a || !b) return false
+  const x = new Uint8Array(a)
+  const y = new Uint8Array(b)
+  if (x.length !== y.length) return false
+  return x.every((v, i) => v === y[i])
+}
+
 export async function registerPushSubscription(orderNumber) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return { supported: false }
@@ -26,12 +35,26 @@ export async function registerPushSubscription(orderNumber) {
   const registration = await navigator.serviceWorker.register('/sw.js')
   await navigator.serviceWorker.ready
 
+  const chaveAtual = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
   let subscription = await registration.pushManager.getSubscription()
+
+  // Uma assinatura fica presa à chave VAPID com que foi criada. Se a chave do servidor mudou,
+  // o push passa a ser recusado (403 no FCM) e reaproveitar a assinatura antiga nunca conserta
+  // — o cliente ficaria sem notificação para sempre, sem nenhum aviso. Aqui a gente detecta e
+  // refaz.
+  if (subscription && !mesmaChave(subscription.options?.applicationServerKey, chaveAtual)) {
+    try {
+      await subscription.unsubscribe()
+    } catch {
+      // se não desinscrever, o subscribe abaixo falha e cai no catch de quem chamou
+    }
+    subscription = null
+  }
 
   if (!subscription) {
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      applicationServerKey: chaveAtual,
     })
   }
 

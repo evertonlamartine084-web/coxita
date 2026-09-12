@@ -1,0 +1,16 @@
+# Coxelli Salgados — coxelli.com.br
+
+User-agent: *
+Allow: /
+
+# Nada aqui interessa a buscador, e indexar checkout ou pedido de cliente é vazamento
+# de página particular nos resultados de busca.
+Disallow: /admin
+Disallow: /checkout
+Disallow: /carrinho
+Disallow: /pedido-confirmado
+Disallow: /pagamento-falhou
+Disallow: /acompanhar
+Disallow: /meus-pedidos
+
+Sitemap: https://coxelli.com.br/sitemap.xml

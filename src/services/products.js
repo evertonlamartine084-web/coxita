@@ -12,7 +12,7 @@ export async function getProducts() {
   return cached(CHAVE_ATIVOS, async () => {
     const { data, error } = await supabase
       .from('products')
-      .select('*, categories(name, slug)')
+      .select('*, categories(name, slug), sabor_fixo:flavors!products_fixed_flavor_id_fkey(id, name)')
       .eq('active', true)
       .order('sort_order')
     if (error) throw error
@@ -37,7 +37,7 @@ export async function getAllProducts() {
   return cached('products:todos', async () => {
     const { data, error } = await supabase
       .from('products')
-      .select('*, categories(name, slug)')
+      .select('*, categories(name, slug), sabor_fixo:flavors!products_fixed_flavor_id_fkey(id, name)')
       .order('sort_order')
     if (error) throw error
     return data

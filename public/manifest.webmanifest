@@ -1,0 +1,80 @@
+{
+  "name": "Coxelli Salgados",
+  "short_name": "Coxelli",
+  "description": "Peça os melhores salgados do Nordeste. Crocantes por fora, cremosos por dentro.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/?fonte=pwa",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#f28c28",
+  "background_color": "#fff9f2",
+  "categories": [
+    "food",
+    "shopping"
+  ],
+  "icons": [
+    {
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver o cardápio",
+      "short_name": "Cardápio",
+      "url": "/cardapio?fonte=pwa",
+      "icons": [
+        {
+          "src": "/logo-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Acompanhar pedido",
+      "short_name": "Acompanhar",
+      "url": "/acompanhar?fonte=pwa",
+      "icons": [
+        {
+          "src": "/logo-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Meus pedidos",
+      "short_name": "Pedidos",
+      "url": "/meus-pedidos?fonte=pwa",
+      "icons": [
+        {
+          "src": "/logo-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://coxelli.com.br/manifest.webmanifest"
+    }
+  ]
+}

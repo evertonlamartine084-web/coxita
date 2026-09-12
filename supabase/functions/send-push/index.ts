@@ -44,6 +44,14 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    // O cliente vê o código curto, não o número sequencial — que conta o volume da loja.
+    const { data: pedido } = await supabase
+      .from("orders")
+      .select("codigo_cliente, public_token")
+      .eq("order_number", order_number)
+      .maybeSingle()
+    const referencia = pedido?.codigo_cliente ?? order_number
+
     const { data: subscriptions, error } = await supabase
       .from("push_subscriptions")
       .select("*")
@@ -60,20 +68,23 @@ serve(async (req) => {
     let payload: string
     if (type === "chat") {
       payload = JSON.stringify({
-        title: `Coxelli - Pedido #${order_number}`,
+        title: `Coxelli - Pedido #${referencia}`,
         body: message || "Nova mensagem da loja",
-        url: `/acompanhar/${order_number}`,
+        url: pedido?.public_token ? `/acompanhar/${pedido.public_token}` : "/acompanhar",
       })
     } else {
       const statusLabel = STATUS_LABELS[status] || status
       payload = JSON.stringify({
-        title: `Pedido #${order_number}`,
+        title: `Pedido #${referencia}`,
         body: `Status: ${statusLabel}`,
-        url: `/acompanhar/${order_number}`,
+        url: pedido?.public_token ? `/acompanhar/${pedido.public_token}` : "/acompanhar",
       })
     }
 
     let sent = 0
+    // Os erros também voltam na resposta, não só no log: sem isso, "sent: 0" é indistinguível
+    // de chave VAPID trocada, assinatura expirada ou payload grande demais.
+    const falhas: Array<{ status?: number; motivo: string }> = []
 
     for (const sub of subscriptions) {
       try {
@@ -91,15 +102,18 @@ serve(async (req) => {
         console.log(`Push sent to ${sub.endpoint.slice(0, 50)}...`)
       } catch (e: any) {
         console.error(`Push failed: ${e.statusCode} ${e.message}`)
-        // Remove expired subscriptions
-        if (e.statusCode === 410 || e.statusCode === 404) {
+        falhas.push({ status: e.statusCode, motivo: String(e.message).slice(0, 200) })
+        // Assinatura morta: limpa, senão fica sendo tentada pra sempre.
+        // 410/404 = o navegador descartou. 403 = foi criada com outra chave VAPID e o servidor
+        // de push recusa a assinatura — não volta a funcionar, o cliente precisa reassinar.
+        if (e.statusCode === 410 || e.statusCode === 404 || e.statusCode === 403) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id)
         }
       }
     }
 
     return new Response(
-      JSON.stringify({ sent, total: subscriptions.length }),
+      JSON.stringify({ sent, total: subscriptions.length, falhas }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     )
   } catch (e: any) {

@@ -84,6 +84,46 @@ h1, h2, h3, h4, h5, h6 {
   transform: none;
 }
 
+/* Título palavra por palavra (SplitText). O atraso de cada palavra vem inline
+   via --palavra-delay; `both` segura a palavra invisível durante o atraso e a
+   mantém visível depois que a animação termina. */
+@keyframes palavra-entra {
+  from {
+    opacity: 0;
+    /* Assentam levemente tortas e endireitam: o eco do cartaz impresso. */
+    transform: translate3d(0, 0.42em, 0) rotate(-3.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.palavra {
+  display: inline-block;
+  animation: palavra-entra var(--duration-slow) var(--ease-entrance)
+    var(--palavra-delay, 0ms) both;
+}
+
+/* Reação afetiva ao favoritar: cresce passando um pouco do alvo e assenta.
+   É o único lugar onde o overshoot se justifica — não é controle de navegação. */
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pop {
+  animation: pop var(--duration-base) var(--ease-interaction) both;
+}
+
+
 /* Raio uniforme. O antigo era 1rem/1.5rem alternado, o que deixava cada card
    visivelmente torto contra o grid. */
 .card-organic {
@@ -168,6 +208,14 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  /* Sem a animação, `both` deixaria a palavra presa no estado inicial
+     invisível — e o título sumiria de vez. */
+  .palavra {
+    animation: none;
+  }
+  .pop {
+    animation: none;
   }
   *,
   *::before,

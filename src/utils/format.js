@@ -45,3 +45,31 @@ export const PAYMENT_LABELS = {
   credito: 'Cartão de Crédito',
   debito: 'Cartão de Débito',
 }
+
+/**
+ * Centavos nao bastam para custo de insumo: 1 g de massa de pastel custa
+ * R$ 0,0119, e arredondar isso para R$ 0,01 erra 16% no custo do pastel.
+ */
+export function formatCurrencyFine(value, digits = 4) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(Number(value) || 0)
+}
+
+/** Percentual com virgula. Travessao quando nao ha numero a mostrar. */
+export function formatPercent(value, digits = 1) {
+  const n = Number(value)
+  if (value === null || value === undefined || !Number.isFinite(n)) return '—'
+  return `${n.toFixed(digits).replace('.', ',')}%`
+}
+
+/** Quantidade da ficha: 0,000315 kg nao pode virar 0,00. */
+export function formatQuantidade(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '—'
+  const casas = n < 0.01 ? 6 : n < 1 ? 4 : 3
+  return n.toFixed(casas).replace('.', ',').replace(/,?0+$/, '') || '0'
+}

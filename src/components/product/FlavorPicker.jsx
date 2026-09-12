@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { HiMinus, HiPlus, HiX } from 'react-icons/hi'
 import { getFlavors, peekFlavors } from '../../services/flavors'
-import { PASSO_SABOR, maxSabores, restante, validarComposicao } from '../../utils/pacote'
+import { PASSO_SABOR, maxSabores, restante, validarComposicao, saboresDoPacote, unidadeDoPacote } from '../../utils/pacote'
 import { formatCurrency } from '../../utils/format'
 import { catalogText } from '../../utils/catalogText'
 import Button from '../ui/Button'
@@ -12,12 +12,14 @@ import Loading from '../ui/Loading'
  * Monta um pacote distribuindo `product.pack_size` unidades entre os sabores,
  * de 25 em 25.
  */
-export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar }) {
-  const [sabores, setSabores] = useState(() => peekFlavors() ?? [])
+export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, escolhasIniciais }) {
+  const [todosOsSabores, setTodosOsSabores] = useState(() => peekFlavors() ?? [])
   const [carregando, setCarregando] = useState(!peekFlavors())
   const [erroCarga, setErroCarga] = useState(false)
   // { [flavorId]: quantidade }
-  const [escolhas, setEscolhas] = useState({})
+  // Quem abre o picker a partir de um sabor (aba de pasteis) monta o
+  // componente ja com esse sabor escolhido; so falta completar o pacote.
+  const [escolhas, setEscolhas] = useState(() => escolhasIniciais ?? {})
 
   useEffect(() => {
     if (!aberto) return
@@ -25,7 +27,7 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar })
     getFlavors()
       .then(lista => {
         if (!cancelado) {
-          setSabores(lista)
+          setTodosOsSabores(lista)
           setErroCarga(false)
         }
       })
@@ -52,6 +54,8 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar })
   }, [aberto, fechar])
 
   if (!aberto) return null
+
+  const sabores = saboresDoPacote(product, todosOsSabores)
 
   const listaEscolhida = Object.entries(escolhas)
     .filter(([, q]) => q > 0)
@@ -115,7 +119,7 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar })
               {product.name}
             </h2>
             <p className="text-text-light text-sm mt-0.5">
-              Escolha {product.pack_size} salgados, de {PASSO_SABOR} em {PASSO_SABOR}
+              Escolha {product.pack_size} {unidadeDoPacote(product)}, de {PASSO_SABOR} em {PASSO_SABOR}
               {' '}&middot; até {limiteSabores} {limiteSabores === 1 ? 'sabor' : 'sabores'}
             </p>
           </div>
@@ -147,6 +151,22 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar })
                 const noLimite = qtd === 0 && saboresUsados >= limiteSabores
                 return (
                   <li key={sabor.id} className="flex items-center gap-3 py-3">
+                    {/* Miniatura emoldurada: e aqui que o sabor e escolhido, entao
+                        e aqui que a foto tem mais valor. Mesma moldura da vitrine,
+                        reduzida. Sabor sem foto cai no logo, como no resto do app. */}
+                    <div className="w-12 h-12 shrink-0 border-2 border-brown bg-bg-warm flex items-center justify-center overflow-hidden">
+                      {sabor.image_url ? (
+                        <img
+                          src={sabor.image_url}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img src="/logo.png" alt="" className="w-6 h-6 opacity-25 object-contain" />
+                      )}
+                    </div>
+
                     <div className="flex-1 min-w-0">
                       <p className={`font-semibold text-sm ${qtd > 0 ? 'text-primary' : 'text-text'}`}>
                         {catalogText(sabor.name)}

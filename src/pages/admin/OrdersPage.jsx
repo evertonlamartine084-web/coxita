@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts } from '../../services/orders'
+import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido } from '../../services/orders'
+import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
@@ -16,6 +17,8 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [editandoItens, setEditandoItens] = useState(false)
+  const [estornando, setEstornando] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('coxita_admin_sound') !== 'off'
   })
@@ -209,6 +212,12 @@ export default function OrdersPage() {
                     <tr key={order.id} className={`hover:bg-gray-50 transition-colors ${newOrderIds.includes(order.id) ? 'bg-green-50 animate-pulse' : ''}`}>
                       <td className="px-4 py-3 font-medium">
                         #{order.order_number}
+                        {/* o cliente só conhece este: é o que ele vai falar no WhatsApp */}
+                        {order.codigo_cliente && (
+                          <span className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-gray-600">
+                            {order.codigo_cliente}
+                          </span>
+                        )}
                         {order.scheduled_for && (
                           <span className="ml-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">AGENDADO</span>
                         )}
@@ -255,7 +264,7 @@ export default function OrdersPage() {
       <Modal
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        title={`Pedido #${selectedOrder?.order_number}`}
+        title={`Pedido #${selectedOrder?.order_number}${selectedOrder?.codigo_cliente ? ` · cliente: ${selectedOrder.codigo_cliente}` : ''}`}
       >
         {selectedOrder && (
           <div className="space-y-4">
@@ -293,7 +302,32 @@ export default function OrdersPage() {
             )}
 
             <div className="border-t border-border pt-3">
-              <h4 className="font-medium mb-2">Itens</h4>
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="font-medium">Itens</h4>
+                {!editandoItens && ['pendente', 'em_preparo'].includes(selectedOrder.status) && (
+                  <button
+                    type="button"
+                    onClick={() => setEditandoItens(true)}
+                    className="cursor-pointer text-xs font-semibold text-primary hover:text-primary-dark"
+                  >
+                    Editar itens
+                  </button>
+                )}
+              </div>
+
+              {editandoItens ? (
+                <EditarItensPedido
+                  pedido={selectedOrder}
+                  aoCancelar={() => setEditandoItens(false)}
+                  aoSalvar={(atualizado) => {
+                    setEditandoItens(false)
+                    // recarrega para trazer os itens novos junto do pedido
+                    loadOrders()
+                    setSelectedOrder(prev => prev ? { ...prev, ...atualizado } : prev)
+                  }}
+                />
+              ) : (
+              <>
               {selectedOrder.order_items?.map(item => (
                 <div key={item.id} className="text-sm py-1">
                   <div className="flex justify-between">
@@ -320,13 +354,66 @@ export default function OrdersPage() {
               ))}
               <div className="border-t border-border mt-2 pt-2 space-y-1 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(selectedOrder.subtotal)}</span></div>
+                {/* Sem esta linha, subtotal + entrega nao fecha com o total e a
+                    cozinha fica sem saber se o desconto foi cupom ou pix. */}
+                {Number(selectedOrder.discount) > 0 && (
+                  <div className="flex justify-between text-accent">
+                    <span>
+                      Desconto
+                      {selectedOrder.coupon_code && ` · cupom ${selectedOrder.coupon_code}`}
+                      {Number(selectedOrder.discount_avista) > 0 && ' · à vista'}
+                    </span>
+                    <span>-{formatCurrency(selectedOrder.discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between"><span>Entrega</span><span>{formatCurrency(selectedOrder.delivery_fee)}</span></div>
                 <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{formatCurrency(selectedOrder.total)}</span></div>
               </div>
+              </>
+              )}
             </div>
 
             <div className="border-t border-border pt-3">
               <p className="text-sm"><strong>Pagamento:</strong> {PAYMENT_LABELS[selectedOrder.payment_method]}</p>
+              {selectedOrder.payment_status && (
+                <p className="text-sm text-text-light">
+                  Situação: <strong>{selectedOrder.payment_status}</strong>
+                </p>
+              )}
+
+              {/* Estorno só aparece com dinheiro de fato recebido pela Cielo e pedido ainda em
+                  casa. Depois de despachado o botão some — e o banco recusa, mesmo que alguém
+                  chame a função por fora. */}
+              {selectedOrder.payment_status === 'pago' && selectedOrder.cielo_payment_id && (
+                ['pendente', 'em_preparo'].includes(selectedOrder.status) ? (
+                  <button
+                    type="button"
+                    disabled={estornando}
+                    onClick={async () => {
+                      if (!confirm(`Devolver ${formatCurrency(selectedOrder.total)} ao cliente? O pedido será marcado como estornado.`)) return
+                      setEstornando(true)
+                      try {
+                        await estornarPedido(selectedOrder.id)
+                        toast.success('Estorno feito. O dinheiro volta pelo mesmo meio de pagamento.')
+                        loadOrders()
+                        setSelectedOrder(prev => prev ? { ...prev, payment_status: 'estornado' } : prev)
+                      } catch (err) {
+                        toast.error(err.message || 'Não foi possível estornar.')
+                      } finally {
+                        setEstornando(false)
+                      }
+                    }}
+                    className="mt-2 cursor-pointer rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+                  >
+                    {estornando ? 'Estornando…' : `Estornar ${formatCurrency(selectedOrder.total)}`}
+                  </button>
+                ) : (
+                  <p className="mt-2 rounded bg-gray-50 p-2 text-xs text-gray-500">
+                    Pedido já despachado — o estorno está bloqueado para não devolver dinheiro de
+                    pedido entregue.
+                  </p>
+                )
+              )}
               {selectedOrder.payment_method === 'dinheiro' && selectedOrder.change_for && (
                 <p className="text-sm text-text-light">Troco para: {formatCurrency(selectedOrder.change_for)}</p>
               )}

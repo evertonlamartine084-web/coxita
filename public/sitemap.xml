@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Rede de seguranca, nao a lista de verdade.
+
+  Quem escreve o sitemap publicado e scripts/sitemap.mjs, no build, somando as
+  paginas de sabor que existem no banco naquele momento. Este arquivo so
+  prevalece quando aquele passo falha (Supabase fora do ar, credencial ausente),
+  e por isso lista apenas as URLs que nao dependem de dado nenhum -- estas
+  existem enquanto o site existir.
+
+  Checkout, carrinho e acompanhamento de pedido ficam de fora dos dois: sao
+  etapas de uma compra, nao conteudo, e nao ha o que ranquear ali.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://coxelli.com.br/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://coxelli.com.br/cardapio</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://coxelli.com.br/salgados</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://coxelli.com.br/salgados-para-festa</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://coxelli.com.br/salgados-para-aniversario</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://coxelli.com.br/salgados-para-casamento</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://coxelli.com.br/salgados-para-empresa</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>

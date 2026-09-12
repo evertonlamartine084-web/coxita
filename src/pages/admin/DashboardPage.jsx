@@ -4,6 +4,7 @@ import { formatCurrency } from '../../utils/format'
 import { STATUS_LABELS, STATUS_COLORS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Loading from '../../components/ui/Loading'
+import AppInstallsCard from '../../components/admin/AppInstallsCard'
 
 export default function DashboardPage() {
   const [todayOrders, setTodayOrders] = useState([])
@@ -80,6 +81,8 @@ export default function DashboardPage() {
         <StatCard label="Faturamento Hoje" value={formatCurrency(todayRevenue)} color="bg-green-500" />
         <StatCard label="Ticket Medio" value={todayValid.length > 0 ? formatCurrency(todayRevenue / todayValid.length) : 'R$ 0,00'} color="bg-purple-500" />
       </div>
+
+      <AppInstallsCard />
 
       {/* Sales Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
@@ -174,7 +177,9 @@ export default function DashboardPage() {
                         <span className="text-gray-400 text-xs ml-2">{formatCurrency(productRevenue[name])}</span>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5 ml-7">
+                    {/* sem w-full: com ml-7 junto, a largura virava 100% + 1.75rem e a barra vazava o card.
+                        Um div de bloco já ocupa o espaço que sobra depois da margem. */}
+                    <div className="bg-gray-100 rounded-full h-1.5 ml-7">
                       <div
                         className="bg-primary h-1.5 rounded-full transition-all"
                         style={{ width: `${(count / maxCount) * 100}%` }}
