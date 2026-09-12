@@ -59,7 +59,11 @@ export default function MenuPage() {
   )
   const gruposDaAba = [...new Set(pacotesDaAba.map(p => p.flavor_group).filter(Boolean))]
   const saboresDaAba =
-    gruposDaAba.length === 1 ? flavors.filter(f => f.group_slug === gruposDaAba[0]) : []
+    activeCategory === 'all'
+      ? flavors
+      : gruposDaAba.length === 1
+        ? flavors.filter(f => f.group_slug === gruposDaAba[0])
+        : []
 
   // Pacote de sabor unico ja tem preco por sabor: escolher o tamanho e a
   // escolha inteira, nao ha o que montar de 25 em 25.
@@ -157,7 +161,48 @@ export default function MenuPage() {
   // cliente clica no sabor. Fica so a lista com foto, que e a mais curta e a
   // que mostra o produto. Os pacotes seguem em "Todos" e na busca.
   const escondeOsPacotes = abaDeSaborUnico && saboresDaAba.length > 0
-  const produtosVisiveis = escondeOsPacotes ? [] : ordenados
+  // Em "Todos", o pacote de sabor fixo sai pelo mesmo motivo da aba de
+  // pasteis: o sabor logo acima ja leva aos quatro tamanhos dele.
+  const produtosVisiveis = escondeOsPacotes
+    ? []
+    : activeCategory === 'all'
+      ? ordenados.filter(p => !p.fixed_flavor_id)
+      : ordenados
+
+  // Quem abre o cardapio inteiro ve primeiro o que tem foto; o pacote, que e
+  // so texto e preco, vem depois. Dentro de uma aba a ordem se inverte: ali o
+  // cliente ja escolheu o tipo e quer o tamanho.
+  const saboresPrimeiro = activeCategory === 'all'
+
+  const blocoPacotes = produtosVisiveis.length > 0 && (
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      {produtosVisiveis.map(p => (
+        <ProductCard key={p.id} product={p} />
+      ))}
+    </div>
+  )
+
+  const blocoSabores = saboresFiltrados.length > 0 && (
+    <>
+      <h2 className="font-display text-2xl uppercase text-brown mb-1">Escolha os sabores</h2>
+      <p className="text-text-light text-sm mb-5">
+        {abaDeSaborUnico
+          ? 'Clique num sabor para escolher o tamanho do pacote.'
+          : 'Todo pacote é montado de 25 em 25. Clique num sabor para começar.'}
+      </p>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+        {saboresFiltrados.map(sabor => (
+          <FlavorCard
+            key={sabor.id}
+            sabor={sabor}
+            aoAdicionar={
+              pacotesDoSabor(sabor, pacotes).length > 0 ? setSaborNoCarrinho : undefined
+            }
+          />
+        ))}
+      </div>
+    </>
+  )
 
   if (loading) return <Loading />
 
@@ -240,34 +285,8 @@ export default function MenuPage() {
             </div>
           ) : (
             <>
-              {produtosVisiveis.length > 0 && (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                  {produtosVisiveis.map(p => (
-                    <ProductCard key={p.id} product={p} />
-                  ))}
-                </div>
-              )}
-
-              {saboresFiltrados.length > 0 && (
-                <div className={produtosVisiveis.length > 0 ? 'mt-12' : ''}>
-                  <h2 className="font-display text-2xl uppercase text-brown mb-1">Escolha os sabores</h2>
-                  <p className="text-text-light text-sm mb-5">
-                    {abaDeSaborUnico
-                      ? 'Clique num sabor para escolher o tamanho do pacote.'
-                      : 'Todo pacote é montado de 25 em 25. Clique num sabor para começar.'}
-                  </p>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                    {saboresFiltrados.map(sabor => (
-                      <FlavorCard
-                        key={sabor.id}
-                        sabor={sabor}
-                        aoAdicionar={
-                          pacotesDoSabor(sabor, pacotes).length > 0 ? setSaborNoCarrinho : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
+              {(saboresPrimeiro ? [blocoSabores, blocoPacotes] : [blocoPacotes, blocoSabores]).map(
+                (bloco, i) => bloco && <div key={i} className={i > 0 ? 'mt-12' : ''}>{bloco}</div>
               )}
             </>
           )}
