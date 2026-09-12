@@ -5,6 +5,7 @@ import { getFlavors, peekFlavors } from '../../services/flavors'
 import { catalogText } from '../../utils/catalogText'
 import { slugify } from '../../utils/slug'
 import { LISTA_OCASIOES, ocasiaoPorSlug } from '../../content/ocasioes'
+import { metaOcasiao } from '../../content/paginas'
 import { conteudoDoSabor } from '../../content/sabores'
 import Breadcrumbs from '../../components/content/Breadcrumbs'
 import Faq from '../../components/content/Faq'
@@ -71,6 +72,9 @@ export default function OccasionPage() {
     ]
   }, [ocasiao, trilha, url])
 
+  // Mesmo titulo e descricao que o prerender escreve no build.
+  const meta = ocasiao ? metaOcasiao(ocasiao) : null
+
   if (loading) return <Loading />
 
   if (!ocasiao) {
@@ -104,9 +108,9 @@ export default function OccasionPage() {
   return (
     <>
       <Seo
-        titulo={ocasiao.tituloSeo}
-        descricao={ocasiao.descricao}
-        caminho={caminho}
+        titulo={meta.titulo}
+        descricao={meta.descricao}
+        caminho={meta.caminho}
         dadosEstruturados={dadosEstruturados}
       />
 

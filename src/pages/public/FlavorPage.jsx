@@ -7,6 +7,7 @@ import { ehPacote, pacotesDoSabor, unidadeDoPacote } from '../../utils/pacote'
 import { catalogText } from '../../utils/catalogText'
 import { saborPorSlug, caminhoDoSabor } from '../../utils/slug'
 import { conteudoDoSabor } from '../../content/sabores'
+import { metaSabor } from '../../content/paginas'
 import Breadcrumbs from '../../components/content/Breadcrumbs'
 import Faq from '../../components/content/Faq'
 import { breadcrumbJsonLd, faqJsonLd } from '../../utils/jsonld'
@@ -136,15 +137,17 @@ export default function FlavorPage() {
     )
   }
 
+  // Mesmo titulo e descricao que o prerender escreve no build.
+  const meta = metaSabor(sabor)
   const unidade = pacotes[0] ? unidadeDoPacote(pacotes[0]) : 'salgados'
   const descricaoCurta = catalogText(sabor.description || '')
 
   return (
     <>
       <Seo
-        titulo={conteudo?.tituloSeo || nome}
-        descricao={conteudo?.descricao || `${nome} feito na hora em Natal/RN. ${descricaoCurta}`.trim()}
-        caminho={caminho}
+        titulo={meta.titulo}
+        descricao={meta.descricao}
+        caminho={meta.caminho}
         dadosEstruturados={dadosEstruturados}
       />
 

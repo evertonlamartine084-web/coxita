@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { HiArrowRight } from 'react-icons/hi'
 import { BAIRROS, ZONAS, bairrosDaZona } from '../../content/bairros'
 import { CIDADE, UF, BAIRRO_DA_LOJA } from '../../content/entrega'
+import { metaIndiceDeBairros } from '../../content/paginas'
 import { LISTA_OCASIOES } from '../../content/ocasioes'
 import { slugify } from '../../utils/slug'
 import Breadcrumbs from '../../components/content/Breadcrumbs'
@@ -13,6 +14,8 @@ import Seo from '../../components/ui/Seo'
 
 const SITE = 'https://coxelli.com.br'
 const CAMINHO = '/salgados-em-natal'
+// Mesmo titulo e descricao que o prerender escreve no build.
+const META = metaIndiceDeBairros()
 
 const PERGUNTAS = [
   {
@@ -75,9 +78,9 @@ export default function BairrosIndexPage() {
   return (
     <>
       <Seo
-        titulo={`Salgados em ${CIDADE}/${UF} — entrega nos 36 bairros`}
-        descricao={`Cento de salgados feito na hora, entregue em toda ${CIDADE}/${UF}. Coxinha, risole, kibe, pastel e mais. A loja fica na ${BAIRRO_DA_LOJA}, Zona Norte.`}
-        caminho={CAMINHO}
+        titulo={META.titulo}
+        descricao={META.descricao}
+        caminho={META.caminho}
         dadosEstruturados={dadosEstruturados}
       />
 

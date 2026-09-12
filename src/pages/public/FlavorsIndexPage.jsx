@@ -6,6 +6,7 @@ import { catalogText } from '../../utils/catalogText'
 import { caminhoDoSabor, slugify } from '../../utils/slug'
 import { conteudoDoSabor } from '../../content/sabores'
 import { LISTA_OCASIOES } from '../../content/ocasioes'
+import { metaIndiceDeSabores } from '../../content/paginas'
 import Breadcrumbs from '../../components/content/Breadcrumbs'
 import Faq from '../../components/content/Faq'
 import { breadcrumbJsonLd, faqJsonLd } from '../../utils/jsonld'
@@ -15,6 +16,8 @@ import Seo from '../../components/ui/Seo'
 
 const SITE = 'https://coxelli.com.br'
 const CAMINHO = '/salgados'
+// Mesmo titulo e descricao que o prerender escreve no build.
+const META = metaIndiceDeSabores()
 
 const GRUPOS = [
   { slug: 'salgados', titulo: 'Salgados', subtitulo: 'Vão dentro dos pacotes de 25, 50, 75 ou 100. Misture até 4 sabores.' },
@@ -93,9 +96,9 @@ export default function FlavorsIndexPage() {
   return (
     <>
       <Seo
-        titulo="Salgados em Natal/RN — todos os sabores"
-        descricao="Os 15 sabores de salgado da Coxelli, na Pajuçara, em Natal/RN: coxinha, risole, kibe, baiãozinho de camarão, pastel sertanejo e mais. Feitos na hora."
-        caminho={CAMINHO}
+        titulo={META.titulo}
+        descricao={META.descricao}
+        caminho={META.caminho}
         dadosEstruturados={dadosEstruturados}
       />
 

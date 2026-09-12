@@ -6,6 +6,7 @@ import { catalogText } from '../../utils/catalogText'
 import { slugify } from '../../utils/slug'
 import { bairroPorSlug, BAIRROS } from '../../content/bairros'
 import { BAIRRO_DA_LOJA, CIDADE, UF } from '../../content/entrega'
+import { metaBairro } from '../../content/paginas'
 import { LISTA_OCASIOES } from '../../content/ocasioes'
 import { conteudoDoSabor } from '../../content/sabores'
 import Breadcrumbs from '../../components/content/Breadcrumbs'
@@ -109,17 +110,15 @@ export default function BairroPage() {
 
   const daCasa = bairro.slug === slugify(BAIRRO_DA_LOJA)
   const mesmaZona = bairro.zona === 'Zona Norte'
+  // Mesmo titulo e descricao que o prerender escreve no build. Ver content/paginas.js.
+  const meta = metaBairro(bairro)
 
   return (
     <>
       <Seo
-        titulo={`Salgados em ${bairro.nome}, ${CIDADE}/${UF}`}
-        descricao={
-          daCasa
-            ? `Salgaderia em ${bairro.nome}, ${CIDADE}/${UF} — é aqui que a Coxelli fica. Cento de salgados feito na hora: coxinha, risole, pastel e mais.`
-            : `Entrega de salgados em ${bairro.nome}, ${CIDADE}/${UF}. Cento, meio cento ou 25 unidades, fritos na hora e levados até a ${bairro.zona}.`
-        }
-        caminho={caminho}
+        titulo={meta.titulo}
+        descricao={meta.descricao}
+        caminho={meta.caminho}
         dadosEstruturados={dadosEstruturados}
       />
 
