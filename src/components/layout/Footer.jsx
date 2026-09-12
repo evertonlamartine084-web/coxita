@@ -34,6 +34,7 @@ export default function Footer() {
                   ['/', 'Início'],
                   ['/cardapio', 'Cardápio'],
                   ['/salgados', 'Todos os sabores'],
+                  ['/salgados-em-natal', 'Bairros de Natal'],
                   ['/carrinho', 'Carrinho'],
                 ].map(([para, texto]) => (
                   <Link key={para} to={para} className={LINK}>

@@ -49,11 +49,11 @@ export function faqJsonLd(itens, url) {
  *
  * Sem isto, uma pagina de ocasiao e texto solto: o buscador le "salgados para
  * casamento" e nao tem como ligar aquilo a um fornecedor nem a uma cidade. O
- * `areaServed` carrega o raio de entrega de verdade (ver content/entrega.js), e
+ * `areaServed` carrega a area atendida (ver content/entrega.js), e
  * o `provider` aponta para a loja ja declarada no index.html -- e o mesmo
  * negocio, nao um segundo.
  */
-export function servicoJsonLd({ nome, descricao, url }) {
+export function servicoJsonLd({ nome, descricao, url, areaServed }) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Service',
@@ -62,7 +62,9 @@ export function servicoJsonLd({ nome, descricao, url }) {
     description: descricao,
     serviceType: 'Entrega de salgados para eventos',
     provider: { '@id': `${SITE}/#loja` },
-    areaServed: areaAtendida(),
+    // A pagina de bairro passa o proprio bairro: dizer "Natal" nas 36 apagaria
+    // a diferenca entre elas, e e a diferenca que faz cada uma valer uma URL.
+    areaServed: areaServed ?? areaAtendida(),
     hasOfferCatalog: { '@id': `${SITE}/cardapio#menu` },
   }
 }

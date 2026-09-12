@@ -17,6 +17,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { slugify } from '../src/utils/slug.js'
 import { LISTA_OCASIOES } from '../src/content/ocasioes.js'
+import { BAIRROS } from '../src/content/bairros.js'
 
 const SITE = 'https://coxelli.com.br'
 const SAIDA = 'dist/sitemap.xml'
@@ -69,6 +70,8 @@ try {
     url({ loc: '/cardapio', prioridade: '0.9' }),
     url({ loc: '/salgados', prioridade: '0.9' }),
     ...LISTA_OCASIOES.map(o => url({ loc: `/${o.slug}`, prioridade: '0.8', frequencia: 'monthly' })),
+    url({ loc: '/salgados-em-natal', prioridade: '0.9' }),
+    ...BAIRROS.map(b => url({ loc: `/salgados-em-${b.slug}`, prioridade: '0.6', frequencia: 'monthly' })),
     // `updated_at` do proprio sabor: mudar a descricao no admin avisa o
     // buscador de que aquela pagina mudou, em vez de carimbar tudo com a data
     // do deploy e pedir recrawl do site inteiro a cada build.

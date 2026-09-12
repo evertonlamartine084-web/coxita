@@ -9,6 +9,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import Loading from './components/ui/Loading'
 import { importarPagina } from './routes/importers'
 import { LISTA_OCASIOES } from './content/ocasioes'
+import { BAIRROS } from './content/bairros'
 
 // Retry lazy import on chunk load failure (common after new deploys)
 function lazyWithRetry(importFn) {
@@ -42,6 +43,8 @@ const MenuPage = lazyWithRetry(importarPagina.cardapio)
 const FlavorsIndexPage = lazyWithRetry(importarPagina.sabores)
 const FlavorPage = lazyWithRetry(importarPagina.sabor)
 const OccasionPage = lazyWithRetry(importarPagina.ocasiao)
+const BairrosIndexPage = lazyWithRetry(importarPagina.bairros)
+const BairroPage = lazyWithRetry(importarPagina.bairro)
 const CartPage = lazyWithRetry(importarPagina.carrinho)
 const CheckoutPage = lazyWithRetry(importarPagina.checkout)
 const OrderConfirmationPage = lazyWithRetry(importarPagina.pedidoConfirmado)
@@ -92,6 +95,12 @@ export default function App() {
             <Route path="/salgados/:slug" element={<FlavorPage />} />
             {LISTA_OCASIOES.map(ocasiao => (
               <Route key={ocasiao.slug} path={`/${ocasiao.slug}`} element={<OccasionPage />} />
+            ))}
+            {/* Bairros. O indice vem antes das 36 para que `/salgados-em-natal`
+                nunca seja lido como o bairro "natal", que nao existe. */}
+            <Route path="/salgados-em-natal" element={<BairrosIndexPage />} />
+            {BAIRROS.map(bairro => (
+              <Route key={bairro.slug} path={`/salgados-em-${bairro.slug}`} element={<BairroPage />} />
             ))}
             <Route path="/carrinho" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
