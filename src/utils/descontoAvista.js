@@ -1,14 +1,23 @@
 /**
- * Desconto de quem paga à vista.
+ * Preço de quem paga à vista.
  *
  * Pix e dinheiro não passam pela maquininha, então a loja não paga taxa neles
- * -- e o desconto devolve ao cliente exatamente essa taxa. O preço do cardápio
- * já é calculado para sustentar a margem no crédito (ver src/utils/margem.js),
- * então este desconto não sai da margem: sai do que deixou de ser cobrado.
+ * -- e o que o cliente economiza é essa taxa.
  *
- * Por isso o percentual padrão acompanha a taxa do crédito. Se um dia ele for
- * ajustado para mais do que a taxa, a diferença passa a sair do bolso da
- * cozinha -- o painel de Margens é onde isso aparece.
+ * Há duas formas de dizer isso, e as duas convivem:
+ *
+ * 1. `products.cash_price` -- o preço à vista escrito no produto. É o que a
+ *    planilha da cozinha calcula: cada tamanho tem o seu valor, tirado da
+ *    margem, e não um corte do preço cheio. Por isso R$ 17,00 vira R$ 15,79
+ *    (7,1%), R$ 32,00 vira R$ 29,59 (7,5%) e R$ 60,59 vira R$ 55,69 (8,1%):
+ *    percentual nenhum acerta os três, e arredondar por cima do subtotal dava
+ *    centavos que não existem em lugar nenhum.
+ *
+ * 2. `settings.desconto_avista_percent` -- o percentual, para quem não tem
+ *    preço próprio. É o caso das bebidas, onde o desconto é mesmo a taxa.
+ *
+ * O preço cheio continua sendo o do cardápio: é ele que sustenta a margem no
+ * crédito (ver src/utils/margem.js).
  */
 
 /** Formas de pagamento que não passam pela maquininha. */
@@ -25,25 +34,53 @@ export function percentualAVista(settings) {
   return valor
 }
 
-/**
- * Quanto abater, em reais.
- *
- * A base é o subtotal já sem o cupom: empilhar os dois sobre o valor cheio
- * daria desconto sobre desconto e, num cupom generoso, poderia passar do
- * próprio subtotal.
- */
-export function calcularDescontoAvista(baseDeCalculo, formaDePagamento, settings) {
-  const percentual = percentualAVista(settings)
-  if (!percentual || !ehAVista(formaDePagamento)) return 0
-  const base = Number(baseDeCalculo)
-  if (!Number.isFinite(base) || base <= 0) return 0
-  // Centavos inteiros: um total com fração de centavo não fecha com o que a
-  // maquininha e o extrato do pix mostram.
-  return Math.round(base * percentual) / 100
+/** O preço próprio do item, se houver um válido. */
+export function precoProprioAVista(item) {
+  const cheio = Number(item?.price)
+  const proprio = Number(item?.cash_price)
+  if (!Number.isFinite(cheio) || !Number.isFinite(proprio)) return null
+  if (proprio <= 0 || proprio > cheio) return null
+  return proprio
 }
 
-/** Texto curto para selo e aviso: "3,5% de desconto". */
-export function rotuloDoDesconto(settings) {
+/** Quanto uma unidade deste item custa à vista. */
+export function precoAVistaDoItem(item, settings) {
+  const cheio = Number(item?.price) || 0
+  const proprio = precoProprioAVista(item)
+  if (proprio !== null) return proprio
+  const percentual = percentualAVista(settings)
+  if (!percentual) return cheio
+  // Centavos inteiros: um total com fração de centavo não fecha com o extrato.
+  return cheio - Math.round(cheio * percentual) / 100
+}
+
+/**
+ * Quanto abater do pedido, em reais.
+ *
+ * `teto` existe por causa do cupom: os dois descontos não podem, somados,
+ * passar do próprio subtotal.
+ */
+export function calcularDescontoAvista(itens, formaDePagamento, settings, teto = Infinity) {
+  if (!ehAVista(formaDePagamento)) return 0
+  const bruto = (itens ?? []).reduce((soma, item) => {
+    const cheio = Number(item?.price) || 0
+    const quantidade = Number(item?.quantity) || 1
+    return soma + (cheio - precoAVistaDoItem(item, settings)) * quantidade
+  }, 0)
+  const valor = Math.round(bruto * 100) / 100
+  if (valor <= 0) return 0
+  return Math.min(valor, Math.max(Number(teto) || 0, 0))
+}
+
+/**
+ * Texto curto para selo e aviso: "3,5% de desconto".
+ *
+ * Some quando algum item tem preço próprio: ali não existe um percentual único
+ * para anunciar, e arredondar um número para o selo seria prometer uma conta
+ * que o carrinho não faz.
+ */
+export function rotuloDoDesconto(settings, itens) {
+  if ((itens ?? []).some(item => precoProprioAVista(item) !== null)) return null
   const percentual = percentualAVista(settings)
   if (!percentual) return null
   const numero = percentual.toFixed(percentual % 1 === 0 ? 0 : 1).replace('.', ',')

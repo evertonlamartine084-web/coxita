@@ -79,20 +79,19 @@ export const useCartStore = create(
     }),
     {
       name: 'coxita-cart',
-      version: 2,
-      // Carrinhos gravados antes dos sabores nao tem lineId. Sem esta
-      // migracao, updateQuantity/removeItem nao achariam a linha e o carrinho
-      // ficaria congelado para quem ja tinha itens salvos.
+      version: 3,
+      // O carrinho guarda uma copia do produto, preco incluido. Quando a tabela
+      // de precos muda, essas copias envelhecem: um carrinho salvo continuaria
+      // cobrando o valor antigo e sem o preco a vista, que nem existia no item.
+      // Nao da para corrigir aqui (a migracao nao le o banco), entao o carrinho
+      // e esvaziado -- e melhor o cliente montar de novo do que fechar pedido
+      // por um preco que a cozinha nao pratica mais.
+      //
+      // A versao 2 resolvia outra coisa: carrinhos anteriores aos sabores nao
+      // tinham lineId, e sem ele remover/alterar item nao achava a linha.
       migrate: (estado, versaoAnterior) => {
-        if (versaoAnterior >= 2 || !estado?.items) return estado
-        return {
-          ...estado,
-          items: estado.items.map(item => ({
-            ...item,
-            flavors: item.flavors ?? null,
-            lineId: item.lineId ?? String(item.id),
-          })),
-        }
+        if (versaoAnterior < 3) return { ...estado, items: [], deliveryFee: 0 }
+        return estado
       },
     }
   )

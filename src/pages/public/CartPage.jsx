@@ -24,7 +24,9 @@ export default function CartPage() {
     return () => { cancelado = true }
   }, [])
 
-  const descontoAvista = calcularDescontoAvista(getSubtotal(), 'pix', settings)
+  const descontoAvista = calcularDescontoAvista(items, 'pix', settings, getSubtotal())
+
+  const rotuloAVista = rotuloDoDesconto(settings, items)
 
   if (items.length === 0) {
     return (
@@ -82,7 +84,7 @@ export default function CartPage() {
         {descontoAvista > 0 && (
           <div className="flex items-baseline justify-between mb-2">
             <span className="text-accent text-sm font-semibold">
-              No pix ou dinheiro ({rotuloDoDesconto(settings)} off)
+              No pix ou dinheiro{rotuloAVista ? ` (${rotuloAVista} off)` : ''}
             </span>
             <span className="font-display font-extrabold text-lg text-accent">
               {formatCurrency(getSubtotal() - descontoAvista)}

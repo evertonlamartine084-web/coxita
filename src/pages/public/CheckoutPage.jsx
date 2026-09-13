@@ -70,13 +70,16 @@ export default function CheckoutPage() {
     return Math.min(appliedCoupon.discount_value, getSubtotal())
   }
 
-  // Pix e dinheiro nao pagam maquininha, e o desconto devolve essa taxa. Incide
-  // sobre o subtotal ja sem o cupom -- desconto sobre desconto poderia passar
-  // do proprio subtotal num cupom generoso.
+  // Pix e dinheiro nao pagam maquininha, e o cliente paga o preco a vista do
+  // produto (ou, sem ele, o percentual). O teto e o subtotal ja sem o cupom:
+  // os dois descontos somados nao podem passar do proprio subtotal.
   const getDescontoAvista = () =>
-    calcularDescontoAvista(getSubtotal() - getDescontoCupom(), form.payment_method, settings)
+    calcularDescontoAvista(items, form.payment_method, settings,
+      getSubtotal() - getDescontoCupom())
 
   const getDiscount = () => getDescontoCupom() + getDescontoAvista()
+
+  const rotuloAVista = rotuloDoDesconto(settings, items)
 
   const getFinalTotal = () => {
     return Math.max(0, getSubtotal() - getDiscount() + deliveryFee)
@@ -572,9 +575,9 @@ export default function CheckoutPage() {
                     <span className="font-semibold text-sm flex-1">{opt.label}</span>
                     {/* O selo vive na propria opcao: e no momento de escolher que
                         o desconto muda a decisao, nao depois, no resumo. */}
-                    {ehAVista(opt.value) && rotuloDoDesconto(settings) && (
+                    {ehAVista(opt.value) && rotuloAVista && (
                       <span className="text-[11px] font-extrabold font-display text-accent whitespace-nowrap">
-                        -{rotuloDoDesconto(settings)}
+                        -{rotuloAVista}
                       </span>
                     )}
                   </label>
@@ -690,7 +693,7 @@ export default function CheckoutPage() {
                 )}
                 {getDescontoAvista() > 0 && (
                   <div className="flex justify-between text-sm text-accent font-semibold">
-                    <span>Desconto à vista ({rotuloDoDesconto(settings)})</span>
+                    <span>Desconto à vista{rotuloAVista ? ` (${rotuloAVista})` : ''}</span>
                     <span>-{formatCurrency(getDescontoAvista())}</span>
                   </div>
                 )}

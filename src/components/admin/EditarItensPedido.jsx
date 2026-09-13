@@ -5,7 +5,7 @@ import { getProducts } from '../../services/products'
 import { editarItensPedido } from '../../services/orders'
 import { formatCurrency } from '../../utils/format'
 import { getSettings, peekSettings } from '../../services/settings'
-import { percentualAVista } from '../../utils/descontoAvista'
+import { calcularDescontoAvista } from '../../utils/descontoAvista'
 
 /** Depois de despachado não se mexe: o que a cozinha mandou é o que vale. */
 const EDITAVEL = ['pendente', 'em_preparo']
@@ -45,8 +45,19 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
   // A conta de verdade é a do banco (editar_itens_pedido); aqui ela é repetida
   // só para a tela não prometer um total diferente do que vai ser gravado.
   const descontoCupom = Number(pedido.discount || 0) - Number(pedido.discount_avista || 0)
+  // Cada item leva o preço à vista do produto, quando ele tem um; o resto cai
+  // no percentual. Mesma conta da função `editar_itens_pedido` no banco, que é
+  // quem grava de verdade.
   const descontoAvista = Number(pedido.discount_avista || 0) > 0
-    ? Math.round(Math.max(subtotal - descontoCupom, 0) * percentualAVista(settings)) / 100
+    ? calcularDescontoAvista(
+        itens.map(i => {
+          const produto = produtos.find(p => p.id === i.product_id)
+          return { price: i.unit_price, quantity: i.quantity, cash_price: produto?.cash_price }
+        }),
+        'pix',
+        settings,
+        Math.max(subtotal - descontoCupom, 0),
+      )
     : 0
   const novoTotal = subtotal + Number(pedido.delivery_fee || 0) - descontoCupom - descontoAvista
   const diferenca = novoTotal - totalAnterior
