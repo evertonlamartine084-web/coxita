@@ -5,6 +5,7 @@ import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
 import { getSettings } from '../../services/settings'
+import { getProducts } from '../../services/products'
 import { pagarComCartao, gerarPix } from '../../services/cielo'
 import { guardarToken, linkDoPedido, lerTokens } from '../../utils/pedidosLocais'
 import { mascararCpf, cpfValido } from '../../utils/cpf'
@@ -41,7 +42,7 @@ const initialForm = {
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
-  const { items, getSubtotal, deliveryFee, setDeliveryFee, clearCart } = useCartStore()
+  const { items, getSubtotal, deliveryFee, setDeliveryFee, clearCart, sincronizarComCatalogo } = useCartStore()
   const addLoyaltyItems = useLoyaltyStore(s => s.addItems)
   const [form, setForm] = useState(initialForm)
   const [settings, setSettingsData] = useState({})
@@ -114,6 +115,11 @@ export default function CheckoutPage() {
       navigate('/carrinho')
       return
     }
+    // Ultima parada antes de virar pedido: o preco da linha volta a ser o do
+    // banco. Sem isto, um carrinho aberto antes de a cozinha mexer na tabela
+    // fecharia pedido pelo valor antigo.
+    getProducts().then(sincronizarComCatalogo).catch(() => {})
+
     getSettings().then(s => {
       setSettingsData(s)
       setDeliveryFee(parseFloat(s.delivery_fee || '0'))
@@ -158,7 +164,7 @@ export default function CheckoutPage() {
         console.warn('Dados salvos do cliente estão inválidos:', error)
       }
     }
-  }, [items.length, navigate, setDeliveryFee])
+  }, [items.length, navigate, setDeliveryFee, sincronizarComCatalogo])
 
   const handleCepBlur = async () => {
     const cep = form.address_cep.replace(/\D/g, '')

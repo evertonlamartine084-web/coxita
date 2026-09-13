@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { HiArrowRight, HiArrowLeft } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { getSettings, peekSettings } from '../../services/settings'
+import { getProducts } from '../../services/products'
 import { calcularDescontoAvista, rotuloDoDesconto } from '../../utils/descontoAvista'
 import CartItem from '../../components/cart/CartItem'
 import Button from '../../components/ui/Button'
@@ -10,7 +11,7 @@ import { formatCurrency } from '../../utils/format'
 import Seo from '../../components/ui/Seo'
 
 export default function CartPage() {
-  const { items, getSubtotal, clearCart } = useCartStore()
+  const { items, getSubtotal, clearCart, sincronizarComCatalogo } = useCartStore()
   // Le do cache quando ele existe: o carrinho e a tela seguinte ao cardapio,
   // que ja carregou settings, e piscar o aviso de desconto seria pior que nao
   // mostrar.
@@ -21,8 +22,13 @@ export default function CartPage() {
     getSettings()
       .then(dados => { if (!cancelado) setSettings(dados) })
       .catch(() => {})
+    // O carrinho pode ter sido montado antes de a cozinha mexer na tabela:
+    // aqui ele volta a valer o preco do banco, antes de virar pedido.
+    getProducts()
+      .then(produtos => { if (!cancelado) sincronizarComCatalogo(produtos) })
+      .catch(() => {})
     return () => { cancelado = true }
-  }, [])
+  }, [sincronizarComCatalogo])
 
   const descontoAvista = calcularDescontoAvista(items, 'pix', settings, getSubtotal())
 

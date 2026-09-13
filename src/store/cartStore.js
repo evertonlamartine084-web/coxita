@@ -75,6 +75,36 @@ export const useCartStore = create(
         return get().items.reduce((sum, i) => sum + i.quantity, 0)
       },
 
+      /**
+       * Confere o carrinho contra o catalogo que acabou de ser carregado.
+       *
+       * Cada linha guarda uma copia do produto -- preco incluido --, e essa
+       * copia envelhece: quem tinha um meio cento no carrinho quando ele
+       * custava R$ 15,79 no pix continuaria fechando por R$ 15,79 depois da
+       * cozinha mudar a tabela. O preco que vale e o do banco, entao ele
+       * sobrescreve o da copia; produto que saiu do cardapio some da lista.
+       *
+       * So grava quando algo de fato mudou: `set` a cada render remontaria o
+       * carrinho inteiro sem necessidade.
+       */
+      sincronizarComCatalogo: (produtos) => {
+        if (!produtos?.length) return
+        const porId = new Map(produtos.map(p => [String(p.id), p]))
+        let mudou = false
+
+        const items = get().items.flatMap(item => {
+          const atual = porId.get(String(item.id))
+          if (!atual) { mudou = true; return [] }
+          const preco = Number(atual.price)
+          const aVista = atual.cash_price ?? null
+          if (item.price === preco && (item.cash_price ?? null) === aVista) return [item]
+          mudou = true
+          return [{ ...item, price: preco, cash_price: aVista }]
+        })
+
+        if (mudou) set({ items })
+      },
+
       clearCart: () => set({ items: [], deliveryFee: 0 }),
     }),
     {
