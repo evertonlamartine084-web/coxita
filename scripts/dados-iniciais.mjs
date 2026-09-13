@@ -53,7 +53,7 @@ try {
   // As mesmas consultas de products.js, categories.js, flavors.js e settings.js.
   // Divergir daqui geraria hidratacao com dados diferentes dos que o app espera.
   const [products, categories, flavors, settings] = await Promise.all([
-    buscar('products?select=*,categories(name,slug),sabor_fixo:flavors!products_fixed_flavor_id_fkey(id,name)&active=eq.true&order=sort_order'),
+    buscar('products?select=*,categories(name,slug,vende_pelo_pacote),sabor_fixo:flavors!products_fixed_flavor_id_fkey(id,name)&active=eq.true&order=sort_order'),
     buscar('categories?select=*&active=eq.true&order=sort_order'),
     buscar('flavors?select=*&active=eq.true&order=sort_order'),
     buscar('settings?select=key,value'),

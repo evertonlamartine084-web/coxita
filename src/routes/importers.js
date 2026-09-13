@@ -27,6 +27,7 @@ export const importarPagina = {
   blingCallback: () => import('../pages/admin/BlingCallbackPage'),
   produtos: () => import('../pages/admin/ProductsPage'),
   margens: () => import('../pages/admin/MargensPage'),
+  precos: () => import('../pages/admin/PrecosPage'),
   categorias: () => import('../pages/admin/CategoriesPage'),
   configuracoes: () => import('../pages/admin/SettingsPage'),
   avaliacoes: () => import('../pages/admin/ReviewsPage'),

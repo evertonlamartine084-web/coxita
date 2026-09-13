@@ -62,9 +62,22 @@ export function saborUnicoDoPacote(produto) {
   return [{ id: produto.fixed_flavor_id, name: nome, quantity: produto.pack_size }]
 }
 
-/** Pacotes que aceitam este sabor. */
+/** A aba deste produto vende o pacote em si, e nao o recheio. */
+export function vendePeloPacote(produto) {
+  return Boolean(produto?.categories?.vende_pelo_pacote)
+}
+
+/**
+ * Pacotes que aceitam este sabor.
+ *
+ * Fica de fora a aba que vende pelo pacote: congelado e outro produto -- o
+ * cliente leva cru para fritar em casa --, e oferecer "meio cento congelado"
+ * no meio dos tamanhos de uma coxinha frita mistura duas compras diferentes.
+ * Quem quer congelado vai na aba de congelados.
+ */
 export function pacotesDoSabor(sabor, pacotes) {
   return (pacotes ?? []).filter(p => {
+    if (vendePeloPacote(p)) return false
     // Pacote de sabor unico serve a um sabor so, e nao ao grupo inteiro.
     if (p.fixed_flavor_id) return p.fixed_flavor_id === sabor?.id
     return !p.flavor_group || p.flavor_group === sabor?.group_slug

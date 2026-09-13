@@ -5,7 +5,7 @@ import { getProducts, peekProducts } from '../../services/products'
 import { getCategories, peekCategories } from '../../services/categories'
 import { getFlavors, peekFlavors } from '../../services/flavors'
 import { useFavoritesStore } from '../../store/favoritesStore'
-import { ehPacote, pacotesDoSabor, saboresDoPacote } from '../../utils/pacote'
+import { ehPacote, pacotesDoSabor, saboresDoPacote, vendePeloPacote } from '../../utils/pacote'
 import { catalogText } from '../../utils/catalogText'
 import ProductCard from '../../components/product/ProductCard'
 import FlavorCard from '../../components/product/FlavorCard'
@@ -67,11 +67,11 @@ export default function MenuPage() {
   // o pacote, e a vitrine mostraria salgado frito para quem leva cru. O sabor
   // continua sendo escolhido ao montar, dentro do modal.
   const pacoteMisto = pacotesDaAba.find(p => !p.fixed_flavor_id)
-  const vendePeloPacote = pacotesDaAba.some(p => p.image_url)
+  const abaDePacote = pacotesDaAba.some(vendePeloPacote)
   const saboresDaAba =
     activeCategory === 'all'
       ? flavors
-      : vendePeloPacote
+      : abaDePacote
         ? []
         : pacoteMisto
           ? saboresDoPacote(pacoteMisto, flavors)
@@ -180,7 +180,7 @@ export default function MenuPage() {
   // nao tem sabor para montar.
   const escondeOsPacotes = saboresDaAba.length > 0
   const produtosVisiveis = escondeOsPacotes
-    ? ordenados.filter(p => !ehPacote(p) || p.image_url)
+    ? ordenados.filter(p => !ehPacote(p) || vendePeloPacote(p))
     : ordenados
 
   // Quem abre o cardapio inteiro ve primeiro o que tem foto; o pacote, que e

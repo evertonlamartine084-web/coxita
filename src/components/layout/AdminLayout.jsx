@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/admin/clientes', icon: HiUsers, label: 'Clientes' },
   { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
   { to: '/admin/margens', icon: HiCalculator, label: 'Margens' },
+  { to: '/admin/precos', icon: HiCurrencyDollar, label: 'Preços' },
   { to: '/admin/categorias', icon: HiTag, label: 'Categorias' },
   { to: '/admin/cupons', icon: HiTicket, label: 'Cupons' },
   { to: '/admin/avaliacoes', icon: HiStar, label: 'Avaliações' },

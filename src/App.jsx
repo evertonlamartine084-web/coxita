@@ -58,6 +58,7 @@ const CustomersPage = lazyWithRetry(importarPagina.clientes)
 const BlingCallbackPage = lazyWithRetry(importarPagina.blingCallback)
 const ProductsPage = lazyWithRetry(importarPagina.produtos)
 const MargensPage = lazyWithRetry(importarPagina.margens)
+const PrecosPage = lazyWithRetry(importarPagina.precos)
 const CategoriesPage = lazyWithRetry(importarPagina.categorias)
 const SettingsPage = lazyWithRetry(importarPagina.configuracoes)
 const ReviewsPage = lazyWithRetry(importarPagina.avaliacoes)
@@ -127,6 +128,7 @@ export default function App() {
             <Route path="bling/callback" element={<BlingCallbackPage />} />
             <Route path="produtos" element={<ProductsPage />} />
             <Route path="margens" element={<MargensPage />} />
+            <Route path="precos" element={<PrecosPage />} />
             <Route path="categorias" element={<CategoriesPage />} />
             <Route path="cupons" element={<CouponsPage />} />
             <Route path="avaliacoes" element={<ReviewsPage />} />
