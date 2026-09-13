@@ -28,6 +28,7 @@ export const importarPagina = {
   produtos: () => import('../pages/admin/ProductsPage'),
   margens: () => import('../pages/admin/MargensPage'),
   precos: () => import('../pages/admin/PrecosPage'),
+  estoque: () => import('../pages/admin/EstoquePage'),
   categorias: () => import('../pages/admin/CategoriesPage'),
   configuracoes: () => import('../pages/admin/SettingsPage'),
   avaliacoes: () => import('../pages/admin/ReviewsPage'),
