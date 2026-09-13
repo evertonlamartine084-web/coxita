@@ -9,11 +9,13 @@ import Loading from '../../components/ui/Loading'
 import toast from 'react-hot-toast'
 
 const emptyProduct = {
-  name: '', description: '', price: '', category_id: '', active: true, featured: false, image_url: '',
+  name: '', description: '', price: '', cash_price: '', category_id: '', active: true, featured: false, image_url: '',
 }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
+  // Aba aberta: slug da categoria, 'todos' ou 'inativos'.
+  const [aba, setAba] = useState('todos')
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -45,6 +47,7 @@ export default function ProductsPage() {
       name: product.name,
       description: product.description || '',
       price: String(product.price),
+      cash_price: product.cash_price != null ? String(product.cash_price) : '',
       category_id: product.category_id || '',
       active: product.active,
       featured: product.featured,
@@ -75,6 +78,9 @@ export default function ProductsPage() {
         name: form.name.trim(),
         description: form.description.trim() || null,
         price: parseFloat(form.price),
+        // Vazio volta a ser nulo: o produto passa a seguir o percentual das
+        // settings, em vez de ficar com um preço de pix congelado.
+        cash_price: form.cash_price === '' ? null : parseFloat(form.cash_price),
         category_id: form.category_id || null,
         active: form.active,
         featured: form.featured,
@@ -107,7 +113,41 @@ export default function ProductsPage() {
     }
   }
 
+  const alternarAtivo = async (produto) => {
+    try {
+      await updateProduct(produto.id, { active: !produto.active })
+      toast.success(produto.active ? 'Produto desativado.' : 'Produto ativado.')
+      load()
+    } catch {
+      toast.error('Não consegui mudar o status.')
+    }
+  }
+
   if (loading) return <Loading />
+
+  // Produto inativo nao aparece na aba da categoria dele: ele sumiu do
+  // cardapio de proposito, e misturar os dois e o que fazia esta tela virar
+  // uma lista de 53 linhas onde nao dava para ver o que esta no ar.
+  const ativos = products.filter(p => p.active)
+  const inativos = products.filter(p => !p.active)
+
+  const abas = [
+    { id: 'todos', label: 'Todos', total: ativos.length },
+    ...categories
+      .map(c => ({
+        id: c.slug,
+        label: c.name,
+        total: ativos.filter(p => p.categories?.slug === c.slug).length,
+      }))
+      .filter(a => a.total > 0),
+    { id: 'inativos', label: 'Fora do cardápio', total: inativos.length },
+  ]
+
+  const visiveis =
+    aba === 'inativos' ? inativos
+    : aba === 'todos' ? ativos
+    : ativos.filter(p => p.categories?.slug === aba)
+
 
   return (
     <div>
@@ -116,9 +156,29 @@ export default function ProductsPage() {
         <Button onClick={openNew}>+ Novo Produto</Button>
       </div>
 
+      {/* Abas: uma por categoria que tem produto no ar, mais os que sairam */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {abas.map(a => (
+          <button
+            key={a.id}
+            onClick={() => setAba(a.id)}
+            className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+              aba === a.id
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-900'
+            } ${a.id === 'inativos' && aba !== a.id ? 'text-gray-400' : ''}`}
+          >
+            {a.label}
+            <span className={`ml-1.5 ${aba === a.id ? 'text-gray-300' : 'text-gray-400'}`}>{a.total}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {products.length === 0 ? (
-          <p className="text-text-light text-center py-8">Nenhum produto cadastrado.</p>
+        {visiveis.length === 0 ? (
+          <p className="text-text-light text-center py-8">
+            {aba === 'inativos' ? 'Nenhum produto fora do cardápio.' : 'Nenhum produto nesta aba.'}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -126,13 +186,13 @@ export default function ProductsPage() {
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Produto</th>
                   <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Categoria</th>
-                  <th className="text-left px-4 py-3 font-medium">Preço</th>
-                  <th className="text-left px-4 py-3 font-medium">Status</th>
+                  <th className="text-left px-4 py-3 font-medium">Cartão</th>
+                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Pix</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {products.map(p => (
+                {visiveis.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -143,20 +203,27 @@ export default function ProductsPage() {
                         )}
                         <div>
                           <p className="font-medium">{p.name}</p>
-                          {p.featured && <span className="text-xs text-yellow-600">⭐ Destaque</span>}
+                          <span className="text-xs text-text-light">
+                            {p.pack_size ? `${p.pack_size} un` : 'unidade'}
+                            {p.featured && ' · ⭐ destaque'}
+                          </span>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-text-light">{p.categories?.name || '-'}</td>
                     <td className="px-4 py-3 font-medium">{formatCurrency(p.price)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-medium ${p.active ? 'text-success' : 'text-danger'}`}>
-                        {p.active ? 'Ativo' : 'Inativo'}
-                      </span>
+                    <td className="px-4 py-3 hidden sm:table-cell text-text-light">
+                      {p.cash_price ? formatCurrency(p.cash_price) : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex gap-3 justify-end">
                         <button onClick={() => openEdit(p)} className="text-primary hover:underline text-sm">Editar</button>
+                        <button
+                          onClick={() => alternarAtivo(p)}
+                          className="text-gray-500 hover:underline text-sm whitespace-nowrap"
+                        >
+                          {p.active ? 'Tirar do ar' : 'Pôr no ar'}
+                        </button>
                         <button onClick={() => handleDelete(p.id)} className="text-danger hover:underline text-sm">Excluir</button>
                       </div>
                     </td>
@@ -184,6 +251,15 @@ export default function ProductsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Preço *" name="price" type="number" step="0.01" value={form.price} onChange={handleChange} />
+            <Input
+              label="Preço no pix"
+              name="cash_price"
+              type="number"
+              step="0.01"
+              value={form.cash_price}
+              onChange={handleChange}
+              placeholder="vazio = usa o desconto padrão"
+            />
             <div>
               <label className="block text-sm font-medium text-text mb-1">Categoria</label>
               <select
