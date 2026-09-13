@@ -163,12 +163,18 @@ export default function MenuPage() {
     return ca - cb || (a.sort_order ?? 0) - (b.sort_order ?? 0)
   })
 
-  // Onde ha sabor na tela, o pacote sai: clicar num sabor ja abre os tamanhos
-  // dele, entao listar os dois era dizer a mesma coisa duas vezes -- e a
-  // metade sem foto ficava em cima. Some so o pacote; bebida, que nao tem
-  // sabor para montar, continua na lista. Quem procura "cento" acha na busca.
+  // Onde ha sabor na tela, o pacote de texto e preco sai da grade: clicar num
+  // sabor ja abre os tamanhos dele, e listar os dois era dizer a mesma coisa
+  // duas vezes com a metade sem foto em cima.
+  //
+  // Pacote COM foto fica: ali a imagem e o produto, nao o recheio -- e o caso
+  // dos congelados, onde o que se vende e o saco etiquetado, e nao adianta o
+  // cliente ver a coxinha frita se ele leva ela crua. Bebida tambem fica, que
+  // nao tem sabor para montar.
   const escondeOsPacotes = saboresDaAba.length > 0
-  const produtosVisiveis = escondeOsPacotes ? ordenados.filter(p => !ehPacote(p)) : ordenados
+  const produtosVisiveis = escondeOsPacotes
+    ? ordenados.filter(p => !ehPacote(p) || p.image_url)
+    : ordenados
 
   // Quem abre o cardapio inteiro ve primeiro o que tem foto; o pacote, que e
   // so texto e preco, vem depois. Dentro de uma aba a ordem se inverte: ali o
