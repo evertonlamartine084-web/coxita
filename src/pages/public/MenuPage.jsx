@@ -62,15 +62,22 @@ export default function MenuPage() {
   // A vitrine mostra o que os pacotes da aba aceitam de verdade -- quem
   // responde isso e `saboresDoPacote`, a mesma funcao que o picker usa. Assim
   // liberar um pacote para misturar grupos aparece na lista sem tocar aqui.
+  //
+  // Aba cujo pacote tem foto propria nao mostra sabor nenhum: ali quem vende e
+  // o pacote, e a vitrine mostraria salgado frito para quem leva cru. O sabor
+  // continua sendo escolhido ao montar, dentro do modal.
   const pacoteMisto = pacotesDaAba.find(p => !p.fixed_flavor_id)
+  const vendePeloPacote = pacotesDaAba.some(p => p.image_url)
   const saboresDaAba =
     activeCategory === 'all'
       ? flavors
-      : pacoteMisto
-        ? saboresDoPacote(pacoteMisto, flavors)
-        : gruposDaAba.length === 1
-          ? flavors.filter(f => f.group_slug === gruposDaAba[0])
-          : []
+      : vendePeloPacote
+        ? []
+        : pacoteMisto
+          ? saboresDoPacote(pacoteMisto, flavors)
+          : gruposDaAba.length === 1
+            ? flavors.filter(f => f.group_slug === gruposDaAba[0])
+            : []
 
   // Pacote de sabor unico ja tem preco por sabor: escolher o tamanho e a
   // escolha inteira, nao ha o que montar de 25 em 25.
