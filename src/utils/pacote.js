@@ -76,12 +76,22 @@ export function vendePeloPacote(produto) {
  * Quem quer congelado vai na aba de congelados.
  */
 export function pacotesDoSabor(sabor, pacotes) {
-  return (pacotes ?? []).filter(p => {
+  const candidatos = (pacotes ?? []).filter(p => {
     if (vendePeloPacote(p)) return false
     // Pacote de sabor unico serve a um sabor so, e nao ao grupo inteiro.
     if (p.fixed_flavor_id) return p.fixed_flavor_id === sabor?.id
     return !p.flavor_group || p.flavor_group === sabor?.group_slug
   })
+
+  // O sabor de onde o cliente partiu manda no tipo de pacote: quem clica num
+  // pastel quer os pacotes de pastel, e nao o cento de salgados -- que aceita
+  // qualquer recheio e por isso entrava na lista de todo mundo. O pacote
+  // generico so aparece quando o grupo nao tem pacote proprio, que e o caso da
+  // coxinha e dos outros salgados.
+  const doGrupo = candidatos.filter(
+    p => p.flavor_group === sabor?.group_slug || p.fixed_flavor_id === sabor?.id
+  )
+  return doGrupo.length > 0 ? doGrupo : candidatos
 }
 
 /**
