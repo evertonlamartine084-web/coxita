@@ -72,7 +72,14 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, e
     })
 
   const falta = restante(product.pack_size, listaEscolhida)
-  const precoAtual = precoDaComposicao(product, listaEscolhida, precos)
+  // O rodape mostra o pacote fechado, e nao o que ja foi escolhido: o que falta
+  // entra pelo preco do proprio pacote. Com isso o meio cento de salgados diz
+  // R$ 17,00 desde o primeiro clique, e num pacote de pastel o numero sobe se o
+  // cliente completar com um recheio mais caro que o da base.
+  const listaProjetada = falta > 0
+    ? [...listaEscolhida, { id: '__resto__', quantity: falta }]
+    : listaEscolhida
+  const precoAtual = precoDaComposicao(product, listaProjetada, precos)
   const { valido, erro } = validarComposicao(product, listaEscolhida)
   const saboresUsados = listaEscolhida.length
   const limiteSabores = maxSabores(product.pack_size)
