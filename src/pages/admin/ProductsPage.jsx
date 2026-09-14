@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { getAllProducts, createProduct, updateProduct, deleteProduct, uploadProductImage } from '../../services/products'
 import { getAllCategories } from '../../services/categories'
+import { getFlavors } from '../../services/flavors'
+import { getGradePorSabor, salvarPrecoDoSabor } from '../../services/precoPorSabor'
 import { formatCurrency } from '../../utils/format'
+import { catalogText } from '../../utils/catalogText'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
@@ -20,6 +23,9 @@ export default function ProductsPage() {
   const [familia, setFamilia] = useState(null)
   const [precosFamilia, setPrecosFamilia] = useState({})
   const [salvandoFamilia, setSalvandoFamilia] = useState(false)
+  const [sabores, setSabores] = useState([])
+  const [grade, setGrade] = useState([])
+  const [precosSabor, setPrecosSabor] = useState({})
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -30,8 +36,8 @@ export default function ProductsPage() {
 
   const load = () => {
     setLoading(true)
-    Promise.all([getAllProducts(), getAllCategories()])
-      .then(([p, c]) => { setProducts(p); setCategories(c) })
+    Promise.all([getAllProducts(), getAllCategories(), getFlavors(), getGradePorSabor()])
+      .then(([p, c, f, g]) => { setProducts(p); setCategories(c); setSabores(f); setGrade(g) })
       .catch(console.error)
       .finally(() => setLoading(false))
   }
@@ -178,12 +184,32 @@ export default function ProductsPage() {
   }
   for (const f of familias) f.tamanhos.sort((a, b) => a.pack_size - b.pack_size)
 
+  // Pacote misto de um grupo cujos sabores tem preco proprio: a grade entra no
+  // mesmo modal. E o caso do pastel, onde o preco do card e so o piso -- o do
+  // sabor mais barato -- e o valor de verdade sai do que o cliente monta.
+  const saboresDaFamilia = (f) => {
+    const pacote = f?.tamanhos?.[0]
+    if (!pacote || pacote.fixed_flavor_id || !pacote.flavor_group) return []
+    return sabores.filter(sb => sb.group_slug === pacote.flavor_group && sb.active)
+  }
+
   const abrirFamilia = (f) => {
     setFamilia(f)
     setPrecosFamilia(Object.fromEntries(f.tamanhos.map(t => [
       t.id,
       { price: String(t.price), cash_price: t.cash_price != null ? String(t.cash_price) : '' },
     ])))
+    const campos = {}
+    for (const sb of saboresDaFamilia(f)) {
+      for (const t of f.tamanhos) {
+        const linha = grade.find(l => l.flavor_id === sb.id && l.pack_size === t.pack_size)
+        campos[`${sb.id}:${t.pack_size}`] = {
+          price: linha ? String(linha.price) : '',
+          cash_price: linha ? String(linha.cash_price) : '',
+        }
+      }
+    }
+    setPrecosSabor(campos)
   }
 
   const salvarFamilia = async (e) => {
@@ -199,6 +225,29 @@ export default function ProductsPage() {
         if (price === Number(t.price) && cash === (t.cash_price ?? null)) continue
         await updateProduct(t.id, { price, cash_price: cash })
       }
+      for (const sb of saboresDaFamilia(familia)) {
+        for (const t of familia.tamanhos) {
+          const chave = `${sb.id}:${t.pack_size}`
+          const campos = precosSabor[chave] ?? {}
+          const vazio = String(campos.price ?? '').trim() === ''
+          const price = vazio ? null : parseFloat(String(campos.price).replace(',', '.'))
+          const cash = vazio ? null : parseFloat(String(campos.cash_price).replace(',', '.'))
+          if (!vazio && (!Number.isFinite(price) || !Number.isFinite(cash))) {
+            throw new Error(`Preço inválido em ${sb.name} ${t.pack_size} un`)
+          }
+          if (!vazio && cash > price) {
+            throw new Error(`Em ${sb.name} ${t.pack_size} un, o pix não pode ser maior que o cartão`)
+          }
+          const antes = grade.find(l => l.flavor_id === sb.id && l.pack_size === t.pack_size)
+          const mudou = vazio
+            ? Boolean(antes)
+            : !antes || Number(antes.price) !== price || Number(antes.cash_price) !== cash
+          if (mudou) {
+            await salvarPrecoDoSabor({ flavor_id: sb.id, pack_size: t.pack_size, price, cash_price: cash })
+          }
+        }
+      }
+
       toast.success('Preços atualizados!')
       setFamilia(null)
       load()
@@ -390,6 +439,61 @@ export default function ProductsPage() {
             <p className="text-xs text-gray-500">
               Pix vazio: o produto segue o desconto padrão da loja em vez de um valor próprio.
             </p>
+
+            {saboresDaFamilia(familia).length > 0 && (
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="font-semibold text-gray-900">Preço por sabor</h3>
+                <p className="text-xs text-gray-500 mt-1 mb-3">
+                  O preço acima é o piso do pacote. Quem monta com um recheio mais caro paga
+                  o dele — meio a meio, meio preço de cada. Deixe vazio para o sabor seguir
+                  o preço do pacote.
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th className="pb-2 font-medium">Sabor</th>
+                        {familia.tamanhos.map(t => (
+                          <th key={t.id} className="pb-2 font-medium text-right">{t.pack_size} un</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {saboresDaFamilia(familia).map(sb => (
+                        ['price', 'cash_price'].map((campo, i) => (
+                          <tr key={`${sb.id}-${campo}`} className={i === 0 ? 'border-t border-gray-100' : ''}>
+                            {i === 0 ? (
+                              <td rowSpan={2} className="py-1.5 pr-3 align-top">
+                                <span className="block">{catalogText(sb.name)}</span>
+                                <span className="block text-xs text-gray-400">cartão / pix</span>
+                              </td>
+                            ) : null}
+                            {familia.tamanhos.map(t => (
+                              <td key={t.id} className="py-1 pl-2 text-right">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={precosSabor[`${sb.id}:${t.pack_size}`]?.[campo] ?? ''}
+                                  onChange={e => setPrecosSabor(atual => ({
+                                    ...atual,
+                                    [`${sb.id}:${t.pack_size}`]: {
+                                      ...atual[`${sb.id}:${t.pack_size}`],
+                                      [campo]: e.target.value,
+                                    },
+                                  }))}
+                                  className="w-20 text-right rounded-md border border-gray-300 px-2 py-1
+                                             focus:border-gray-900 focus:outline-none"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="secondary" onClick={() => setFamilia(null)}>Cancelar</Button>
               <Button type="submit" disabled={salvandoFamilia}>
