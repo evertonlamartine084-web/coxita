@@ -16,6 +16,10 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([])
   // Aba aberta: slug da categoria, 'todos' ou 'inativos'.
   const [aba, setAba] = useState('todos')
+  // Familia aberta para editar preco por tamanho.
+  const [familia, setFamilia] = useState(null)
+  const [precosFamilia, setPrecosFamilia] = useState({})
+  const [salvandoFamilia, setSalvandoFamilia] = useState(false)
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -148,6 +152,63 @@ export default function ProductsPage() {
     : aba === 'todos' ? ativos
     : ativos.filter(p => p.categories?.slug === aba)
 
+  // "Cento de Salgados" e "Meio Cento de Salgados" nao sao dois produtos: sao
+  // o mesmo produto em dois tamanhos. A tela agrupa o que a cozinha chama de
+  // um produto so -- mesma categoria e mesmo sabor fixo -- e o preco de cada
+  // tamanho vira uma linha dentro dele.
+  const chaveDaFamilia = p => `${p.category_id}|${p.fixed_flavor_id ?? ''}`
+
+  const familias = []
+  const avulsos = []
+  const porChave = new Map()
+  for (const p of visiveis) {
+    if (!p.pack_size) { avulsos.push(p); continue }
+    const chave = chaveDaFamilia(p)
+    if (!porChave.has(chave)) {
+      const nova = {
+        chave,
+        nome: p.sabor_fixo?.name ?? p.categories?.name ?? 'Pacotes',
+        categoria: p.categories?.name,
+        tamanhos: [],
+      }
+      porChave.set(chave, nova)
+      familias.push(nova)
+    }
+    porChave.get(chave).tamanhos.push(p)
+  }
+  for (const f of familias) f.tamanhos.sort((a, b) => a.pack_size - b.pack_size)
+
+  const abrirFamilia = (f) => {
+    setFamilia(f)
+    setPrecosFamilia(Object.fromEntries(f.tamanhos.map(t => [
+      t.id,
+      { price: String(t.price), cash_price: t.cash_price != null ? String(t.cash_price) : '' },
+    ])))
+  }
+
+  const salvarFamilia = async (e) => {
+    e.preventDefault()
+    setSalvandoFamilia(true)
+    try {
+      for (const t of familia.tamanhos) {
+        const campos = precosFamilia[t.id]
+        const price = parseFloat(String(campos.price).replace(',', '.'))
+        const cash = campos.cash_price === '' ? null : parseFloat(String(campos.cash_price).replace(',', '.'))
+        if (!Number.isFinite(price) || price <= 0) throw new Error(`Preço inválido em ${t.name}`)
+        if (cash != null && cash > price) throw new Error(`No ${t.name}, o pix não pode ser maior que o cartão`)
+        if (price === Number(t.price) && cash === (t.cash_price ?? null)) continue
+        await updateProduct(t.id, { price, cash_price: cash })
+      }
+      toast.success('Preços atualizados!')
+      setFamilia(null)
+      load()
+    } catch (erro) {
+      toast.error(erro.message || 'Não consegui salvar.')
+    } finally {
+      setSalvandoFamilia(false)
+    }
+  }
+
 
   return (
     <div>
@@ -174,8 +235,50 @@ export default function ProductsPage() {
         ))}
       </div>
 
+      {familias.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 mb-6">
+          {familias.map(f => (
+            <div key={f.chave} className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-gray-900">{f.nome}</p>
+                  <p className="text-xs text-gray-500">
+                    {f.categoria} · {f.tamanhos.length} {f.tamanhos.length === 1 ? 'tamanho' : 'tamanhos'}
+                  </p>
+                </div>
+                <button onClick={() => abrirFamilia(f)} className="text-primary hover:underline text-sm shrink-0">
+                  Editar preços
+                </button>
+              </div>
+
+              <table className="w-full text-sm mt-3">
+                <tbody>
+                  {f.tamanhos.map(t => (
+                    <tr key={t.id} className="border-t border-gray-100">
+                      <td className="py-1.5 text-gray-500 w-20">{t.pack_size} un</td>
+                      <td className="py-1.5 font-medium">{formatCurrency(t.price)}</td>
+                      <td className="py-1.5 text-gray-500">
+                        {t.cash_price ? `pix ${formatCurrency(t.cash_price)}` : 'pix pelo %'}
+                      </td>
+                      <td className="py-1.5 text-right">
+                        <button
+                          onClick={() => alternarAtivo(t)}
+                          className="text-gray-400 hover:text-gray-900 text-xs whitespace-nowrap"
+                        >
+                          {t.active ? 'tirar do ar' : 'pôr no ar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {visiveis.length === 0 ? (
+        {familias.length === 0 && avulsos.length === 0 ? (
           <p className="text-text-light text-center py-8">
             {aba === 'inativos' ? 'Nenhum produto fora do cardápio.' : 'Nenhum produto nesta aba.'}
           </p>
@@ -192,7 +295,7 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {visiveis.map(p => (
+                {avulsos.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -234,6 +337,68 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={familia !== null}
+        onClose={() => setFamilia(null)}
+        title={familia ? `Preços · ${familia.nome}` : ''}
+      >
+        {familia && (
+          <form onSubmit={salvarFamilia} className="space-y-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th className="pb-2 font-medium">Tamanho</th>
+                  <th className="pb-2 font-medium">Cartão</th>
+                  <th className="pb-2 font-medium">Pix</th>
+                </tr>
+              </thead>
+              <tbody>
+                {familia.tamanhos.map(t => (
+                  <tr key={t.id}>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">
+                      {t.pack_size} un
+                      {!t.active && <span className="text-gray-400 text-xs ml-1">(fora do ar)</span>}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={precosFamilia[t.id]?.price ?? ''}
+                        onChange={e => setPrecosFamilia(atual => ({
+                          ...atual, [t.id]: { ...atual[t.id], price: e.target.value },
+                        }))}
+                        className="w-24 rounded-md border border-gray-300 px-2 py-1.5 focus:border-gray-900 focus:outline-none"
+                      />
+                    </td>
+                    <td className="py-1.5">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="vazio = %"
+                        value={precosFamilia[t.id]?.cash_price ?? ''}
+                        onChange={e => setPrecosFamilia(atual => ({
+                          ...atual, [t.id]: { ...atual[t.id], cash_price: e.target.value },
+                        }))}
+                        className="w-24 rounded-md border border-gray-300 px-2 py-1.5 focus:border-gray-900 focus:outline-none"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-gray-500">
+              Pix vazio: o produto segue o desconto padrão da loja em vez de um valor próprio.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="secondary" onClick={() => setFamilia(null)}>Cancelar</Button>
+              <Button type="submit" disabled={salvandoFamilia}>
+                {salvandoFamilia ? 'Salvando...' : 'Salvar preços'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Product Modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Produto' : 'Novo Produto'}>
