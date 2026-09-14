@@ -64,7 +64,27 @@ h1, h2, h3, h4, h5, h6 {
   text-wrap: balance;
 }
 
+.scrollbar-hide {
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* Edge legado */
+}
+
 .scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* No painel a barra some, mas o scroll fica.
+   Sao muitas areas roláveis numa tela só -- menu lateral, conteúdo, e cada
+   tabela larga --, e as barras cinza do sistema cortavam o desenho em faixas.
+   Vale só aqui: no site público a barra é pista de que a lista continua. */
+.admin-shell,
+.admin-shell * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.admin-shell ::-webkit-scrollbar,
+.admin-shell::-webkit-scrollbar {
   display: none;
 }
 
