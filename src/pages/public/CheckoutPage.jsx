@@ -233,6 +233,12 @@ export default function CheckoutPage() {
     return Object.keys(errs).length === 0
   }
 
+  const concluir = (order) => {
+    finalizando.current = true
+    clearCart()
+    navigate(`/pedido-confirmado/${order.order_number}`)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
@@ -331,12 +337,6 @@ export default function CheckoutPage() {
     } finally {
       setSubmitting(false)
     }
-  }
-
-  const concluir = (order) => {
-    finalizando.current = true
-    clearCart()
-    navigate(`/pedido-confirmado/${order.order_number}`)
   }
 
   const aoPagarCartao = async (cartao, parcelas) => {

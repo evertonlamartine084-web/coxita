@@ -66,6 +66,9 @@ export default function EstoquePage() {
     setObservacao('')
   }
 
+  // Contagem aceita zero (o freezer acabou); producao e perda, nao.
+  const motivoVazio = ({ motivo }) => motivo.id !== 'ajuste'
+
   const confirmar = async (e) => {
     e.preventDefault()
     const n = emUnidades(pacotes, soltas)
@@ -95,9 +98,6 @@ export default function EstoquePage() {
       setSalvando(false)
     }
   }
-
-  // Contagem aceita zero (o freezer acabou); producao e perda, nao.
-  const motivoVazio = ({ motivo }) => motivo.id !== 'ajuste'
 
   const mudarMinimo = async (linha, valor) => {
     const n = parseInt(valor, 10)

@@ -24,6 +24,11 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Usar um `const` antes da linha que o declara passa no build e quebra em
+      // tempo de execucao ("Cannot access before initialization") -- e no meio
+      // de um componente isso derruba a tela inteira. Ja aconteceu duas vezes
+      // aqui; agora o lint pega.
+      'no-use-before-define': ['error', { functions: false, variables: true, classes: true }],
     },
   },
 ])

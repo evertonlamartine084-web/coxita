@@ -11,6 +11,11 @@ import {
  * Os dados vivem só no estado deste componente e vão direto para a Edge Function; nada é
  * gravado em localStorage, em store global ou em log. Ao desmontar, somem com o componente.
  */
+const entrada = (erro) =>
+  `w-full rounded-sm border-2 bg-white px-3 py-2.5 text-base text-text outline-none transition-colors placeholder:text-text-light/50 focus:border-primary ${
+    erro ? 'border-danger' : 'border-border-warm'
+  }`
+
 export default function CardForm({ total, onPagar, processando }) {
   const [numero, setNumero] = useState('')
   const [titular, setTitular] = useState('')
@@ -140,10 +145,6 @@ export default function CardForm({ total, onPagar, processando }) {
   )
 }
 
-const entrada = (erro) =>
-  `w-full rounded-sm border-2 bg-white px-3 py-2.5 text-base text-text outline-none transition-colors placeholder:text-text-light/50 focus:border-primary ${
-    erro ? 'border-danger' : 'border-border-warm'
-  }`
 
 function Campo({ rotulo, erro, children }) {
   return (

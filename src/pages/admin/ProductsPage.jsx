@@ -184,6 +184,15 @@ export default function ProductsPage() {
   }
   for (const f of familias) f.tamanhos.sort((a, b) => a.pack_size - b.pack_size)
 
+  // Pacote misto de um grupo cujos sabores tem preco proprio: a grade entra no
+  // mesmo modal. E o caso do pastel, onde o preco do card e so o piso -- o do
+  // sabor mais barato -- e o valor de verdade sai do que o cliente monta.
+  const saboresDaFamilia = (f) => {
+    const pacote = f?.tamanhos?.[0]
+    if (!pacote || pacote.fixed_flavor_id || !pacote.flavor_group) return []
+    return sabores.filter(sb => sb.group_slug === pacote.flavor_group && sb.active)
+  }
+
   // Pacote misto de grupo com preco por sabor -- o pastel -- vira um card por
   // sabor, como o doce ja e. O card do pacote some: o preco dele e so o piso,
   // recalculado a partir do sabor mais barato quando a grade e salva, e nao um
@@ -208,15 +217,6 @@ export default function ProductsPage() {
       }),
     }))
   })
-
-  // Pacote misto de um grupo cujos sabores tem preco proprio: a grade entra no
-  // mesmo modal. E o caso do pastel, onde o preco do card e so o piso -- o do
-  // sabor mais barato -- e o valor de verdade sai do que o cliente monta.
-  const saboresDaFamilia = (f) => {
-    const pacote = f?.tamanhos?.[0]
-    if (!pacote || pacote.fixed_flavor_id || !pacote.flavor_group) return []
-    return sabores.filter(sb => sb.group_slug === pacote.flavor_group && sb.active)
-  }
 
   const abrirFamilia = (f, saborFoco = null) => {
     setFamilia({ ...f, saborFoco })
