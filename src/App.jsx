@@ -11,27 +11,73 @@ import { importarPagina } from './routes/importers'
 import { LISTA_OCASIOES } from './content/ocasioes'
 import { BAIRROS } from './content/bairros'
 
-// Retry lazy import on chunk load failure (common after new deploys)
+/**
+ * Recarrega uma vez so.
+ *
+ * Depois de um deploy, o HTML novo pode pedir um chunk que o cache ainda nao
+ * tem -- recarregar resolve. Mas se o erro nao for esse (um bug de render, por
+ * exemplo), recarregar de novo da no mesmo erro, e a pagina entra em loop de
+ * refresh: a tela pisca sem parar e nao da nem para ler a mensagem.
+ *
+ * A marca fica na aba (sessionStorage), entao o proximo deploy volta a poder
+ * recarregar uma vez.
+ */
+const MARCA_DE_RELOAD = 'coxelli:recarregou-por-erro'
+
+function recarregarUmaVez() {
+  try {
+    const quando = Number(sessionStorage.getItem(MARCA_DE_RELOAD) || 0)
+    if (Date.now() - quando < 60_000) return false
+    sessionStorage.setItem(MARCA_DE_RELOAD, String(Date.now()))
+  } catch {
+    // aba anonima com storage bloqueado: recarrega e torce
+  }
+  window.location.reload()
+  return true
+}
+
 function lazyWithRetry(importFn) {
   return lazy(() =>
-    importFn().catch(() => {
-      // Chunk failed to load - reload page to get fresh assets
-      window.location.reload()
-      return new Promise(() => {}) // keep suspense alive while reloading
+    importFn().catch((erro) => {
+      if (recarregarUmaVez()) return new Promise(() => {})
+      throw erro
     })
   )
 }
 
-// Error boundary to catch render errors from stale chunks
 class ErrorBoundary extends Component {
-  state = { hasError: false }
+  state = { hasError: false, recarregando: false }
   static getDerivedStateFromError() { return { hasError: true } }
-  componentDidCatch() {
-    // Force reload to get fresh chunks
-    window.location.reload()
+  componentDidCatch(erro) {
+    console.error('Erro de render:', erro)
+    const recarregou = recarregarUmaVez()
+    if (recarregou) this.setState({ recarregando: true })
   }
   render() {
-    if (this.state.hasError) return <Loading />
+    if (this.state.hasError && this.state.recarregando) return <Loading />
+    if (this.state.hasError) {
+      // Ja recarregou uma vez e o erro continua: mostra a saida em vez de
+      // piscar a tela para sempre.
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 text-center">
+          <div>
+            <p className="font-semibold text-lg">Algo quebrou nesta tela.</p>
+            <p className="text-sm text-gray-500 mt-1 mb-4">
+              Recarregar não resolveu. O erro está no console do navegador.
+            </p>
+            <button
+              onClick={() => {
+                try { sessionStorage.removeItem(MARCA_DE_RELOAD) } catch { /* vazio */ }
+                window.location.href = '/'
+              }}
+              className="border-2 border-brown px-4 py-2 font-semibold"
+            >
+              Voltar ao início
+            </button>
+          </div>
+        </div>
+      )
+    }
     return this.props.children
   }
 }
