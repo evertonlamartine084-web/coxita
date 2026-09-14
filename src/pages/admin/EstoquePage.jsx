@@ -9,6 +9,23 @@ import toast from 'react-hot-toast'
 
 const GRUPO = { salgados: 'Salgados', pasteis: 'Pastéis', doces: 'Doces' }
 
+// A cozinha embala de 50 em 50 e conta pacote, nao unidade: pedir "quantas
+// unidades" obrigava a multiplicar de cabeca a cada lancamento. O saldo
+// continua em unidade, que e como o pedido da baixa.
+const POR_PACOTE = 50
+
+const emUnidades = (pacotes, soltas) =>
+  (parseInt(pacotes, 10) || 0) * POR_PACOTE + (parseInt(soltas, 10) || 0)
+
+/** "8 pacotes + 20" — como a cozinha le o freezer. */
+function emPacotes(unidades) {
+  const pacotes = Math.floor(unidades / POR_PACOTE)
+  const soltas = unidades % POR_PACOTE
+  if (unidades === 0) return null
+  if (!pacotes) return `${soltas} solta${soltas === 1 ? '' : 's'}`
+  return `${pacotes} pacote${pacotes === 1 ? '' : 's'}${soltas ? ` + ${soltas}` : ''}`
+}
+
 const MOTIVOS = [
   { id: 'producao', label: 'Fritei mais', sinal: 1 },
   { id: 'perda', label: 'Perda', sinal: -1 },
@@ -26,7 +43,8 @@ export default function EstoquePage() {
   const [linhas, setLinhas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [modal, setModal] = useState(null)      // { linha, motivo }
-  const [quantidade, setQuantidade] = useState('')
+  const [pacotes, setPacotes] = useState('')
+  const [soltas, setSoltas] = useState('')
   const [observacao, setObservacao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [historico, setHistorico] = useState(null)
@@ -43,14 +61,16 @@ export default function EstoquePage() {
 
   const abrir = (linha, motivo) => {
     setModal({ linha, motivo })
-    setQuantidade('')
+    setPacotes('')
+    setSoltas('')
     setObservacao('')
   }
 
   const confirmar = async (e) => {
     e.preventDefault()
-    const n = parseInt(quantidade, 10)
+    const n = emUnidades(pacotes, soltas)
     if (!Number.isFinite(n) || n < 0) return toast.error('Quantidade inválida.')
+    if (n === 0 && motivoVazio(modal)) return toast.error('Informe a quantidade.')
 
     const { linha, motivo } = modal
     // Contagem não soma: ela diz quanto TEM, e o movimento é a diferença.
@@ -75,6 +95,9 @@ export default function EstoquePage() {
       setSalvando(false)
     }
   }
+
+  // Contagem aceita zero (o freezer acabou); producao e perda, nao.
+  const motivoVazio = ({ motivo }) => motivo.id !== 'ajuste'
 
   const mudarMinimo = async (linha, valor) => {
     const n = parseInt(valor, 10)
@@ -152,7 +175,9 @@ export default function EstoquePage() {
                         l.quantidade === 0 ? 'text-red-600' : baixo ? 'text-amber-600' : 'text-gray-900'
                       }`}>
                         {l.quantidade}
-                        {l.quantidade === 0 && <span className="ml-1 text-xs font-normal">acabou</span>}
+                        {l.quantidade === 0
+                          ? <span className="ml-1 text-xs font-normal">acabou</span>
+                          : <span className="block text-xs font-normal text-gray-400">{emPacotes(l.quantidade)}</span>}
                       </td>
                       <td className="px-4 py-3 text-right hidden sm:table-cell">
                         <input
@@ -205,19 +230,47 @@ export default function EstoquePage() {
         {modal && (
           <form onSubmit={confirmar} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 {modal.motivo.id === 'ajuste'
-                  ? `Quantas unidades tem de verdade? (o sistema diz ${modal.linha.quantidade})`
-                  : 'Quantas unidades?'}
+                  ? `Quanto tem de verdade no freezer? (o sistema diz ${
+                      emPacotes(modal.linha.quantidade) ?? 'nada'})`
+                  : 'Quanto?'}
               </label>
-              <input
-                type="number"
-                min="0"
-                autoFocus
-                value={quantidade}
-                onChange={e => setQuantidade(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-gray-900 focus:outline-none"
-              />
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    autoFocus
+                    value={pacotes}
+                    onChange={e => setPacotes(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-gray-900 focus:outline-none"
+                  />
+                  <span className="block text-xs text-gray-500 mt-1">pacotes de {POR_PACOTE}</span>
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={soltas}
+                    onChange={e => setSoltas(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-gray-900 focus:outline-none"
+                  />
+                  <span className="block text-xs text-gray-500 mt-1">unidades soltas</span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                {emUnidades(pacotes, soltas)} unidades
+                {modal.motivo.id === 'ajuste' && emUnidades(pacotes, soltas) !== modal.linha.quantidade && (
+                  <span className="text-gray-400">
+                    {' · '}
+                    {emUnidades(pacotes, soltas) > modal.linha.quantidade ? 'entra ' : 'sai '}
+                    {Math.abs(emUnidades(pacotes, soltas) - modal.linha.quantidade)}
+                  </span>
+                )}
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
