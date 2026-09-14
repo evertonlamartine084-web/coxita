@@ -68,15 +68,15 @@ export default function AdminLayout() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky lg:top-0 lg:h-screen inset-y-0 left-0 z-50 w-72 bg-brown text-white transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-3 gingham-blue border-b-2 border-secondary" aria-hidden="true" />
-        <div className="p-5 border-b border-white/15">
+      <aside className={`fixed lg:sticky lg:top-0 h-screen lg:h-screen inset-y-0 left-0 z-50 w-72 bg-brown text-white flex flex-col transform transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-3 gingham-blue border-b-2 border-secondary shrink-0" aria-hidden="true" />
+        <div className="p-5 border-b border-white/15 shrink-0">
           <div className="bg-cream border-2 border-secondary p-3 shadow-[4px_4px_0_#ffcd5e]">
             <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-10 w-auto object-contain" />
             <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-brown mt-1">Painel da cozinha</p>
           </div>
         </div>
-        <nav className="p-4 space-y-1.5">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1.5">
           {navItems.map(({ to, icon, label }) => {
             const active = location.pathname === to
             return (
@@ -102,7 +102,7 @@ export default function AdminLayout() {
             )
           })}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/15 bg-brown">
+        <div className="shrink-0 p-4 border-t border-white/15 bg-brown">
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 text-cream/70 hover:text-white w-full border-2 border-transparent hover:border-white/20 transition-colors"
