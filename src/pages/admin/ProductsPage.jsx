@@ -184,23 +184,28 @@ export default function ProductsPage() {
   }
   for (const f of familias) f.tamanhos.sort((a, b) => a.pack_size - b.pack_size)
 
-  // Pacote misto de um grupo cujos sabores tem preco proprio: a grade entra no
-  // mesmo modal. E o caso do pastel, onde o preco do card e so o piso -- o do
-  // sabor mais barato -- e o valor de verdade sai do que o cliente monta.
+  // Os sabores que o pacote aceita. Serve para a secao "preco por sabor" do
+  // modal, que precisa existir mesmo onde ainda nao ha preco proprio nenhum --
+  // e por ali que o primeiro e cadastrado.
   const saboresDaFamilia = (f) => {
     const pacote = f?.tamanhos?.[0]
     if (!pacote || pacote.fixed_flavor_id || !pacote.flavor_group) return []
     return sabores.filter(sb => sb.group_slug === pacote.flavor_group && sb.active)
   }
 
+  // Quebrar em um card por sabor so vale onde os sabores custam diferente entre
+  // si -- o pastel. No salgado e no congelado todo recheio custa o mesmo, e oito
+  // cards iguais seriam oito vezes a mesma informacao.
+  const temPrecoPorSabor = (f) =>
+    saboresDaFamilia(f).some(sb => grade.some(l => l.flavor_id === sb.id))
+
   // Pacote misto de grupo com preco por sabor -- o pastel -- vira um card por
   // sabor, como o doce ja e. O card do pacote some: o preco dele e so o piso,
   // recalculado a partir do sabor mais barato quando a grade e salva, e nao um
   // produto que a cozinha pensa separado.
   const cards = familias.flatMap(f => {
-    const doGrupo = saboresDaFamilia(f)
-    if (doGrupo.length === 0) return [f]
-    return doGrupo.map(sb => ({
+    if (!temPrecoPorSabor(f)) return [f]
+    return saboresDaFamilia(f).map(sb => ({
       chave: `${f.chave}|${sb.id}`,
       nome: catalogText(sb.name),
       categoria: f.categoria,
