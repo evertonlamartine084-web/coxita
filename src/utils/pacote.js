@@ -159,9 +159,14 @@ export function precoDaComposicao(produto, sabores, precos) {
 const NOME_DA_UNIDADE = {
   salgados: 'salgados',
   pasteis: 'pastéis',
+  doces: 'doces',
 }
 
 export function unidadeDoPacote(produto) {
+  // Sem grupo e o pacote generico de salgado -- inclusive o congelado, que nao
+  // declara grupo para aceitar qualquer recheio. Grupo novo sem entrada aqui
+  // volta a cair em "salgados", que foi como "50 churros de brigadeiro" virou
+  // "50 salgados" na tela.
   return NOME_DA_UNIDADE[produto?.flavor_group] ?? 'salgados'
 }
 
