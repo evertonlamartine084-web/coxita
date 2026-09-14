@@ -68,16 +68,24 @@ export default function MenuPage() {
   // continua sendo escolhido ao montar, dentro do modal.
   const pacoteMisto = pacotesDaAba.find(p => !p.fixed_flavor_id)
   const abaDePacote = pacotesDaAba.some(vendePeloPacote)
+
+  // A vitrine mostra o grupo que a aba anuncia, que nao e o mesmo que o pacote
+  // aceita: o cento de salgados aceita qualquer recheio -- da para pedir pastel
+  // dentro dele, no montador --, mas a aba de salgados nao lista pastel e doce
+  // ao lado da coxinha.
+  const grupoDaVitrine = categories.find(c => c.slug === activeCategory)?.flavor_group
   const saboresDaAba =
     activeCategory === 'all'
       ? flavors
       : abaDePacote
         ? []
-        : pacoteMisto
-          ? saboresDoPacote(pacoteMisto, flavors)
-          : gruposDaAba.length === 1
-            ? flavors.filter(f => f.group_slug === gruposDaAba[0])
-            : []
+        : grupoDaVitrine
+          ? flavors.filter(f => f.group_slug === grupoDaVitrine)
+          : pacoteMisto
+            ? saboresDoPacote(pacoteMisto, flavors)
+            : gruposDaAba.length === 1
+              ? flavors.filter(f => f.group_slug === gruposDaAba[0])
+              : []
 
   // Pacote de sabor unico ja tem preco por sabor: escolher o tamanho e a
   // escolha inteira, nao ha o que montar de 25 em 25.
