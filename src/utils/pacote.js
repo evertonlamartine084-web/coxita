@@ -95,6 +95,61 @@ export function pacotesDoSabor(sabor, pacotes) {
 }
 
 /**
+ * Preço do pacote conforme o que foi posto dentro dele.
+ *
+ * Nos salgados todo recheio custa igual e o preço do pacote basta. Nos pastéis
+ * não: carne sai mais caro que queijo e presunto, e o cliente monta 25 de um e
+ * 25 de outro. Cada sabor entra com a fração dele -- meio a meio num pacote de
+ * 50 é metade do preço de 50 de cada um.
+ *
+ * `precos` é o mapa `${flavor_id}:${pack_size}` -> { price, cash_price }. Sabor
+ * sem preço próprio cai no preço do pacote, que é como os salgados funcionam e
+ * como qualquer sabor novo se comporta antes de ter tabela.
+ *
+ * @returns {{price: number, cash_price: number|null}}
+ */
+export function precoDaComposicao(produto, sabores, precos) {
+  const tamanho = Number(produto?.pack_size)
+  const cheioDoPacote = Number(produto?.price) || 0
+  const aVistaDoPacote = produto?.cash_price != null ? Number(produto.cash_price) : null
+
+  const escolhidos = (sabores ?? []).filter(s => Number(s?.quantity) > 0)
+  if (!ehPacote(produto) || escolhidos.length === 0 || !precos) {
+    return { price: cheioDoPacote, cash_price: aVistaDoPacote }
+  }
+
+  // Em centavos inteiros, e arredondando a fracao de CADA sabor: e assim que a
+  // tabela da cozinha e escrita -- 25 de queijo e presunto custam R$ 12,25, a
+  // metade de 24,49 arredondada, e nao 12,245. Somar as fracoes cruas e
+  // arredondar no fim daria um centavo a menos aqui.
+  const centavos = v => Math.round(Number(v) * 100)
+  const fatia = (precoEmCentavos, quantidade) =>
+    Math.round((precoEmCentavos * quantidade) / tamanho)
+
+  let cheio = 0
+  let aVista = 0
+  let algumSemPrecoAVista = false
+
+  for (const escolha of escolhidos) {
+    const proprio = precos[`${escolha.id}:${tamanho}`]
+    const precoCheio = proprio ? centavos(proprio.price) : centavos(cheioDoPacote)
+    const precoAVista = proprio
+      ? centavos(proprio.cash_price)
+      : (aVistaDoPacote == null ? null : centavos(aVistaDoPacote))
+
+    cheio += fatia(precoCheio, Number(escolha.quantity))
+    if (precoAVista == null) algumSemPrecoAVista = true
+    else aVista += fatia(precoAVista, Number(escolha.quantity))
+  }
+
+  return {
+    price: cheio / 100,
+    cash_price: algumSemPrecoAVista ? null : aVista / 100,
+  }
+}
+
+
+/**
  * Como chamar o que vem dentro do pacote, no plural.
  *
  * Um pacote de pastel dizendo "100 salgados" nao esta errado tecnicamente,

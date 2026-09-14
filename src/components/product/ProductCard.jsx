@@ -33,8 +33,8 @@ export default function ProductCard({ product }) {
     toast.success(`${product.name} adicionado!`, ESTILO_TOAST)
   }
 
-  const confirmarSabores = (sabores) => {
-    addItem(product, sabores)
+  const confirmarSabores = (sabores, preco) => {
+    addItem({ ...product, ...(preco ?? {}) }, sabores)
     setMontando(false)
     toast.success(`${product.name} adicionado!`, ESTILO_TOAST)
   }

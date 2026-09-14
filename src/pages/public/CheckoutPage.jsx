@@ -6,6 +6,7 @@ import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import { getProducts } from '../../services/products'
+import { getPrecoPorSabor } from '../../services/precoPorSabor'
 import { pagarComCartao, gerarPix } from '../../services/cielo'
 import { guardarToken, linkDoPedido, lerTokens } from '../../utils/pedidosLocais'
 import { mascararCpf, cpfValido } from '../../utils/cpf'
@@ -118,7 +119,9 @@ export default function CheckoutPage() {
     // Ultima parada antes de virar pedido: o preco da linha volta a ser o do
     // banco. Sem isto, um carrinho aberto antes de a cozinha mexer na tabela
     // fecharia pedido pelo valor antigo.
-    getProducts().then(sincronizarComCatalogo).catch(() => {})
+    Promise.all([getProducts(), getPrecoPorSabor()])
+      .then(([produtos, precos]) => sincronizarComCatalogo(produtos, precos))
+      .catch(() => {})
 
     getSettings().then(s => {
       setSettingsData(s)

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { HiMinus, HiPlus, HiX } from 'react-icons/hi'
 import { getFlavors, peekFlavors } from '../../services/flavors'
-import { PASSO_SABOR, maxSabores, restante, validarComposicao, saboresDoPacote, unidadeDoPacote } from '../../utils/pacote'
+import { getPrecoPorSabor } from '../../services/precoPorSabor'
+import { PASSO_SABOR, maxSabores, restante, validarComposicao, saboresDoPacote, unidadeDoPacote, precoDaComposicao } from '../../utils/pacote'
 import { formatCurrency } from '../../utils/format'
 import { catalogText } from '../../utils/catalogText'
 import Button from '../ui/Button'
@@ -16,6 +17,9 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, e
   const [todosOsSabores, setTodosOsSabores] = useState(() => peekFlavors() ?? [])
   const [carregando, setCarregando] = useState(!peekFlavors())
   const [erroCarga, setErroCarga] = useState(false)
+  // Preco por sabor: nos pasteis cada recheio custa o seu, e o total do
+  // pacote muda conforme o cliente distribui as 25.
+  const [precos, setPrecos] = useState(null)
   // { [flavorId]: quantidade }
   // Quem abre o picker a partir de um sabor (aba de pasteis) monta o
   // componente ja com esse sabor escolhido; so falta completar o pacote.
@@ -24,6 +28,9 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, e
   useEffect(() => {
     if (!aberto) return
     let cancelado = false
+    getPrecoPorSabor()
+      .then(mapa => { if (!cancelado) setPrecos(mapa) })
+      .catch(() => {})
     getFlavors()
       .then(lista => {
         if (!cancelado) {
@@ -65,6 +72,7 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, e
     })
 
   const falta = restante(product.pack_size, listaEscolhida)
+  const precoAtual = precoDaComposicao(product, listaEscolhida, precos)
   const { valido, erro } = validarComposicao(product, listaEscolhida)
   const saboresUsados = listaEscolhida.length
   const limiteSabores = maxSabores(product.pack_size)
@@ -92,7 +100,7 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, e
 
   const confirmar = () => {
     if (!valido) return
-    aoConfirmar(listaEscolhida)
+    aoConfirmar(listaEscolhida, precoAtual)
     setEscolhas({})
   }
 
@@ -210,7 +218,7 @@ export default function FlavorPicker({ product, aberto, aoFechar, aoConfirmar, e
               {product.pack_size - falta} de {product.pack_size} escolhidos
             </span>
             <span className="font-display font-extrabold text-xl text-primary">
-              {formatCurrency(product.price)}
+              {formatCurrency(precoAtual.price)}
             </span>
           </div>
 

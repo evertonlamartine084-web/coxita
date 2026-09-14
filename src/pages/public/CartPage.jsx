@@ -4,6 +4,7 @@ import { HiArrowRight, HiArrowLeft } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { getSettings, peekSettings } from '../../services/settings'
 import { getProducts } from '../../services/products'
+import { getPrecoPorSabor } from '../../services/precoPorSabor'
 import { calcularDescontoAvista, rotuloDoDesconto } from '../../utils/descontoAvista'
 import CartItem from '../../components/cart/CartItem'
 import Button from '../../components/ui/Button'
@@ -24,8 +25,8 @@ export default function CartPage() {
       .catch(() => {})
     // O carrinho pode ter sido montado antes de a cozinha mexer na tabela:
     // aqui ele volta a valer o preco do banco, antes de virar pedido.
-    getProducts()
-      .then(produtos => { if (!cancelado) sincronizarComCatalogo(produtos) })
+    Promise.all([getProducts(), getPrecoPorSabor()])
+      .then(([produtos, precos]) => { if (!cancelado) sincronizarComCatalogo(produtos, precos) })
       .catch(() => {})
     return () => { cancelado = true }
   }, [sincronizarComCatalogo])

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { precoDaComposicao } from '../utils/pacote'
 
 /**
  * Identidade de uma linha do carrinho.
@@ -87,7 +88,7 @@ export const useCartStore = create(
        * So grava quando algo de fato mudou: `set` a cada render remontaria o
        * carrinho inteiro sem necessidade.
        */
-      sincronizarComCatalogo: (produtos) => {
+      sincronizarComCatalogo: (produtos, precos) => {
         if (!produtos?.length) return
         const porId = new Map(produtos.map(p => [String(p.id), p]))
         let mudou = false
@@ -95,11 +96,15 @@ export const useCartStore = create(
         const items = get().items.flatMap(item => {
           const atual = porId.get(String(item.id))
           if (!atual) { mudou = true; return [] }
-          const preco = Number(atual.price)
-          const aVista = atual.cash_price ?? null
-          if (item.price === preco && (item.cash_price ?? null) === aVista) return [item]
+
+          // O preco do pacote de pastel depende dos recheios que o cliente
+          // escolheu, entao nao basta copiar o do produto: e recalculado a
+          // partir da composicao guardada na linha.
+          const { price, cash_price } = precoDaComposicao(atual, item.flavors, precos)
+          const aVista = cash_price ?? null
+          if (item.price === price && (item.cash_price ?? null) === aVista) return [item]
           mudou = true
-          return [{ ...item, price: preco, cash_price: aVista }]
+          return [{ ...item, price, cash_price: aVista }]
         })
 
         if (mudou) set({ items })

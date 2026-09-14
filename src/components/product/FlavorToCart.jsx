@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { HiX } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { useCartStore } from '../../store/cartStore'
 import { formatCurrency } from '../../utils/format'
 import { catalogText } from '../../utils/catalogText'
-import { PASSO_SABOR, maxSabores, unidadeDoPacote, saborUnicoDoPacote } from '../../utils/pacote'
+import { PASSO_SABOR, maxSabores, unidadeDoPacote, saborUnicoDoPacote, precoDaComposicao } from '../../utils/pacote'
 import { ESTILO_TOAST } from '../../utils/toastEstilo'
+import { getPrecoPorSabor } from '../../services/precoPorSabor'
 import FlavorPicker from './FlavorPicker'
 
 /**
@@ -19,10 +20,27 @@ import FlavorPicker from './FlavorPicker'
  */
 export default function FlavorToCart({ sabor, pacotes, aoFechar }) {
   const [pacote, setPacote] = useState(null)
+  const [precos, setPrecos] = useState(null)
   const addItem = useCartStore(s => s.addItem)
 
-  const confirmar = (sabores) => {
-    addItem(pacote, sabores)
+  useEffect(() => {
+    let cancelado = false
+    getPrecoPorSabor()
+      .then(mapa => { if (!cancelado) setPrecos(mapa) })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [])
+
+  // O preco de cada tamanho e o DESTE sabor: quem abriu a partir do pastel de
+  // carne ve o cento a R$ 56,00, nao os R$ 47,00 do pacote base. Se depois
+  // trocar metade por frango no montador, o total cai junto.
+  const precoDoTamanho = (p) =>
+    precoDaComposicao(p, [{ id: sabor.id, quantity: p.pack_size }], precos).price
+
+  // O preco vem do montador, nao do produto: num pacote de pastel ele depende
+  // de quais recheios entraram.
+  const confirmar = (sabores, preco) => {
+    addItem({ ...pacote, ...(preco ?? {}) }, sabores)
     toast.success(`${pacote.name} adicionado!`, ESTILO_TOAST)
     aoFechar()
   }
@@ -112,7 +130,7 @@ export default function FlavorToCart({ sabor, pacotes, aoFechar }) {
                     </span>
                   </span>
                   <span className="font-display font-extrabold text-xl text-primary shrink-0">
-                    {formatCurrency(p.price)}
+                    {formatCurrency(precoDoTamanho(p))}
                   </span>
                 </button>
               </li>
