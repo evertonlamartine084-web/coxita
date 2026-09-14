@@ -184,6 +184,31 @@ export default function ProductsPage() {
   }
   for (const f of familias) f.tamanhos.sort((a, b) => a.pack_size - b.pack_size)
 
+  // Pacote misto de grupo com preco por sabor -- o pastel -- vira um card por
+  // sabor, como o doce ja e. O card do pacote some: o preco dele e so o piso,
+  // recalculado a partir do sabor mais barato quando a grade e salva, e nao um
+  // produto que a cozinha pensa separado.
+  const cards = familias.flatMap(f => {
+    const doGrupo = saboresDaFamilia(f)
+    if (doGrupo.length === 0) return [f]
+    return doGrupo.map(sb => ({
+      chave: `${f.chave}|${sb.id}`,
+      nome: catalogText(sb.name),
+      categoria: f.categoria,
+      sabor: sb,
+      familia: f,
+      tamanhos: f.tamanhos.map(t => {
+        const linha = grade.find(l => l.flavor_id === sb.id && l.pack_size === t.pack_size)
+        return {
+          ...t,
+          price: linha ? Number(linha.price) : Number(t.price),
+          cash_price: linha ? Number(linha.cash_price) : t.cash_price,
+          semPrecoProprio: !linha,
+        }
+      }),
+    }))
+  })
+
   // Pacote misto de um grupo cujos sabores tem preco proprio: a grade entra no
   // mesmo modal. E o caso do pastel, onde o preco do card e so o piso -- o do
   // sabor mais barato -- e o valor de verdade sai do que o cliente monta.
@@ -193,8 +218,8 @@ export default function ProductsPage() {
     return sabores.filter(sb => sb.group_slug === pacote.flavor_group && sb.active)
   }
 
-  const abrirFamilia = (f) => {
-    setFamilia(f)
+  const abrirFamilia = (f, saborFoco = null) => {
+    setFamilia({ ...f, saborFoco })
     setPrecosFamilia(Object.fromEntries(f.tamanhos.map(t => [
       t.id,
       { price: String(t.price), cash_price: t.cash_price != null ? String(t.cash_price) : '' },
@@ -225,7 +250,7 @@ export default function ProductsPage() {
         if (price === Number(t.price) && cash === (t.cash_price ?? null)) continue
         await updateProduct(t.id, { price, cash_price: cash })
       }
-      for (const sb of saboresDaFamilia(familia)) {
+      for (const sb of (familia.saborFoco ? [familia.saborFoco] : saboresDaFamilia(familia))) {
         for (const t of familia.tamanhos) {
           const chave = `${sb.id}:${t.pack_size}`
           const campos = precosSabor[chave] ?? {}
@@ -244,6 +269,24 @@ export default function ProductsPage() {
             : !antes || Number(antes.price) !== price || Number(antes.cash_price) !== cash
           if (mudou) {
             await salvarPrecoDoSabor({ flavor_id: sb.id, pack_size: t.pack_size, price, cash_price: cash })
+          }
+        }
+      }
+
+      // O piso do pacote e o sabor mais barato: e ele que o cardapio mostra
+      // antes de o cliente escolher o recheio. Recalculado aqui para nao
+      // prometer menos do que qualquer combinacao vai custar.
+      const doGrupo = saboresDaFamilia(familia)
+      if (doGrupo.length > 0) {
+        const atualizada = await getGradePorSabor()
+        for (const t of familia.tamanhos) {
+          const linhas = atualizada.filter(l => l.pack_size === t.pack_size &&
+            doGrupo.some(sb => sb.id === l.flavor_id))
+          if (linhas.length === 0) continue
+          const piso = Math.min(...linhas.map(l => Number(l.price)))
+          const pisoPix = Math.min(...linhas.map(l => Number(l.cash_price)))
+          if (piso !== Number(t.price) || pisoPix !== (t.cash_price ?? null)) {
+            await updateProduct(t.id, { price: piso, cash_price: pisoPix })
           }
         }
       }
@@ -284,9 +327,9 @@ export default function ProductsPage() {
         ))}
       </div>
 
-      {familias.length > 0 && (
+      {cards.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 mb-6">
-          {familias.map(f => (
+          {cards.map(f => (
             <div key={f.chave} className="bg-white rounded-xl border border-gray-200 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -295,7 +338,10 @@ export default function ProductsPage() {
                     {f.categoria} · {f.tamanhos.length} {f.tamanhos.length === 1 ? 'tamanho' : 'tamanhos'}
                   </p>
                 </div>
-                <button onClick={() => abrirFamilia(f)} className="text-primary hover:underline text-sm shrink-0">
+                <button
+                  onClick={() => abrirFamilia(f.familia ?? f, f.sabor)}
+                  className="text-primary hover:underline text-sm shrink-0"
+                >
                   Editar preços
                 </button>
               </div>
@@ -308,6 +354,7 @@ export default function ProductsPage() {
                       <td className="py-1.5 font-medium">{formatCurrency(t.price)}</td>
                       <td className="py-1.5 text-gray-500">
                         {t.cash_price ? `pix ${formatCurrency(t.cash_price)}` : 'pix pelo %'}
+                        {t.semPrecoProprio && <span className="text-amber-600 text-xs ml-1">(preço do pacote)</span>}
                       </td>
                       <td className="py-1.5 text-right">
                         <button
@@ -327,7 +374,7 @@ export default function ProductsPage() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {familias.length === 0 && avulsos.length === 0 ? (
+        {cards.length === 0 && avulsos.length === 0 ? (
           <p className="text-text-light text-center py-8">
             {aba === 'inativos' ? 'Nenhum produto fora do cardápio.' : 'Nenhum produto nesta aba.'}
           </p>
@@ -390,10 +437,11 @@ export default function ProductsPage() {
       <Modal
         isOpen={familia !== null}
         onClose={() => setFamilia(null)}
-        title={familia ? `Preços · ${familia.nome}` : ''}
+        title={familia ? `Preços · ${familia.saborFoco ? catalogText(familia.saborFoco.name) : familia.nome}` : ''}
       >
         {familia && (
           <form onSubmit={salvarFamilia} className="space-y-4">
+            {!familia.saborFoco && (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500">
@@ -436,9 +484,12 @@ export default function ProductsPage() {
                 ))}
               </tbody>
             </table>
-            <p className="text-xs text-gray-500">
-              Pix vazio: o produto segue o desconto padrão da loja em vez de um valor próprio.
-            </p>
+            )}
+            {!familia.saborFoco && (
+              <p className="text-xs text-gray-500">
+                Pix vazio: o produto segue o desconto padrão da loja em vez de um valor próprio.
+              </p>
+            )}
 
             {saboresDaFamilia(familia).length > 0 && (
               <div className="border-t border-gray-200 pt-4">
@@ -459,7 +510,7 @@ export default function ProductsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {saboresDaFamilia(familia).map(sb => (
+                      {(familia.saborFoco ? [familia.saborFoco] : saboresDaFamilia(familia)).map(sb => (
                         ['price', 'cash_price'].map((campo, i) => (
                           <tr key={`${sb.id}-${campo}`} className={i === 0 ? 'border-t border-gray-100' : ''}>
                             {i === 0 ? (
