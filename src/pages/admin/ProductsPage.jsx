@@ -26,6 +26,7 @@ export default function ProductsPage() {
   const [sabores, setSabores] = useState([])
   const [grade, setGrade] = useState([])
   const [precosSabor, setPrecosSabor] = useState({})
+  const [mostrarGrade, setMostrarGrade] = useState(false)
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -240,6 +241,7 @@ export default function ProductsPage() {
       }
     }
     setPrecosSabor(campos)
+    setMostrarGrade(Boolean(saborFoco) || temPrecoPorSabor(f))
   }
 
   const salvarFamilia = async (e) => {
@@ -496,7 +498,17 @@ export default function ProductsPage() {
               </p>
             )}
 
-            {saboresDaFamilia(familia).length > 0 && (
+            {saboresDaFamilia(familia).length > 0 && !mostrarGrade && (
+              <button
+                type="button"
+                onClick={() => setMostrarGrade(true)}
+                className="text-primary hover:underline text-sm"
+              >
+                Definir preço por sabor
+              </button>
+            )}
+
+            {saboresDaFamilia(familia).length > 0 && mostrarGrade && (
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="font-semibold text-gray-900">Preço por sabor</h3>
                 <p className="text-xs text-gray-500 mt-1 mb-3">
