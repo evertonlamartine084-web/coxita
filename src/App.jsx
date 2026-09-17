@@ -7,6 +7,7 @@ import PublicLayout from './components/layout/PublicLayout'
 import AdminLayout from './components/layout/AdminLayout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Loading from './components/ui/Loading'
+import SeloAmbiente from './components/ui/SeloAmbiente'
 import { importarPagina } from './routes/importers'
 import { LISTA_OCASIOES } from './content/ocasioes'
 import { BAIRROS } from './content/bairros'
@@ -76,6 +77,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-center" toastOptions={{ duration: 2000 }} />
+      <SeloAmbiente />
       <ErrorBoundary>
       <Suspense fallback={<Loading />}>
         <Routes>
