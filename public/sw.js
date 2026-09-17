@@ -7,7 +7,7 @@
 //
 // Ao mexer em qualquer coisa deste arquivo, suba a VERSION: é ela que descarta os caches velhos.
 
-const VERSION = 'v5'
+const VERSION = 'v6'
 const SHELL_CACHE = `coxelli-shell-${VERSION}`
 const ASSET_CACHE = `coxelli-assets-${VERSION}`
 
@@ -75,8 +75,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone()
-          caches.open(SHELL_CACHE).then((c) => c.put('/', copy))
+          // Só entra no cache o que veio bem. Durante uma manutenção o servidor
+          // responde 503 com a página de aviso (ver middleware.js na raiz);
+          // guardar isso como '/' deixaria o aviso preso no aparelho de quem
+          // instalou o app, ainda aparecendo depois que o site voltasse.
+          if (res.ok) {
+            const copy = res.clone()
+            caches.open(SHELL_CACHE).then((c) => c.put('/', copy))
+          }
           return res
         })
         .catch(() => caches.match('/', { cacheName: SHELL_CACHE }).then((r) => r || caches.match('/')))
