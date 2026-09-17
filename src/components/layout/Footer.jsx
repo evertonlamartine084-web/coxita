@@ -60,9 +60,7 @@ export default function Footer() {
             <div className="text-center sm:text-left lg:text-right">
               <h3 className="font-display text-2xl font-extrabold uppercase text-secondary mb-3">Funcionamento</h3>
               <div className="space-y-1.5 text-sm text-white/70">
-                <p>Seg a Sex: 11h - 22h</p>
-                <p>Sábado: 11h - 23h</p>
-                <p>Domingo: 16h - 22h</p>
+                <p>Todos os dias: 9h - 21h</p>
               </div>
             </div>
           </div>

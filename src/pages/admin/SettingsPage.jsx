@@ -10,7 +10,7 @@ const fields = [
   { key: 'hero_image', label: 'Imagem do topo da home', placeholder: 'Ex: /fotos/coxinha-frango-mao.webp' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'address', label: 'Endereço' },
-  { key: 'opening_hours', label: 'Horário de Funcionamento (exibição)', placeholder: 'Ex: Seg-Sex: 11h-21h | Sáb-Dom: 11h-22h' },
+  { key: 'opening_hours', label: 'Horário de Funcionamento (exibição)', placeholder: 'Ex: Todos os dias: 9h às 21h' },
   { key: 'opening_time', label: 'Horário de abertura', type: 'time' },
   { key: 'closing_time', label: 'Horário de fechamento', type: 'time' },
   { key: 'estimated_delivery', label: 'Tempo estimado de entrega', placeholder: 'Ex: 30-45 min' },
