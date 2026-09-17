@@ -44,6 +44,41 @@ homolog (o domínio já está amarrado a essa branch na Vercel), e qualquer
 outra branch ganha uma URL de preview descartável. `scripts/deploy.sh` vira
 redundante.
 
+## Modo "Voltamos já"
+
+Produção está **pausada para o público**: `coxelli.com.br` e as 59 páginas
+respondem 503 com `public/em-breve.html` (aviso + botão de WhatsApp). Homolog e
+as previews continuam com o site inteiro.
+
+Quem decide é `middleware.js` na raiz, ligado pela variável `EM_BREVE` na
+Vercel. Continuam respondendo normal, mesmo com o modo ligado: `/admin`,
+assets e fotos, `robots.txt`, `sitemap.xml` e o arquivo de verificação do
+Search Console.
+
+**Desligar** (site volta ao ar):
+
+```sh
+npx vercel env rm EM_BREVE production --yes
+git checkout main && npm run deploy:producao
+```
+
+**Ligar de novo:**
+
+```sh
+npx vercel env add EM_BREVE production --value 1 --yes
+git checkout main && npm run deploy:producao
+```
+
+O redeploy é obrigatório nos dois casos: a variável é lida no deploy, não a
+cada visita. Para conferir: `curl -s -o /dev/null -w '%{http_code}\n'
+https://coxelli.com.br/` — 503 é modo ligado, 200 é site no ar.
+
+Por que 503 e não uma página comum com status 200: 503 quer dizer
+"indisponível agora, volta". O Google segura as páginas no índice esperando; um
+200 faria ele trocar o conteúdo indexado das 59 páginas pelo aviso, e a posição
+teria de ser reconquistada quando o site voltasse. Vale por semanas, não por
+meses.
+
 ## O banco é o mesmo nos dois
 
 Homolog aponta para o **mesmo Supabase da produção**. Foi escolhido assim para
