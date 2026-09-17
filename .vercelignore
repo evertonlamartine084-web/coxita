@@ -1,0 +1,15 @@
+# O que nao tem por que viajar ate a Vercel.
+#
+# O CLI empacota a pasta inteira, e ela acumula coisa pesada que nao entra no
+# build: um log do Playwright MCP chegou a 1,2 GB e derrubou o deploy no limite
+# de 100 MB por arquivo. Manter esta lista curta e explicita -- cada linha custa
+# segundos de upload em todo deploy.
+
+.playwright-mcp
+Identidade visual
+dist
+.vercel/output
+
+# Arte de referencia solta na raiz; o que o site usa esta em public/.
+install-prompt.png
+moldura.png
