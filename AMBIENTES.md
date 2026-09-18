@@ -46,9 +46,10 @@ redundante.
 
 ## Modo "Voltamos já"
 
-Produção está **pausada para o público**: `coxelli.com.br` e as 59 páginas
-respondem 503 com `public/em-breve.html` (aviso + botão de WhatsApp). Homolog e
-as previews continuam com o site inteiro.
+Modo **desligado**: produção está no ar normalmente. Quando ligado,
+`coxelli.com.br` e as 59 páginas respondem 503 com `public/em-breve.html`
+(aviso + botão de WhatsApp), e homolog e as previews continuam com o site
+inteiro.
 
 Quem decide é `middleware.js` na raiz, ligado pela variável `EM_BREVE` na
 Vercel. Continuam respondendo normal, mesmo com o modo ligado: `/admin`,
