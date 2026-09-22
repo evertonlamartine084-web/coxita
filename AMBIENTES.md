@@ -88,7 +88,8 @@ manter o ambiente simples, e o preço é real:
 - pedido feito em homolog é pedido de verdade — entra na fila da cozinha,
   baixa estoque e dispara push no celular de quem trabalha;
 - migration testada em homolog já alterou a produção;
-- pagamento passa pela mesma Cielo (sandbox) e o mesmo Bling da produção.
+- pagamento passa pela mesma Cielo **de produção** e o mesmo Bling da
+  produção: cartão ou Pix pago em homolog é cobrança real (ver "Cielo").
 
 Homolog serve para validar **tela e fluxo**, não para brincar com dado.
 
@@ -98,6 +99,29 @@ mostra um selo âmbar no canto inferior esquerdo
 (`src/components/ui/SeloAmbiente.jsx`). Ele se decide pelo hostname, então
 ambiente novo já nasce com selo; produção é a única exceção, e o domínio dela
 vem de `SITE` em `src/content/paginas.js`.
+
+## Cielo
+
+Em **produção** desde 22/09/2026. As credenciais ficam nos secrets do
+Supabase, não na Vercel — quem fala com a Cielo são as Edge Functions
+`cielo-pagar`, `cielo-webhook`, `cielo-consultar` e `cielo-estornar`:
+
+| Secret | Valor |
+|---|---|
+| `CIELO_MERCHANT_ID` | MerchantId da conta de produção |
+| `CIELO_MERCHANT_KEY` | MerchantKey da conta de produção |
+| `CIELO_AMBIENTE` | `producao` — qualquer outro valor (ou ausente) cai no sandbox |
+
+As funções leem os secrets a cada chamada: trocar com
+`supabase secrets set ...` vale na hora, sem redeploy. Conferir só os nomes com
+`supabase secrets list`.
+
+O Post de Notificação está cadastrado na Cielo apontando para
+`https://ruehnwnihmysycrpddgy.supabase.co/functions/v1/cielo-webhook`. Sem ele,
+Pix pago não vira `pago` sozinho. Um GET nessa URL responde
+`cielo-webhook ativo` — é o jeito rápido de ver se a função está no ar.
+
+Para testar, faça um pedido pequeno com cartão real e estorne pelo admin.
 
 ## Por que homolog não aparece no Google
 
