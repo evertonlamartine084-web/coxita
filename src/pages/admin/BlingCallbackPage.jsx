@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
+import { conectarBling } from '../../services/bling'
 import { HiCheckCircle, HiExclamationCircle, HiClipboardCopy } from 'react-icons/hi'
 
 /**
@@ -9,19 +10,26 @@ import { HiCheckCircle, HiExclamationCircle, HiClipboardCopy } from 'react-icons
  * código vale poucos minutos e precisa ser trocado por um access_token — troca que acontece no
  * servidor, porque exige o Client Secret, que não pode encostar no navegador.
  *
- * Por enquanto a página só mostra o código para ser usado na configuração. Quando a função de
- * troca estiver no ar, ela passa a fazer isso sozinha.
+ * A troca acontece assim que a página abre. O código continua à mostra porque vale por poucos
+ * minutos: se a troca falhar, dá para tentar de novo sem refazer a autorização toda.
  */
 export default function BlingCallbackPage() {
   const [params] = useSearchParams()
   const [copiado, setCopiado] = useState(false)
+  const [troca, setTroca] = useState(null) // { ok, mensagem }
+  const trocando = useRef(false)
 
   const code = params.get('code')
   const erro = params.get('error') || params.get('error_description')
   const state = params.get('state')
 
   useEffect(() => {
-    if (code) console.info('Bling: código de autorização recebido.')
+    // o efeito roda duas vezes em dev (StrictMode), e o código só pode ser trocado uma
+    if (!code || trocando.current) return
+    trocando.current = true
+    conectarBling(code)
+      .then(r => setTroca({ ok: true, mensagem: `Conectado. O acesso vale até ${new Date(r.expira_em).toLocaleString('pt-BR')}.` }))
+      .catch(e => setTroca({ ok: false, mensagem: e.message }))
   }, [code])
 
   const copiar = async () => {
@@ -52,6 +60,9 @@ export default function BlingCallbackPage() {
         <div className="rounded-xl border border-green-200 bg-green-50 p-4">
           <p className="flex items-center gap-2 font-semibold text-green-800">
             <HiCheckCircle className="size-5" /> Autorização recebida
+          </p>
+          <p className={`mt-2 text-sm font-semibold ${troca?.ok === false ? 'text-red-700' : 'text-green-800'}`}>
+            {troca ? troca.mensagem : 'Trocando o código por um acesso…'}
           </p>
           <p className="mt-2 text-sm text-green-700">
             Código de autorização (válido por poucos minutos):
