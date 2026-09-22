@@ -18,6 +18,11 @@ export default function PixPayment({ orderId, qrBase64, qrTexto, total, onPago }
   const [copiado, setCopiado] = useState(false)
   const [conferindo, setConferindo] = useState(false)
   const jaAvisou = useRef(false)
+  const expirou = restante <= 0
+
+  // O pai recria onPago a cada render; guardado em ref, não reinicia a consulta abaixo
+  const onPagoRef = useRef(onPago)
+  useEffect(() => { onPagoRef.current = onPago }, [onPago])
 
   // contagem regressiva
   useEffect(() => {
@@ -26,9 +31,11 @@ export default function PixPayment({ orderId, qrBase64, qrTexto, total, onPago }
     return () => clearInterval(t)
   }, [restante])
 
-  // pergunta à Cielo de tempos em tempos
+  // Pergunta à Cielo de tempos em tempos. Depende de `expirou`, e não de `restante`: com o
+  // contador nas dependências o intervalo era recriado a cada segundo e nunca chegava aos 4s —
+  // o cliente pagava e só via a confirmação se clicasse em "Já paguei".
   useEffect(() => {
-    if (restante <= 0) return
+    if (expirou) return
 
     let vivo = true
     const conferir = async () => {
@@ -37,7 +44,7 @@ export default function PixPayment({ orderId, qrBase64, qrTexto, total, onPago }
         if (!vivo || jaAvisou.current) return
         if (status === 'pago') {
           jaAvisou.current = true
-          onPago()
+          onPagoRef.current()
         }
       } catch {
         // rede oscilando: a próxima rodada tenta de novo, sem incomodar o cliente
@@ -49,7 +56,7 @@ export default function PixPayment({ orderId, qrBase64, qrTexto, total, onPago }
       vivo = false
       clearInterval(t)
     }
-  }, [orderId, onPago, restante])
+  }, [orderId, expirou])
 
   const copiar = async () => {
     try {
@@ -80,7 +87,6 @@ export default function PixPayment({ orderId, qrBase64, qrTexto, total, onPago }
 
   const mm = String(Math.floor(Math.max(0, restante) / 60)).padStart(2, '0')
   const ss = String(Math.max(0, restante) % 60).padStart(2, '0')
-  const expirou = restante <= 0
 
   return (
     <div className="space-y-4 text-center">
