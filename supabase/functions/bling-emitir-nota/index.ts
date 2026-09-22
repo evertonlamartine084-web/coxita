@@ -165,7 +165,8 @@ Deno.serve(async (req) => {
       : `a nota ainda não foi autorizada (situação ${nota.situacao ?? "desconhecida"}); tente de novo em instantes`
     throw new ErroBling(motivo, 0, nota)
   } catch (e) {
-    const mensagem = e instanceof Error ? e.message : String(e)
+    const detalhe = e instanceof ErroBling && e.detalhe ? ` ${JSON.stringify(e.detalhe).slice(0, 300)}` : ""
+    const mensagem = (e instanceof Error && e.message) || String(e) || `falha sem mensagem:${detalhe}`
     console.error(`bling-emitir-nota pedido ${orderId}:`, mensagem, e instanceof ErroBling ? JSON.stringify(e.detalhe) : "")
     await registrar({ bling_nfe_status: "erro", bling_nfe_erro: mensagem.slice(0, 500), bling_nfe_em: new Date().toISOString() })
     return json({ erro: mensagem }, 422)

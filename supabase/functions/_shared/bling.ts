@@ -71,14 +71,20 @@ async function tokenAtual(supabase: any, forcarRenovacao = false): Promise<strin
   return renovar(supabase, data.refresh_token)
 }
 
-/** Texto legível de um erro do Bling: a mensagem geral e, quando vem, o motivo de cada campo. */
+/**
+ * Texto legível de um erro do Bling: a mensagem geral e, quando vem, o motivo de cada campo.
+ * O Bling nem sempre preenche esses campos — sem eles vai o corpo cru, que é feio mas diz
+ * alguma coisa: mensagem vazia não ajuda ninguém a consertar nada.
+ */
 function mensagemDeErro(corpo: any, status: number): string {
   const e = corpo?.error
-  if (!e) return `o Bling respondeu ${status}`
-  const campos = (e.fields ?? [])
-    .map((f: any) => f?.msg ?? f?.message ?? f?.element)
+  const campos = (e?.fields ?? [])
+    .map((f: any) => [f?.element, f?.msg ?? f?.message].filter(Boolean).join(": "))
     .filter(Boolean)
-  return [e.description || e.message, ...campos].filter(Boolean).join(" · ")
+  const texto = [e?.description || e?.message, ...campos].filter(Boolean).join(" · ")
+  if (texto) return `${texto} (HTTP ${status})`
+  const cru = JSON.stringify(corpo ?? {})
+  return `o Bling respondeu ${status}${cru && cru !== "{}" ? `: ${cru.slice(0, 300)}` : " sem detalhes"}`
 }
 
 /**

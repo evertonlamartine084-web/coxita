@@ -297,8 +297,10 @@ export async function emitirNota(orderId) {
   })
   // erro de negócio volta com status 4xx: a mensagem útil está no corpo, não no FunctionsHttpError
   if (error) {
-    const corpo = await error.context?.json?.().catch(() => null)
-    throw new Error(corpo?.erro || error.message)
+    const texto = await error.context?.text?.().catch(() => '')
+    let corpo = null
+    try { corpo = texto ? JSON.parse(texto) : null } catch { /* resposta não-JSON: usa o texto */ }
+    throw new Error(corpo?.erro || texto || error.message)
   }
   if (data?.erro) throw new Error(data.erro)
   return data
