@@ -23,6 +23,9 @@ const fields = [
   // este número for igual ou menor que essa taxa, o desconto não sai da
   // margem -- sai do que a maquininha deixou de cobrar.
   { key: 'desconto_avista_percent', label: 'Desconto no pix/dinheiro (%)', type: 'number' },
+  // Só ligar depois que o contador configurar NCM e tributação no Bling: antes disso toda
+  // tentativa falha. Desligada, a nota sai pelo botão no pedido.
+  { key: 'bling_nfe_automatica', label: 'Emitir nota sozinho ao sair para entrega (sim/nao)', placeholder: 'sim ou nao' },
 ]
 
 const bannerFields = [

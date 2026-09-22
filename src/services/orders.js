@@ -290,6 +290,20 @@ export async function editarItensPedido(orderId, itens) {
   return data?.pedido
 }
 
+/** Emite (ou retoma a emissão d)a NFC-e do pedido pelo Bling — ver bling-emitir-nota. */
+export async function emitirNota(orderId) {
+  const { data, error } = await supabase.functions.invoke('bling-emitir-nota', {
+    body: { order_id: orderId },
+  })
+  // erro de negócio volta com status 4xx: a mensagem útil está no corpo, não no FunctionsHttpError
+  if (error) {
+    const corpo = await error.context?.json?.().catch(() => null)
+    throw new Error(corpo?.erro || error.message)
+  }
+  if (data?.erro) throw new Error(data.erro)
+  return data
+}
+
 /** Devolve dinheiro ao cliente. Bloqueado para pedido que já saiu — ver cielo-estornar. */
 export async function estornarPedido(orderId, valorCentavos = null) {
   const { data, error } = await supabase.functions.invoke('cielo-estornar', {

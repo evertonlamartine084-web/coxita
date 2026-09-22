@@ -123,6 +123,30 @@ Pix pago não vira `pago` sozinho. Um GET nessa URL responde
 
 Para testar, faça um pedido pequeno com cartão real e estorne pelo admin.
 
+## Nota fiscal (Bling)
+
+A NFC-e sai pela Edge Function `bling-emitir-nota`: cria o pedido de venda no
+Bling, gera a NFC-e a partir dele e envia à Sefaz. A parte fiscal (NCM,
+tributação, natureza de operação) fica toda no cadastro do Bling, com o
+contador; o site só manda itens pelo preço cheio, frete, desconto (cupom + à
+vista) e forma de pagamento.
+
+- **Quando sai:** pelo botão "Emitir nota" no pedido, no painel. Com
+  `bling_nfe_automatica = sim` em Configurações, sai sozinha quando o pedido
+  passa para "saiu para entrega". Nasce `nao`.
+- **Produto sem `bling_codigo`** no cadastro do site não entra na nota: a
+  emissão para e diz qual é.
+- **Falhou?** O motivo fica no pedido (`bling_nfe_erro`) e o botão vira
+  "Tentar de novo", que retoma de onde parou — não cria segundo pedido de venda
+  nem segunda nota.
+- **Forma de pagamento** é escolhida pelo tipo no Bling (dinheiro, crédito,
+  débito, Pix). Precisa haver uma ativa de cada tipo usado.
+- Homolog emite no **mesmo Bling da produção**: nota emitida em homolog é nota
+  de verdade.
+
+Secrets no Supabase: `BLING_CLIENT_ID` e `BLING_CLIENT_SECRET`. O token de
+acesso fica na tabela `integracao_bling` e se renova sozinho.
+
 ## Por que homolog não aparece no Google
 
 `vercel.json` devolve `X-Robots-Tag: noindex, nofollow` para

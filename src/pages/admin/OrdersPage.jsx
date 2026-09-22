@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido } from '../../services/orders'
+import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota } from '../../services/orders'
+import { getSettings } from '../../services/settings'
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
@@ -19,6 +20,7 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [editandoItens, setEditandoItens] = useState(false)
   const [estornando, setEstornando] = useState(false)
+  const [emitindoNota, setEmitindoNota] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('coxita_admin_sound') !== 'off'
   })
@@ -118,6 +120,24 @@ export default function OrdersPage() {
     }
   }
 
+  const handleEmitirNota = async (orderId) => {
+    setEmitindoNota(true)
+    try {
+      const r = await emitirNota(orderId)
+      toast.success(r.numero ? `Nota nº ${r.numero} emitida.` : 'Nota emitida.')
+    } catch (err) {
+      toast.error(`Nota não emitida: ${err.message}`, { duration: 8000 })
+    } finally {
+      setEmitindoNota(false)
+      // o resultado (número, link ou erro) fica gravado no pedido; recarrega para mostrar
+      const atualizados = await getOrders(filter || null).catch(() => null)
+      if (atualizados) {
+        setOrders(atualizados)
+        setSelectedOrder(prev => (prev?.id === orderId ? atualizados.find(o => o.id === orderId) ?? prev : prev))
+      }
+    }
+  }
+
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus)
@@ -142,6 +162,14 @@ export default function OrdersPage() {
       }).catch(err => {
         console.error('Push error:', err)
       })
+    }
+
+    // Nota sai quando a mercadoria sai (ver bling-preparacao.sql) — só com a automática ligada
+    // em Configurações; desligada, fica o botão no pedido
+    if (newStatus === 'saiu_entrega') {
+      getSettings()
+        .then(s => { if (s.bling_nfe_automatica === 'sim') handleEmitirNota(orderId) })
+        .catch(err => console.error('Configurações indisponíveis:', err))
     }
 
     loadOrders()
@@ -413,6 +441,48 @@ export default function OrdersPage() {
                     pedido entregue.
                   </p>
                 )
+              )}
+              {/* Nota fiscal: pedido cancelado não recebe nota, e a emitida só se consulta */}
+              {selectedOrder.status !== 'cancelado' && (
+                <div className="mt-3 rounded-lg border border-border p-2.5 text-sm">
+                  <p>
+                    <strong>Nota fiscal:</strong>{' '}
+                    {selectedOrder.bling_nfe_status === 'emitida'
+                      ? `nº ${selectedOrder.bling_nfe_numero ?? '—'}`
+                      : selectedOrder.bling_nfe_status === 'pendente'
+                        ? 'emitindo…'
+                        : selectedOrder.bling_nfe_status === 'erro'
+                          ? 'falhou'
+                          : selectedOrder.bling_nfe_status === 'cancelada'
+                            ? 'cancelada'
+                            : 'não emitida'}
+                  </p>
+                  {selectedOrder.bling_nfe_status === 'erro' && selectedOrder.bling_nfe_erro && (
+                    <p className="mt-1 text-xs text-red-700">{selectedOrder.bling_nfe_erro}</p>
+                  )}
+                  {selectedOrder.bling_nfe_status === 'emitida' && selectedOrder.bling_nfe_danfe && (
+                    <a
+                      href={selectedOrder.bling_nfe_danfe}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-block text-xs font-semibold text-primary underline"
+                    >
+                      Abrir DANFE
+                    </a>
+                  )}
+                  {['erro', 'pendente', null, undefined].includes(selectedOrder.bling_nfe_status) && (
+                    <button
+                      type="button"
+                      disabled={emitindoNota}
+                      onClick={() => handleEmitirNota(selectedOrder.id)}
+                      className="mt-2 block cursor-pointer rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      {emitindoNota
+                        ? 'Emitindo…'
+                        : selectedOrder.bling_nfe_status ? 'Tentar de novo' : 'Emitir nota'}
+                    </button>
+                  )}
+                </div>
               )}
               {selectedOrder.payment_method === 'dinheiro' && selectedOrder.change_for && (
                 <p className="text-sm text-text-light">Troco para: {formatCurrency(selectedOrder.change_for)}</p>
