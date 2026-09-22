@@ -39,9 +39,21 @@ case "$ALVO" in
     ;;
   homolog)
     exigir_branch homolog
-    url=$(npx vercel deploy --yes | tail -n 1)
+    # A URL nao e mais a ultima linha: versoes novas do CLI terminam a saida com um bloco JSON
+    # (e a ultima linha virou "}"). Pega a primeira URL de deploy que aparecer.
+    saida=$(npx vercel deploy --yes 2>&1) || { echo "$saida" >&2; exit 1; }
+    url=$(printf '%s\n' "$saida" | grep -oE 'https://[a-z0-9-]+\.vercel\.app' | head -n 1)
+    if [ -z "$url" ]; then
+      echo "$saida" >&2
+      echo "Nao achei a URL do deploy na saida acima; o alias nao foi feito." >&2
+      exit 1
+    fi
     echo "Deploy: $url"
-    npx vercel alias set "$url" "$DOMINIO_HOMOLOG"
+    npx vercel alias set "$url" "$DOMINIO_HOMOLOG" || {
+      echo "O deploy subiu e responde em $url, mas o alias para $DOMINIO_HOMOLOG falhou." >&2
+      echo "Ver a secao DNS do AMBIENTES.md." >&2
+      exit 1
+    }
     ;;
   *)
     echo "uso: $0 {homolog|producao} [--forcar]" >&2
