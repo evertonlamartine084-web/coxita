@@ -57,12 +57,18 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   )
 
-  // Emitir documento fiscal é operação do painel
-  const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
-  })
-  const { data: { user } } = await anon.auth.getUser()
-  if (!user) return json({ erro: "não autorizado" }, 401)
+  // Emitir documento fiscal é operação do painel — ou do próprio banco, quando o pedido sai para
+  // entrega (gatilho em bling-emissao-automatica.sql). O banco se identifica pelo segredo que
+  // divide com esta função; não há usuário logado nessa chamada.
+  const segredo = Deno.env.get("EMISSAO_INTERNA_SEGREDO")
+  const chamadaDoBanco = !!segredo && req.headers.get("x-emissao-interna") === segredo
+  if (!chamadaDoBanco) {
+    const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+    })
+    const { data: { user } } = await anon.auth.getUser()
+    if (!user) return json({ erro: "não autorizado" }, 401)
+  }
 
   let orderId: string | undefined
   try {

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota } from '../../services/orders'
-import { getSettings } from '../../services/settings'
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
@@ -202,13 +201,8 @@ export default function OrdersPage() {
       })
     }
 
-    // Nota sai quando a mercadoria sai (ver bling-preparacao.sql) — só com a automática ligada
-    // em Configurações; desligada, fica o botão no pedido
-    if (newStatus === 'saiu_entrega') {
-      getSettings()
-        .then(s => { if (s.bling_nfe_automatica === 'sim') handleEmitirNota(orderId) })
-        .catch(err => console.error('Configurações indisponíveis:', err))
-    }
+    // A nota de quem sai para entrega é pedida pelo próprio banco (bling-emissao-automatica.sql),
+    // com a automática ligada em Configurações — não depende desta tela seguir aberta
 
     loadOrders()
   }
