@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useRef } from 'react'
 import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota } from '../../services/orders'
 import { getSettings } from '../../services/settings'
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
+import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
@@ -13,6 +14,14 @@ import toast from 'react-hot-toast'
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
 
+// Aba dos pedidos com data marcada. Não é um status: o pedido agendado tem o seu próprio
+// (pendente, em preparo…), e ficar na fila de hoje só atrapalha quem está olhando o que sai agora.
+const AGENDADOS = 'agendados'
+
+/** Está marcado para outro momento e ainda não foi resolvido. */
+const ehAgendadoEmAberto = (o) =>
+  !!o.scheduled_for && !['entregue', 'cancelado'].includes(o.status)
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [filter, setFilter] = useState('')
@@ -21,6 +30,7 @@ export default function OrdersPage() {
   const [editandoItens, setEditandoItens] = useState(false)
   const [estornando, setEstornando] = useState(false)
   const [emitindoNota, setEmitindoNota] = useState(false)
+  const [criandoPedido, setCriandoPedido] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('coxita_admin_sound') !== 'off'
   })
@@ -33,9 +43,17 @@ export default function OrdersPage() {
   const [unreadCounts, setUnreadCounts] = useState({})
   const adminShouldScrollRef = useRef(false)
 
+  // "agendados" filtra aqui, não no banco: o banco só conhece status
+  const statusDoFiltro = filter === AGENDADOS ? null : (filter || null)
+  const agendadosEmAberto = orders.filter(ehAgendadoEmAberto).length
+  // Agendado fica só na aba dele até ser entregue ou cancelado; aí volta para as abas de sempre
+  const pedidosVisiveis = filter === AGENDADOS
+    ? orders.filter(ehAgendadoEmAberto)
+    : orders.filter(o => !ehAgendadoEmAberto(o))
+
   const loadOrders = useCallback((showLoading = false) => {
     if (showLoading) setLoading(true)
-    getOrders(filter || null)
+    getOrders(filter === AGENDADOS ? null : (filter || null))
       .then(data => {
         if (prevOrderIdsRef.current !== null) {
           const prevIds = prevOrderIdsRef.current
@@ -130,7 +148,7 @@ export default function OrdersPage() {
     } finally {
       setEmitindoNota(false)
       // o resultado (número, link ou erro) fica gravado no pedido; recarrega para mostrar
-      const atualizados = await getOrders(filter || null).catch(() => null)
+      const atualizados = await getOrders(statusDoFiltro).catch(() => null)
       if (atualizados) {
         setOrders(atualizados)
         setSelectedOrder(prev => (prev?.id === orderId ? atualizados.find(o => o.id === orderId) ?? prev : prev))
@@ -179,6 +197,13 @@ export default function OrdersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Pedidos</h1>
+        <div className="flex items-center gap-2">
+        <button
+          onClick={() => setCriandoPedido(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+        >
+          + Novo pedido
+        </button>
         <button
           onClick={toggleSound}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -191,7 +216,14 @@ export default function OrdersPage() {
           {soundEnabled ? '🔔' : '🔕'}
           <span className="hidden sm:inline">{soundEnabled ? 'Som ativo' : 'Som desativado'}</span>
         </button>
+        </div>
       </div>
+
+      <NovoPedidoModal
+        aberto={criandoPedido}
+        aoFechar={() => setCriandoPedido(false)}
+        aoCriar={() => loadOrders()}
+      />
 
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-4 mb-4">
@@ -214,11 +246,19 @@ export default function OrdersPage() {
             {STATUS_LABELS[s]}
           </button>
         ))}
+        <button
+          onClick={() => setFilter(AGENDADOS)}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${
+            filter === AGENDADOS ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-text'
+          }`}
+        >
+          Agendados{agendadosEmAberto > 0 ? ` (${agendadosEmAberto})` : ''}
+        </button>
       </div>
 
       {loading ? <Loading /> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {orders.length === 0 ? (
+          {pedidosVisiveis.length === 0 ? (
             <p className="text-text-light text-center py-8">Nenhum pedido encontrado.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -236,7 +276,7 @@ export default function OrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {orders.map(order => (
+                  {pedidosVisiveis.map(order => (
                     <tr key={order.id} className={`hover:bg-gray-50 transition-colors ${newOrderIds.includes(order.id) ? 'bg-green-50 animate-pulse' : ''}`}>
                       <td className="px-4 py-3 font-medium">
                         #{order.order_number}
