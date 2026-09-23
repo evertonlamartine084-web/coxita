@@ -30,7 +30,8 @@ const LIMITE_IMPRESSOS = 300
  */
 const CSS_BOBINA = `
   @page { margin: 0 }
-  html, body { width: 70mm !important; margin: 0 !important; padding: 0 0 0 1mm !important }
+  html, body { box-sizing: border-box; width: 70mm !important; margin: 0 !important; padding: 0 !important }
+  body { padding-left: 1mm !important }
 `
 
 /*
@@ -60,13 +61,32 @@ const ALTURA_PAPEL_MM = 150
 const ALTURA_UTIL_MM = ALTURA_PAPEL_MM - 4
 const MM_POR_PX = 25.4 / 96
 
+const LARGURA_MM = 70
+
 /**
  * Encolhe o documento na medida exata para caber numa folha só. Cupom curto sai do tamanho
  * normal; só pedido com muitos itens diminui, e só o necessário.
+ *
+ * Encolher sem mais nada estreitaria o cupom junto (sobrava uma faixa branca à direita). Então o
+ * documento é montado mais largo — 70 mm divididos pela redução — e, reduzido, volta aos 70 mm.
+ * Mais largo, ele também quebra menos linhas e fica mais baixo, o que pede redução menor: por isso
+ * a conta é refeita com a largura nova.
  */
 function caberNumaFolha(doc) {
-  const alturaMm = doc.documentElement.getBoundingClientRect().height * MM_POR_PX
-  if (alturaMm > ALTURA_UTIL_MM) doc.documentElement.style.zoom = String(ALTURA_UTIL_MM / alturaMm)
+  const raiz = doc.documentElement
+  const larguraPara = (fator) => {
+    for (const el of [raiz, doc.body]) el.style.setProperty('width', `${LARGURA_MM / fator}mm`, 'important')
+  }
+  const alturaMm = () => raiz.getBoundingClientRect().height * MM_POR_PX
+
+  let fator = Math.min(1, ALTURA_UTIL_MM / alturaMm())
+  if (fator === 1) return
+  larguraPara(fator)
+  fator = Math.min(1, ALTURA_UTIL_MM / alturaMm())
+  larguraPara(fator)
+  // a largura nova pode ter mudado as quebras de novo; a redução final é a que garante caber
+  fator = Math.min(fator, ALTURA_UTIL_MM / alturaMm())
+  raiz.style.zoom = String(fator)
 }
 
 const ROTULO_PAGAMENTO = {
