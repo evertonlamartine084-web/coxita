@@ -110,7 +110,8 @@ export async function bling(supabase: any, metodo: string, caminho: string, corp
     }
     const texto = await r.text()
     const dados = texto ? JSON.parse(texto) : {}
-    if (!r.ok) throw new ErroBling(mensagemDeErro(dados, r.status), r.status, dados)
+    // o caminho entra na mensagem: num 403 de escopo, é ele que diz qual permissão falta
+    if (!r.ok) throw new ErroBling(`${metodo} ${caminho} — ${mensagemDeErro(dados, r.status)}`, r.status, dados)
     return dados
   }
   throw new ErroBling("o Bling recusou o acesso", 401)
