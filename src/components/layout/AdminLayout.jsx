@@ -101,6 +101,30 @@ export default function AdminLayout() {
     return () => clearInterval(interval)
   }, [])
 
+  // O computador da impressora fica com o painel aberto por dias: sem isto, ele segue rodando a
+  // versão de quando foi aberto, e correção publicada não chega nele (foi o que fez o cupom sair
+  // encolhido depois de corrigido). Versão nova no ar = script de entrada com outro nome.
+  useEffect(() => {
+    const scriptAtual = document.querySelector('script[type="module"][src*="/assets/"]')?.getAttribute('src')
+    if (!scriptAtual) return // em dev não há bundle para comparar
+
+    const conferirVersao = async () => {
+      try {
+        const html = await fetch('/', { cache: 'no-store' }).then(r => r.text())
+        const scriptNoAr = html.match(/<script[^>]+type="module"[^>]+src="([^"]*\/assets\/[^"]+)"/)?.[1]
+        if (!scriptNoAr || scriptNoAr === scriptAtual) return
+        // não recarrega no meio de alguém digitando (mensagem ao cliente, edição de pedido)
+        const digitando = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+        if (!digitando) window.location.reload()
+      } catch {
+        // sem rede agora: confere na próxima volta
+      }
+    }
+
+    const interval = setInterval(conferirVersao, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
   const displayedPendingCount = location.pathname === '/admin/pedidos' ? 0 : pendingCount
 
   const handleLogout = async () => {

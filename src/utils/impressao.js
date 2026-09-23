@@ -34,12 +34,13 @@ const CSS_BOBINA = `
 `
 
 /*
- * O cupom do Bling usa 7 pt, pensado para tela; na térmica fica miúdo. Em 9 pt tudo ainda cabe
- * nos 70 mm — a chave de acesso só quebra em duas linhas.
+ * O cupom mantém os 7 pt do Bling, que é o tamanho dos cupons fiscais de balcão: em 80 x 150 mm é
+ * o único que cabe numa folha só — de 7,5 pt para cima o QR Code já cai para uma segunda folha.
+ * Só aperta o espaço entre linhas. (O cupom "pequeno demais" dos testes era outra coisa: a página
+ * inteira encolhida pela metade, por uma aba com a versão antiga que ainda pedia 297 mm.)
  */
 const CSS_CUPOM = `
-  body, td, th, div, span, p { font-size: 9pt !important; line-height: 1.25 !important }
-  h1, h2, h3 { font-size: 10pt !important }
+  body, td, th, div, span, p { line-height: 1.2 !important }
 `
 
 const ROTULO_PAGAMENTO = {
