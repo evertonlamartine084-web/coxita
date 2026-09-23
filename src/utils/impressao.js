@@ -37,8 +37,8 @@ const CSS_BOBINA = `
  * O cupom do Bling vem em 7 pt, pensado para tela: na térmica ninguém lê. Sobe para 10 pt, o logo
  * sai (ocupava meia largura e empurrava o endereço para uma coluna estreita) e o QR Code vai de
  * ~20 para 35 mm, para o celular do cliente ler de primeira — é SVG, cresce sem perder nitidez.
- * Assim o cupom passa um pouco dos 150 mm da bobina configurada; a Epson só corta no fim do
- * documento, então o resto sai emendado, e não numa segunda tira.
+ * Com isso ele passa dos 150 mm do papel — e a Epson corta a cada folha, então o que sobra vira
+ * uma segunda tira. Quem resolve é caberNumaFolha, logo abaixo.
  */
 const CSS_CUPOM = `
   #container { margin: 0 !important; padding: 0 !important }
@@ -50,6 +50,24 @@ const CSS_CUPOM = `
   .pontilhado, hr { margin: 1.5mm 0 !important }
   svg { width: 35mm !important; height: 35mm !important }
 `
+
+/**
+ * Papel configurado no driver da Epson da loja (80 x 150 mm). A Epson corta a cada folha, então
+ * documento mais comprido que isso sai em duas tiras.
+ */
+const ALTURA_PAPEL_MM = 150
+// folga para arredondamento do driver e do Chrome: nos 150 exatos, uma linha pode cair na 2ª folha
+const ALTURA_UTIL_MM = ALTURA_PAPEL_MM - 4
+const MM_POR_PX = 25.4 / 96
+
+/**
+ * Encolhe o documento na medida exata para caber numa folha só. Cupom curto sai do tamanho
+ * normal; só pedido com muitos itens diminui, e só o necessário.
+ */
+function caberNumaFolha(doc) {
+  const alturaMm = doc.documentElement.getBoundingClientRect().height * MM_POR_PX
+  if (alturaMm > ALTURA_UTIL_MM) doc.documentElement.style.zoom = String(ALTURA_UTIL_MM / alturaMm)
+}
 
 const ROTULO_PAGAMENTO = {
   ...PAYMENT_LABELS,
@@ -132,6 +150,7 @@ function imprimirHtml(html, cssExtra = '') {
     // espera a página montar (o CSS do cupom vem do Bling) antes de imprimir, senão sai em branco
     setTimeout(() => {
       try {
+        caberNumaFolha(doc)
         iframe.contentWindow.focus()
         iframe.contentWindow.print()
       } finally {
