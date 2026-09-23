@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Loading from '../../components/ui/Loading'
 import { playOrderAlert } from '../../utils/alertSound'
-import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarCupomImpresso } from '../../utils/impressao'
+import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarCupomImpresso, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
@@ -242,6 +242,15 @@ export default function OrdersPage() {
           🖨️
           <span className="hidden sm:inline">{impressaoAuto ? 'Impressão automática' : 'Impressão desligada'}</span>
         </button>
+        {impressaoAuto && (
+          <button
+            onClick={() => imprimirTeste()}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            title="Imprime barras com medida exata, para conferir se a impressora está encolhendo"
+          >
+            Testar impressora
+          </button>
+        )}
         </div>
       </div>
 

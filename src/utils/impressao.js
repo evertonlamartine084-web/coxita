@@ -221,6 +221,24 @@ function htmlDaComanda(p) {
 </body></html>`
 }
 
+/**
+ * Régua de calibração: barras de largura exata em mm. Medida no papel, diz se o Windows está
+ * encolhendo a impressão, e quanto — daqui não dá para ver a impressora da loja.
+ */
+export function imprimirTeste() {
+  const barra = (mm) => `<div style="margin:2mm 0"><div style="width:${mm}mm;height:4mm;background:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div><div>${mm} mm</div></div>`
+  return imprimirHtml(`<!doctype html><html><head><meta charset="utf-8"><title>Teste de impressão</title>
+<style>body { font: 10pt Arial, Helvetica, sans-serif; color: #000 }</style></head><body>
+  <div style="font-size:14pt;font-weight:800">TESTE DE IMPRESSÃO</div>
+  <div>Meça as barras com uma régua.</div>
+  ${barra(10)}${barra(30)}${barra(50)}${barra(70)}
+  <div style="font-size:7pt">Letra 7 pt</div>
+  <div style="font-size:10pt">Letra 10 pt</div>
+  <div style="font-size:14pt">Letra 14 pt</div>
+  <div style="margin-top:2mm">Impresso em ${esc(formatDate(new Date().toISOString()))}</div>
+</body></html>`)
+}
+
 /** Comanda da cozinha: não é documento fiscal, sai só quando alguém pede. */
 export function imprimirComanda(pedido) {
   return imprimirHtml(htmlDaComanda(pedido))
