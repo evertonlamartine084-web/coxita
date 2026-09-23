@@ -24,13 +24,22 @@ const LIMITE_IMPRESSOS = 300
  * centralizado nos 80 mm perde a ponta direita (foi o que cortou os valores no primeiro teste),
  * então tudo fica encostado à esquerda e com 70 mm de largura.
  *
- * A altura é a do papel "Roll Paper 80 x 297 mm" do driver. Com a redução de margem inferior do
- * driver ligada, o papel é cortado logo depois do conteúdo e não sobra folha em branco; um
- * tamanho fixo menor partiria o cupom fiscal, que é mais comprido que a comanda, em dois.
+ * O tamanho do papel NÃO vai aqui: fica o que estiver configurado no driver da Epson. Quando o
+ * @page pede um tamanho e o driver tem outro, o Chrome encolhe a página inteira para caber — foi
+ * o que fez o cupom sair pequeno.
  */
 const CSS_BOBINA = `
-  @page { size: 80mm 297mm; margin: 0 }
+  @page { margin: 0 }
   html, body { width: 70mm !important; margin: 0 !important; padding: 0 0 0 1mm !important }
+`
+
+/*
+ * O cupom do Bling usa 7 pt, pensado para tela; na térmica fica miúdo. Em 9 pt tudo ainda cabe
+ * nos 70 mm — a chave de acesso só quebra em duas linhas.
+ */
+const CSS_CUPOM = `
+  body, td, th, div, span, p { font-size: 9pt !important; line-height: 1.25 !important }
+  h1, h2, h3 { font-size: 10pt !important }
 `
 
 const ROTULO_PAGAMENTO = {
@@ -95,11 +104,10 @@ export function marcarCupomImpresso(id) {
  * Imprime um documento HTML completo. Resolve quando ele foi entregue ao Chrome — com
  * --kiosk-printing isso é o envio à impressora; sem a flag, é quando a janela fecha.
  */
-function imprimirHtml(html) {
+function imprimirHtml(html, cssExtra = '') {
   // o ajuste da bobina entra por último no <head>, para valer por cima do CSS do documento
-  const ajustado = html.includes('</head>')
-    ? html.replace('</head>', `<style>${CSS_BOBINA}</style></head>`)
-    : `<style>${CSS_BOBINA}</style>${html}`
+  const css = `<style>${CSS_BOBINA}${cssExtra}</style>`
+  const ajustado = html.includes('</head>') ? html.replace('</head>', `${css}</head>`) : `${css}${html}`
 
   return new Promise((resolve) => {
     const iframe = document.createElement('iframe')
@@ -128,7 +136,7 @@ function imprimirHtml(html) {
 /** Cupom fiscal (DANFE NFC-e) do pedido, como o Bling monta: é a via do cliente. */
 export async function imprimirCupomFiscal(orderId) {
   const html = await buscarCupomFiscal(orderId)
-  await imprimirHtml(html)
+  await imprimirHtml(html, CSS_CUPOM)
 }
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({

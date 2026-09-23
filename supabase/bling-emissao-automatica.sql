@@ -2,7 +2,8 @@
 --
 -- Antes, quem pedia a nota era a tela em que alguém clicava "Saiu para entrega": status mudado
 -- por outro caminho, ou página fechada no meio, e a nota não saía. Agora o próprio banco chama a
--- função bling-emitir-nota quando o pedido sai, venha a mudança de onde vier.
+-- função bling-emitir-nota quando o pedido sai — para entrega, ou entregue no balcão —, venha a
+-- mudança de onde vier.
 --
 -- Pré-requisitos, fora deste arquivo porque são segredos:
 --   select vault.create_secret('<segredo>', 'emissao_nota_segredo');
@@ -23,8 +24,10 @@ declare
   v_segredo text;
   v_anon text;
 begin
-  -- só na passagem para "saiu para entrega", com a automática ligada e sem nota ainda
-  if new.status is distinct from 'saiu_entrega' or old.status = 'saiu_entrega' then
+  -- A nota sai quando a mercadoria sai: "saiu para entrega", ou "entregue" para quem pulou essa
+  -- etapa — a retirada na loja vai direto de "em preparo" para "entregue". Com a automática
+  -- ligada e sem nota ainda.
+  if new.status not in ('saiu_entrega', 'entregue') or old.status in ('saiu_entrega', 'entregue') then
     return new;
   end if;
   if coalesce(new.bling_nfe_status, '') in ('emitida', 'cancelada', 'pendente') then
