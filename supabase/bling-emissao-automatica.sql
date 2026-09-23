@@ -2,8 +2,10 @@
 --
 -- Antes, quem pedia a nota era a tela em que alguém clicava "Saiu para entrega": status mudado
 -- por outro caminho, ou página fechada no meio, e a nota não saía. Agora o próprio banco chama a
--- função bling-emitir-nota quando o pedido sai — para entrega, ou entregue no balcão —, venha a
--- mudança de onde vier.
+-- função bling-emitir-nota, venha o pedido ou a mudança de onde vier.
+--
+-- Momento: a loja escolheu emitir assim que o pedido chega, para o cupom sair na impressora na
+-- hora. O custo é que pedido cancelado depois disso deixa nota a cancelar no Bling.
 --
 -- Pré-requisitos, fora deste arquivo porque são segredos:
 --   select vault.create_secret('<segredo>', 'emissao_nota_segredo');
@@ -14,7 +16,7 @@
 
 create extension if not exists pg_net;
 
-create or replace function emitir_nota_ao_sair()
+create or replace function emitir_nota_do_pedido()
 returns trigger
 language plpgsql
 security definer
@@ -23,17 +25,35 @@ as $$
 declare
   v_segredo text;
   v_anon text;
+  v_pago_no_site boolean := new.payment_method in ('pix_online', 'cartao');
+  v_momento boolean;
 begin
-  -- A nota sai quando a mercadoria sai: "saiu para entrega", ou "entregue" para quem pulou essa
-  -- etapa — a retirada na loja vai direto de "em preparo" para "entregue". Com a automática
-  -- ligada e sem nota ainda.
-  if new.status not in ('saiu_entrega', 'entregue') or old.status in ('saiu_entrega', 'entregue') then
+  if new.status = 'cancelado' then
     return new;
   end if;
   if coalesce(new.bling_nfe_status, '') in ('emitida', 'cancelada', 'pendente') then
     return new;
   end if;
   if coalesce((select value from settings where key = 'bling_nfe_automatica'), 'nao') <> 'sim' then
+    return new;
+  end if;
+  -- Pago pelo site só vira nota com o dinheiro confirmado: quem desiste no meio do Pix não pode
+  -- deixar nota fiscal para trás
+  if v_pago_no_site and new.payment_status is distinct from 'pago' then
+    return new;
+  end if;
+
+  -- A nota sai assim que o pedido chega (decisão da loja, para o cupom imprimir na hora), ou
+  -- quando o pagamento pelo site confirma. Saída para entrega e "entregue" ficam como segunda
+  -- chance, caso a primeira tentativa tenha falhado.
+  if tg_op = 'INSERT' then
+    v_momento := true;
+  else
+    v_momento :=
+      (new.payment_status = 'pago' and old.payment_status is distinct from 'pago')
+      or (new.status in ('saiu_entrega', 'entregue') and old.status not in ('saiu_entrega', 'entregue'));
+  end if;
+  if not v_momento then
     return new;
   end if;
 
@@ -45,7 +65,8 @@ begin
     return new;
   end if;
 
-  -- pg_net é assíncrono: a mudança de status não espera o Bling, e sai mesmo se ele estiver fora.
+  -- pg_net é assíncrono e só dispara depois do commit: o pedido e os itens (gravados juntos por
+  -- criar_pedido) já estão lá quando a função roda, e o checkout não espera o Bling.
   -- Se a função falhar, o erro fica gravado no pedido e o botão tenta de novo.
   perform net.http_post(
     url := 'https://ruehnwnihmysycrpddgy.supabase.co/functions/v1/bling-emitir-nota',
@@ -62,9 +83,11 @@ begin
 end;
 $$;
 
-revoke all on function emitir_nota_ao_sair() from public, anon, authenticated;
+revoke all on function emitir_nota_do_pedido() from public, anon, authenticated;
 
 drop trigger if exists trg_emitir_nota_ao_sair on orders;
-create trigger trg_emitir_nota_ao_sair
-  after update of status on orders
-  for each row execute function emitir_nota_ao_sair();
+drop function if exists emitir_nota_ao_sair();
+drop trigger if exists trg_emitir_nota_do_pedido on orders;
+create trigger trg_emitir_nota_do_pedido
+  after insert or update of status, payment_status on orders
+  for each row execute function emitir_nota_do_pedido();

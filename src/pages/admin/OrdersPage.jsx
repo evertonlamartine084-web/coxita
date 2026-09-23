@@ -405,7 +405,8 @@ export default function OrdersPage() {
             <div className="border-t border-border pt-3">
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="font-medium">Itens</h4>
-                {!editandoItens && ['pendente', 'em_preparo'].includes(selectedOrder.status) && (
+                {/* com nota emitida, mudar os itens deixaria a nota diferente do que foi vendido */}
+                {!editandoItens && ['pendente', 'em_preparo'].includes(selectedOrder.status) && !['emitida', 'pendente'].includes(selectedOrder.bling_nfe_status) && (
                   <button
                     type="button"
                     onClick={() => setEditandoItens(true)}
