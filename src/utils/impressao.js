@@ -34,13 +34,21 @@ const CSS_BOBINA = `
 `
 
 /*
- * O cupom mantém os 7 pt do Bling, que é o tamanho dos cupons fiscais de balcão: em 80 x 150 mm é
- * o único que cabe numa folha só — de 7,5 pt para cima o QR Code já cai para uma segunda folha.
- * Só aperta o espaço entre linhas. (O cupom "pequeno demais" dos testes era outra coisa: a página
- * inteira encolhida pela metade, por uma aba com a versão antiga que ainda pedia 297 mm.)
+ * O cupom do Bling vem em 7 pt, pensado para tela: na térmica ninguém lê. Sobe para 10 pt, o logo
+ * sai (ocupava meia largura e empurrava o endereço para uma coluna estreita) e o QR Code vai de
+ * ~20 para 35 mm, para o celular do cliente ler de primeira — é SVG, cresce sem perder nitidez.
+ * Assim o cupom passa um pouco dos 150 mm da bobina configurada; a Epson só corta no fim do
+ * documento, então o resto sai emendado, e não numa segunda tira.
  */
 const CSS_CUPOM = `
-  body, td, th, div, span, p { line-height: 1.2 !important }
+  #container { margin: 0 !important; padding: 0 !important }
+  table { table-layout: auto !important; margin: 0 !important }
+  td { padding: 0 !important }
+  td[rowspan] { display: none !important }
+  body, td, th, div, span, p { font-size: 10pt !important; line-height: 1.2 !important }
+  h1, h2, h3 { font-size: 10pt !important; margin: 0 !important }
+  .pontilhado, hr { margin: 1.5mm 0 !important }
+  svg { width: 35mm !important; height: 35mm !important }
 `
 
 const ROTULO_PAGAMENTO = {
