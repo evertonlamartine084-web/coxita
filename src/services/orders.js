@@ -306,6 +306,21 @@ export async function emitirNota(orderId) {
   return data
 }
 
+/** HTML do cupom (DANFE NFC-e) de pedido com nota autorizada — ver bling-danfe. */
+export async function buscarCupomFiscal(orderId) {
+  const { data, error } = await supabase.functions.invoke('bling-danfe', {
+    body: { order_id: orderId },
+  })
+  if (error) {
+    const texto = await error.context?.text?.().catch(() => '')
+    let corpo = null
+    try { corpo = texto ? JSON.parse(texto) : null } catch { /* resposta não-JSON: usa o texto */ }
+    throw new Error(corpo?.erro || texto || error.message)
+  }
+  if (data?.erro) throw new Error(data.erro)
+  return data.html
+}
+
 /** Devolve dinheiro ao cliente. Bloqueado para pedido que já saiu — ver cielo-estornar. */
 export async function estornarPedido(orderId, valorCentavos = null) {
   const { data, error } = await supabase.functions.invoke('cielo-estornar', {

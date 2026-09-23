@@ -1,23 +1,37 @@
 /**
- * Comanda da cozinha, impressa na térmica (Epson, papel de 80 x 150 mm, USB no Windows).
+ * Impressão na térmica da loja (Epson, bobina de 80 mm, USB no Windows).
  *
- * A impressão passa pelo próprio Chrome: a comanda vira uma página do tamanho da bobina, num
- * iframe escondido, e o painel chama print() nela. Aberto com --kiosk-printing, o Chrome manda
- * direto para a impressora padrão, sem janela; sem a flag, a janela de impressão aparece e
- * alguém confirma. Nenhum programa extra instalado na máquina da loja.
+ * Tudo passa pelo próprio Chrome: o documento vira uma página num iframe escondido, e o painel
+ * chama print() nela. Aberto com --kiosk-printing, o Chrome manda direto para a impressora
+ * padrão, sem janela; sem a flag, a janela de impressão aparece e alguém confirma. Nenhum
+ * programa extra instalado na máquina da loja.
+ *
+ * Automático sai só o cupom fiscal (DANFE NFC-e), quando a nota do pedido é autorizada. A
+ * comanda da cozinha continua existindo, mas só pelo botão.
  */
 
 import { formatCurrency, formatDate, PAYMENT_LABELS } from './format'
+import { buscarCupomFiscal } from '../services/orders'
 
 const CHAVE_LIGADA = 'coxelli_impressao_auto'
 const CHAVE_DESDE = 'coxelli_impressao_desde'
-const CHAVE_IMPRESSAS = 'coxelli_comandas_impressas'
+const CHAVE_IMPRESSOS = 'coxelli_cupons_impressos'
 // só para não crescer para sempre; um dia de loja não chega perto disso
-const LIMITE_IMPRESSAS = 300
+const LIMITE_IMPRESSOS = 300
 
-// Pago na hora pelo site: a comanda só sai com o dinheiro confirmado, senão a cozinha prepara
-// pedido de quem desistiu no meio do Pix
-const PAGOS_ONLINE = ['pix_online', 'cartao']
+/*
+ * A bobina tem 80 mm, mas a Epson imprime só 72 mm dela, a partir da borda esquerda. Conteúdo
+ * centralizado nos 80 mm perde a ponta direita (foi o que cortou os valores no primeiro teste),
+ * então tudo fica encostado à esquerda e com 70 mm de largura.
+ *
+ * A altura é a do papel "Roll Paper 80 x 297 mm" do driver. Com a redução de margem inferior do
+ * driver ligada, o papel é cortado logo depois do conteúdo e não sobra folha em branco; um
+ * tamanho fixo menor partiria o cupom fiscal, que é mais comprido que a comanda, em dois.
+ */
+const CSS_BOBINA = `
+  @page { size: 80mm 297mm; margin: 0 }
+  html, body { width: 70mm !important; margin: 0 !important; padding: 0 0 0 1mm !important }
+`
 
 const ROTULO_PAGAMENTO = {
   ...PAYMENT_LABELS,
@@ -47,8 +61,8 @@ export function impressaoAutoLigada() {
 }
 
 /**
- * Ligar marca o momento: pedidos anteriores a ele não saem. Sem isso, ligar a chave despejaria
- * na impressora todos os pedidos do dia de uma vez.
+ * Ligar marca o momento: notas autorizadas antes dele não saem. Sem isso, ligar a chave
+ * despejaria na impressora os cupons do dia inteiro de uma vez.
  */
 export function definirImpressaoAuto(ligada) {
   gravar(CHAVE_LIGADA, ligada ? 'on' : 'off')
@@ -59,29 +73,62 @@ export function impressaoAutoDesde() {
   return ler(CHAVE_DESDE)
 }
 
-function impressas() {
+function impressos() {
   try {
-    return JSON.parse(ler(CHAVE_IMPRESSAS) || '[]')
+    return JSON.parse(ler(CHAVE_IMPRESSOS) || '[]')
   } catch {
     return []
   }
 }
 
-export function jaImpressa(id) {
-  return impressas().includes(id)
+export function cupomJaImpresso(id) {
+  return impressos().includes(id)
 }
 
-export function marcarImpressa(id) {
-  const lista = impressas().filter(x => x !== id)
+export function marcarCupomImpresso(id) {
+  const lista = impressos().filter(x => x !== id)
   lista.push(id)
-  gravar(CHAVE_IMPRESSAS, JSON.stringify(lista.slice(-LIMITE_IMPRESSAS)))
+  gravar(CHAVE_IMPRESSOS, JSON.stringify(lista.slice(-LIMITE_IMPRESSOS)))
 }
 
-/** Se o pedido já está valendo para a cozinha começar. */
-export function prontoParaComanda(pedido) {
-  if (pedido.status === 'cancelado') return false
-  if (PAGOS_ONLINE.includes(pedido.payment_method)) return pedido.payment_status === 'pago'
-  return true
+/**
+ * Imprime um documento HTML completo. Resolve quando ele foi entregue ao Chrome — com
+ * --kiosk-printing isso é o envio à impressora; sem a flag, é quando a janela fecha.
+ */
+function imprimirHtml(html) {
+  // o ajuste da bobina entra por último no <head>, para valer por cima do CSS do documento
+  const ajustado = html.includes('</head>')
+    ? html.replace('</head>', `<style>${CSS_BOBINA}</style></head>`)
+    : `<style>${CSS_BOBINA}</style>${html}`
+
+  return new Promise((resolve) => {
+    const iframe = document.createElement('iframe')
+    iframe.setAttribute('aria-hidden', 'true')
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
+    document.body.appendChild(iframe)
+
+    const doc = iframe.contentWindow.document
+    doc.open()
+    doc.write(ajustado)
+    doc.close()
+
+    // espera a página montar (o CSS do cupom vem do Bling) antes de imprimir, senão sai em branco
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+      } finally {
+        // o print() segura a execução até a impressão sair; depois disso o iframe pode ir
+        setTimeout(() => { iframe.remove(); resolve() }, 1000)
+      }
+    }, 800)
+  })
+}
+
+/** Cupom fiscal (DANFE NFC-e) do pedido, como o Bling monta: é a via do cliente. */
+export async function imprimirCupomFiscal(orderId) {
+  const html = await buscarCupomFiscal(orderId)
+  await imprimirHtml(html)
 }
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({
@@ -118,10 +165,8 @@ function htmlDaComanda(p) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Pedido #${esc(p.order_number)}</title>
 <style>
-  /* 80 x 150 mm é o papel configurado na Epson da loja; pedido maior continua numa segunda folha */
-  @page { size: 80mm 150mm; margin: 0 }
   * { box-sizing: border-box }
-  body { width: 72mm; margin: 0 auto; padding: 3mm 0 8mm; font: 13px/1.35 Arial, Helvetica, sans-serif; color: #000 }
+  body { padding-top: 3mm !important; padding-bottom: 8mm !important; font: 13px/1.35 Arial, Helvetica, sans-serif; color: #000 }
   .centro { text-align: center }
   .marca { font-size: 18px; font-weight: 800; letter-spacing: 1px }
   .numero { font-size: 26px; font-weight: 800; margin: 2px 0 }
@@ -159,31 +204,7 @@ function htmlDaComanda(p) {
 </body></html>`
 }
 
-/**
- * Imprime a comanda. Resolve quando a página foi entregue ao Chrome — com --kiosk-printing isso
- * é o envio à impressora; sem a flag, é quando a janela de impressão fecha.
- */
+/** Comanda da cozinha: não é documento fiscal, sai só quando alguém pede. */
 export function imprimirComanda(pedido) {
-  return new Promise((resolve) => {
-    const iframe = document.createElement('iframe')
-    iframe.setAttribute('aria-hidden', 'true')
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
-    document.body.appendChild(iframe)
-
-    const doc = iframe.contentWindow.document
-    doc.open()
-    doc.write(htmlDaComanda(pedido))
-    doc.close()
-
-    // espera a página montar antes de imprimir, senão sai em branco
-    setTimeout(() => {
-      try {
-        iframe.contentWindow.focus()
-        iframe.contentWindow.print()
-      } finally {
-        // o print() segura a execução até a impressão sair; depois disso o iframe pode ir
-        setTimeout(() => { iframe.remove(); resolve() }, 1000)
-      }
-    }, 250)
-  })
+  return imprimirHtml(htmlDaComanda(pedido))
 }
