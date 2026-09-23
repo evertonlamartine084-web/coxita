@@ -4,6 +4,7 @@ import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
+import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, jaImpressa, marcarImpressa, imprimirComanda } from '../../utils/comanda'
 import toast from 'react-hot-toast'
 
 const navItems = [
@@ -50,6 +51,48 @@ export default function AdminLayout() {
 
     checkNewOrders()
     const interval = setInterval(checkNewOrders, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Impressão automática da comanda. Fica aqui, e não na tela de pedidos, para imprimir em
+  // qualquer página do painel e independente da aba de status aberta.
+  useEffect(() => {
+    let imprimindo = false
+
+    const imprimirPendentes = async () => {
+      if (imprimindo || !impressaoAutoLigada()) return
+      imprimindo = true
+      try {
+        // Pix pago minutos depois ainda precisa sair, então a janela olha as últimas 24h
+        const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        const desde = impressaoAutoDesde()
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, order_items(*, order_item_flavors(*))')
+          .gte('created_at', desde && desde > ontem ? desde : ontem)
+          .order('created_at', { ascending: true })
+        if (error) throw error
+
+        for (const pedido of data.filter(p => prontoParaComanda(p) && !jaImpressa(p.id))) {
+          // Duas abas do painel abertas no mesmo computador imprimiriam em dobro: a trava
+          // deixa uma de cada vez, e a outra vê a comanda já marcada.
+          const imprimir = async () => {
+            if (jaImpressa(pedido.id)) return
+            marcarImpressa(pedido.id)
+            await imprimirComanda(pedido)
+          }
+          if (navigator.locks) await navigator.locks.request('coxelli-comanda', imprimir)
+          else await imprimir()
+        }
+      } catch (e) {
+        console.warn('Impressão automática falhou:', e)
+      } finally {
+        imprimindo = false
+      }
+    }
+
+    imprimirPendentes()
+    const interval = setInterval(imprimirPendentes, 15000)
     return () => clearInterval(interval)
   }, [])
 

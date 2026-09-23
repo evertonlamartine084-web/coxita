@@ -10,6 +10,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Loading from '../../components/ui/Loading'
 import { playOrderAlert } from '../../utils/alertSound'
+import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, marcarImpressa } from '../../utils/comanda'
 import toast from 'react-hot-toast'
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
@@ -34,6 +35,7 @@ export default function OrdersPage() {
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('coxita_admin_sound') !== 'off'
   })
+  const [impressaoAuto, setImpressaoAuto] = useState(impressaoAutoLigada)
   const [newOrderIds, setNewOrderIds] = useState([])
   const prevOrderIdsRef = useRef(null)
   const [chatMessages, setChatMessages] = useState([])
@@ -138,6 +140,20 @@ export default function OrdersPage() {
     }
   }
 
+  const toggleImpressao = () => {
+    const ligar = !impressaoAuto
+    definirImpressaoAuto(ligar)
+    setImpressaoAuto(ligar)
+    if (ligar) toast.success('Impressão automática ligada neste computador. Os próximos pedidos saem na impressora.')
+    else toast('Impressão automática desligada neste computador')
+  }
+
+  const handleImprimir = async (pedido) => {
+    // marca antes: se a automática rodar agora, não sai a mesma comanda duas vezes
+    marcarImpressa(pedido.id)
+    await imprimirComanda(pedido)
+  }
+
   const handleEmitirNota = async (orderId) => {
     setEmitindoNota(true)
     try {
@@ -215,6 +231,18 @@ export default function OrdersPage() {
         >
           {soundEnabled ? '🔔' : '🔕'}
           <span className="hidden sm:inline">{soundEnabled ? 'Som ativo' : 'Som desativado'}</span>
+        </button>
+        <button
+          onClick={toggleImpressao}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            impressaoAuto
+              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+          title="Vale só para este computador: ligue apenas no que está com a impressora"
+        >
+          🖨️
+          <span className="hidden sm:inline">{impressaoAuto ? 'Impressão automática' : 'Impressão desligada'}</span>
         </button>
         </div>
       </div>
@@ -339,6 +367,13 @@ export default function OrdersPage() {
             <div>
               <Badge className={STATUS_COLORS[selectedOrder.status]}>{STATUS_LABELS[selectedOrder.status]}</Badge>
               <span className="text-text-light text-sm ml-2">{formatDate(selectedOrder.created_at)}</span>
+              <button
+                type="button"
+                onClick={() => handleImprimir(selectedOrder)}
+                className="float-right cursor-pointer rounded-lg border border-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-gray-50"
+              >
+                🖨️ Imprimir comanda
+              </button>
             </div>
 
             {selectedOrder.scheduled_for && (
