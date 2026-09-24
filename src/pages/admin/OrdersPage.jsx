@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Loading from '../../components/ui/Loading'
 import { playOrderAlert } from '../../utils/alertSound'
-import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarCupomImpresso, imprimirTeste } from '../../utils/impressao'
+import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
@@ -143,13 +143,11 @@ export default function OrdersPage() {
     const ligar = !impressaoAuto
     definirImpressaoAuto(ligar)
     setImpressaoAuto(ligar)
-    if (ligar) toast.success('Impressão automática ligada neste computador. Cada nota autorizada daqui em diante sai na impressora.')
+    if (ligar) toast.success('Impressão automática ligada neste computador. Cada pedido novo sai como comanda na impressora.')
     else toast('Impressão automática desligada neste computador')
   }
 
   const handleImprimirCupom = async (orderId) => {
-    // marca antes: se a automática rodar agora, não sai o mesmo cupom duas vezes
-    marcarCupomImpresso(orderId)
     try {
       await imprimirCupomFiscal(orderId)
     } catch (err) {
@@ -237,7 +235,7 @@ export default function OrdersPage() {
               ? 'bg-green-100 text-green-700 hover:bg-green-200'
               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
           }`}
-          title="Imprime o cupom fiscal de cada nota autorizada. Vale só para este computador: ligue apenas no que está com a impressora"
+          title="Imprime a comanda de cada pedido novo. Vale só para este computador: ligue apenas no que está com a impressora"
         >
           🖨️
           <span className="hidden sm:inline">{impressaoAuto ? 'Impressão automática' : 'Impressão desligada'}</span>
@@ -376,7 +374,11 @@ export default function OrdersPage() {
               <span className="text-text-light text-sm ml-2">{formatDate(selectedOrder.created_at)}</span>
               <button
                 type="button"
-                onClick={() => imprimirComanda(selectedOrder)}
+                onClick={() => {
+                  // marca antes: se a automática rodar agora, não sai a mesma comanda duas vezes
+                  marcarComandaImpressa(selectedOrder.id)
+                  imprimirComanda(selectedOrder)
+                }}
                 className="float-right cursor-pointer rounded-lg border border-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-gray-50"
               >
                 🖨️ Imprimir comanda

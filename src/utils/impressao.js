@@ -6,8 +6,9 @@
  * padrão, sem janela; sem a flag, a janela de impressão aparece e alguém confirma. Nenhum
  * programa extra instalado na máquina da loja.
  *
- * Automático sai só o cupom fiscal (DANFE NFC-e), quando a nota do pedido é autorizada. A
- * comanda da cozinha continua existindo, mas só pelo botão.
+ * Automático sai só a comanda da cozinha, quando o pedido chega. O cupom fiscal (DANFE NFC-e)
+ * sai pelo botão do pedido: a loja emite a nota à mão e não quer cupom saindo sozinho.
+ * (Por um dia foi o contrário; pedido de teste virando nota fiscal de verdade pesou mais.)
  */
 
 import { formatCurrency, formatDate, PAYMENT_LABELS } from './format'
@@ -15,9 +16,9 @@ import { buscarCupomFiscal } from '../services/orders'
 
 const CHAVE_LIGADA = 'coxelli_impressao_auto'
 const CHAVE_DESDE = 'coxelli_impressao_desde'
-const CHAVE_IMPRESSOS = 'coxelli_cupons_impressos'
+const CHAVE_IMPRESSAS = 'coxelli_comandas_impressas'
 // só para não crescer para sempre; um dia de loja não chega perto disso
-const LIMITE_IMPRESSOS = 300
+const LIMITE_IMPRESSAS = 300
 
 /*
  * A bobina tem 80 mm, mas a Epson imprime só 72 mm dela, a partir da borda esquerda. Conteúdo
@@ -117,8 +118,8 @@ export function impressaoAutoLigada() {
 }
 
 /**
- * Ligar marca o momento: notas autorizadas antes dele não saem. Sem isso, ligar a chave
- * despejaria na impressora os cupons do dia inteiro de uma vez.
+ * Ligar marca o momento: pedidos anteriores a ele não saem. Sem isso, ligar a chave despejaria
+ * na impressora as comandas do dia inteiro de uma vez.
  */
 export function definirImpressaoAuto(ligada) {
   gravar(CHAVE_LIGADA, ligada ? 'on' : 'off')
@@ -129,22 +130,33 @@ export function impressaoAutoDesde() {
   return ler(CHAVE_DESDE)
 }
 
-function impressos() {
+function impressas() {
   try {
-    return JSON.parse(ler(CHAVE_IMPRESSOS) || '[]')
+    return JSON.parse(ler(CHAVE_IMPRESSAS) || '[]')
   } catch {
     return []
   }
 }
 
-export function cupomJaImpresso(id) {
-  return impressos().includes(id)
+export function comandaJaImpressa(id) {
+  return impressas().includes(id)
 }
 
-export function marcarCupomImpresso(id) {
-  const lista = impressos().filter(x => x !== id)
+export function marcarComandaImpressa(id) {
+  const lista = impressas().filter(x => x !== id)
   lista.push(id)
-  gravar(CHAVE_IMPRESSOS, JSON.stringify(lista.slice(-LIMITE_IMPRESSOS)))
+  gravar(CHAVE_IMPRESSAS, JSON.stringify(lista.slice(-LIMITE_IMPRESSAS)))
+}
+
+// Pago na hora pelo site: a comanda só sai com o dinheiro confirmado, senão a cozinha prepara
+// pedido de quem desistiu no meio do Pix
+const PAGOS_ONLINE = ['pix_online', 'cartao']
+
+/** Se o pedido já está valendo para a cozinha começar. */
+export function prontoParaComanda(pedido) {
+  if (pedido.status === 'cancelado') return false
+  if (PAGOS_ONLINE.includes(pedido.payment_method)) return pedido.payment_status === 'pago'
+  return true
 }
 
 /**

@@ -4,7 +4,7 @@ import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
-import { impressaoAutoLigada, impressaoAutoDesde, cupomJaImpresso, marcarCupomImpresso, imprimirCupomFiscal } from '../../utils/impressao'
+import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 
 const navItems = [
@@ -54,9 +54,8 @@ export default function AdminLayout() {
     return () => clearInterval(interval)
   }, [])
 
-  // Impressão automática do cupom fiscal, assim que a nota do pedido é autorizada — pelo botão
-  // ou pela emissão automática. Fica aqui, e não na tela de pedidos, para imprimir em qualquer
-  // página do painel e independente da aba de status aberta.
+  // Impressão automática da comanda, assim que o pedido chega. Fica aqui, e não na tela de
+  // pedidos, para imprimir em qualquer página do painel e independente da aba de status aberta.
   useEffect(() => {
     let imprimindo = false
 
@@ -64,29 +63,25 @@ export default function AdminLayout() {
       if (imprimindo || !impressaoAutoLigada()) return
       imprimindo = true
       try {
+        // Pix pago minutos depois ainda precisa sair, então a janela olha as últimas 24h
         const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
         const desde = impressaoAutoDesde()
         const { data, error } = await supabase
           .from('orders')
-          .select('id, order_number')
-          .eq('bling_nfe_status', 'emitida')
-          .gte('bling_nfe_em', desde && desde > ontem ? desde : ontem)
-          .order('bling_nfe_em', { ascending: true })
+          .select('*, order_items(*, order_item_flavors(*))')
+          .gte('created_at', desde && desde > ontem ? desde : ontem)
+          .order('created_at', { ascending: true })
         if (error) throw error
 
-        for (const pedido of data.filter(p => !cupomJaImpresso(p.id))) {
+        for (const pedido of data.filter(p => prontoParaComanda(p) && !comandaJaImpressa(p.id))) {
           // Duas abas do painel abertas no mesmo computador imprimiriam em dobro: a trava
-          // deixa uma de cada vez, e a outra vê o cupom já marcado.
+          // deixa uma de cada vez, e a outra vê a comanda já marcada.
           const imprimir = async () => {
-            if (cupomJaImpresso(pedido.id)) return
-            marcarCupomImpresso(pedido.id)
-            try {
-              await imprimirCupomFiscal(pedido.id)
-            } catch (e) {
-              toast.error(`Cupom do pedido #${pedido.order_number} não imprimiu: ${e.message}`, { duration: 8000 })
-            }
+            if (comandaJaImpressa(pedido.id)) return
+            marcarComandaImpressa(pedido.id)
+            await imprimirComanda(pedido)
           }
-          if (navigator.locks) await navigator.locks.request('coxelli-cupom', imprimir)
+          if (navigator.locks) await navigator.locks.request('coxelli-comanda', imprimir)
           else await imprimir()
         }
       } catch (e) {
