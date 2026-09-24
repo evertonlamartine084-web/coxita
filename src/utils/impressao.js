@@ -25,7 +25,10 @@ const LIMITE_IMPRESSAS = 300
 /*
  * A bobina tem 80 mm, mas a Epson imprime só 72 mm dela, a partir da borda esquerda. Conteúdo
  * centralizado nos 80 mm perde a ponta direita (foi o que cortou os valores no primeiro teste),
- * então tudo fica encostado à esquerda e com 70 mm de largura.
+ * então tudo fica à esquerda, dentro de 70 mm. Os primeiros 5 mm são folga: o Chrome do atalho da
+ * loja (perfil próprio, --kiosk-printing) posiciona a página diferente do Chrome comum e cortou a
+ * borda esquerda com 1 mm de folga. Com 5 mm, o texto fica entre 5 e 70 mm do papel, e cabe na
+ * área impressa nos dois jeitos.
  *
  * O tamanho do papel NÃO vai aqui: fica o que estiver configurado no driver da Epson. Quando o
  * @page pede um tamanho e o driver tem outro, o Chrome encolhe a página inteira para caber — foi
@@ -34,7 +37,7 @@ const LIMITE_IMPRESSAS = 300
 const CSS_BOBINA = `
   @page { margin: 0 }
   html, body { box-sizing: border-box; width: 70mm !important; margin: 0 !important; padding: 0 !important }
-  body { padding-left: 1mm !important }
+  body { padding-left: 5mm !important }
 `
 
 /*
