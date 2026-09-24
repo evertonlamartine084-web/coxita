@@ -183,6 +183,18 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
 
       <div className="space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
         <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+        {/* sem estas linhas, subtotal menos total parece erro: o desconto está lá, só não aparecia */}
+        {descontoCupom > 0 && (
+          <div className="flex justify-between text-green-700">
+            <span>Desconto{pedido.coupon_code ? ` · cupom ${pedido.coupon_code}` : ''}</span>
+            <span>-{formatCurrency(descontoCupom)}</span>
+          </div>
+        )}
+        {descontoAvista > 0 && (
+          <div className="flex justify-between text-green-700">
+            <span>Desconto Pix/dinheiro</span><span>-{formatCurrency(descontoAvista)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-gray-500"><span>Entrega</span><span>{formatCurrency(pedido.delivery_fee || 0)}</span></div>
         <div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
           <span>Novo total</span><span>{formatCurrency(novoTotal)}</span>
