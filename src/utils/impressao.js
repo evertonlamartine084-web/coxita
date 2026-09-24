@@ -13,8 +13,10 @@
 
 import { formatCurrency, formatDate, PAYMENT_LABELS } from './format'
 import { buscarCupomFiscal } from '../services/orders'
+import { supabase } from '../services/supabase'
 
 const CHAVE_LIGADA = 'coxelli_impressao_auto'
+const CHAVE_APARELHO = 'coxelli_aparelho'
 const CHAVE_DESDE = 'coxelli_impressao_desde'
 const CHAVE_IMPRESSAS = 'coxelli_comandas_impressas'
 // só para não crescer para sempre; um dia de loja não chega perto disso
@@ -112,6 +114,30 @@ function gravar(chave, valor) {
   }
 }
 
+/** Id sorteado uma vez por navegador: separa, no registro, o computador da loja do celular. */
+function aparelho() {
+  let id = ler(CHAVE_APARELHO)
+  if (!id) {
+    id = Math.random().toString(36).slice(2, 8)
+    gravar(CHAVE_APARELHO, id)
+  }
+  return id
+}
+
+const versao = () =>
+  document.querySelector('script[type="module"][src*="/assets/"]')?.getAttribute('src') ?? 'dev'
+
+/**
+ * Registro da impressão no banco (tabela impressao_log). A impressora fica num computador que
+ * não se vê daqui; é por este registro que se descobre o que o painel dela fez. Nunca derruba a
+ * impressão: falhar ao registrar só perde a linha.
+ */
+export function registrarImpressao(evento, pedido = null, detalhe = null) {
+  supabase.from('impressao_log')
+    .insert({ aparelho: aparelho(), versao: versao(), evento, pedido, detalhe })
+    .then(({ error }) => { if (error) console.warn('registro de impressão:', error.message) })
+}
+
 /** A impressão automática é por aparelho: só o computador da impressora deve ligá-la. */
 export function impressaoAutoLigada() {
   return ler(CHAVE_LIGADA) === 'on'
@@ -124,6 +150,7 @@ export function impressaoAutoLigada() {
 export function definirImpressaoAuto(ligada) {
   gravar(CHAVE_LIGADA, ligada ? 'on' : 'off')
   if (ligada) gravar(CHAVE_DESDE, new Date().toISOString())
+  registrarImpressao(ligada ? 'chave_ligada' : 'chave_desligada', null, { desde: ler(CHAVE_DESDE) })
 }
 
 export function impressaoAutoDesde() {
@@ -163,7 +190,7 @@ export function prontoParaComanda(pedido) {
  * Imprime um documento HTML completo. Resolve quando ele foi entregue ao Chrome — com
  * --kiosk-printing isso é o envio à impressora; sem a flag, é quando a janela fecha.
  */
-function imprimirHtml(html, cssExtra = '') {
+function imprimirHtml(html, cssExtra = '', pedido = null) {
   // o ajuste da bobina entra por último no <head>, para valer por cima do CSS do documento
   const css = `<style>${CSS_BOBINA}${cssExtra}</style>`
   const ajustado = html.includes('</head>') ? html.replace('</head>', `${css}</head>`) : `${css}${html}`
@@ -181,10 +208,17 @@ function imprimirHtml(html, cssExtra = '') {
 
     // espera a página montar (o CSS do cupom vem do Bling) antes de imprimir, senão sai em branco
     setTimeout(() => {
+      const inicio = Date.now()
       try {
         caberNumaFolha(doc)
         iframe.contentWindow.focus()
+        registrarImpressao('enviado_ao_chrome', pedido)
         iframe.contentWindow.print()
+        // com --kiosk-printing o print() volta em instantes; com a janela de impressão, só
+        // quando alguém fecha — o tempo diz qual dos dois está acontecendo na loja
+        registrarImpressao('chrome_devolveu', pedido, { ms: Date.now() - inicio })
+      } catch (e) {
+        registrarImpressao('erro_ao_imprimir', pedido, { erro: String(e?.message ?? e) })
       } finally {
         // o print() segura a execução até a impressão sair; depois disso o iframe pode ir
         setTimeout(() => { iframe.remove(); resolve() }, 1000)
@@ -292,5 +326,5 @@ export function imprimirTeste() {
 
 /** Comanda da cozinha: não é documento fiscal, sai só quando alguém pede. */
 export function imprimirComanda(pedido) {
-  return imprimirHtml(htmlDaComanda(pedido))
+  return imprimirHtml(htmlDaComanda(pedido), '', pedido.order_number)
 }

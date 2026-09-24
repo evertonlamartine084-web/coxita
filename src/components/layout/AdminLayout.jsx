@@ -4,7 +4,7 @@ import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
-import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda } from '../../utils/impressao'
+import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 
 const navItems = [
@@ -58,9 +58,25 @@ export default function AdminLayout() {
   // pedidos, para imprimir em qualquer página do painel e independente da aba de status aberta.
   useEffect(() => {
     let imprimindo = false
+    // o registro não repete a mesma coisa a cada 15 s: cada pedido/motivo aparece uma vez, e um
+    // sinal de vida a cada 5 min mostra que o painel segue rodando
+    const jaRegistrado = new Set()
+    let ultimoSinal = 0
+
+    registrarImpressao('painel_aberto', null, {
+      chave: impressaoAutoLigada(), desde: impressaoAutoDesde(), pagina: window.location.pathname,
+      navegador: navigator.userAgent,
+    })
 
     const imprimirPendentes = async () => {
-      if (imprimindo || !impressaoAutoLigada()) return
+      if (imprimindo) return
+      if (!impressaoAutoLigada()) {
+        if (Date.now() - ultimoSinal > 5 * 60 * 1000) {
+          ultimoSinal = Date.now()
+          registrarImpressao('verificando_chave_desligada')
+        }
+        return
+      }
       imprimindo = true
       try {
         // Pix pago minutos depois ainda precisa sair, então a janela olha as últimas 24h
@@ -73,12 +89,28 @@ export default function AdminLayout() {
           .order('created_at', { ascending: true })
         if (error) throw error
 
+        if (Date.now() - ultimoSinal > 5 * 60 * 1000) {
+          ultimoSinal = Date.now()
+          registrarImpressao('verificando', null, { desde, pedidos_na_janela: data.length })
+        }
+        for (const p of data) {
+          const motivo = comandaJaImpressa(p.id) ? 'ja_impressa'
+            : p.status === 'cancelado' ? 'cancelado'
+            : !prontoParaComanda(p) ? 'aguardando_pagamento'
+            : null
+          if (motivo && !jaRegistrado.has(p.id + motivo)) {
+            jaRegistrado.add(p.id + motivo)
+            registrarImpressao('ignorado', p.order_number, { motivo })
+          }
+        }
+
         for (const pedido of data.filter(p => prontoParaComanda(p) && !comandaJaImpressa(p.id))) {
           // Duas abas do painel abertas no mesmo computador imprimiriam em dobro: a trava
           // deixa uma de cada vez, e a outra vê a comanda já marcada.
           const imprimir = async () => {
             if (comandaJaImpressa(pedido.id)) return
             marcarComandaImpressa(pedido.id)
+            registrarImpressao('imprimindo_comanda', pedido.order_number)
             await imprimirComanda(pedido)
           }
           if (navigator.locks) await navigator.locks.request('coxelli-comanda', imprimir)
@@ -86,6 +118,7 @@ export default function AdminLayout() {
         }
       } catch (e) {
         console.warn('Impressão automática falhou:', e)
+        registrarImpressao('erro_na_verificacao', null, { erro: String(e?.message ?? e) })
       } finally {
         imprimindo = false
       }
