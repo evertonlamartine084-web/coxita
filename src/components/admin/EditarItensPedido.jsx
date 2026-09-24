@@ -6,6 +6,7 @@ import { editarItensPedido } from '../../services/orders'
 import { formatCurrency } from '../../utils/format'
 import { getSettings, peekSettings } from '../../services/settings'
 import { calcularDescontoAvista } from '../../utils/descontoAvista'
+import FlavorPicker from '../product/FlavorPicker'
 
 /** Depois de despachado não se mexe: o que a cozinha mandou é o que vale. */
 const EDITAVEL = ['pendente', 'em_preparo']
@@ -24,13 +25,16 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
       product_name: i.product_name,
       quantity: i.quantity,
       unit_price: Number(i.unit_price),
-      // sabores não são editáveis aqui: mexer neles é refazer o pedido, não ajustá-lo
+      // os sabores de um item que já estava no pedido ficam como estão; o seletor abre para item
+      // novo e para pacote que ficou sem sabor
       flavors: (i.order_item_flavors ?? []).map(f => ({
         flavor_id: f.flavor_id, flavor_name: f.flavor_name, quantity: f.quantity,
       })),
     }))
   )
   const [salvando, setSalvando] = useState(false)
+  // { produto, idx }: idx null = item novo; número = completar os sabores de um item da lista
+  const [montando, setMontando] = useState(null)
 
   const [settings, setSettings] = useState(() => peekSettings() ?? {})
 
@@ -71,17 +75,37 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
 
   const remover = (idx) => setItens(atual => atual.filter((_, i) => i !== idx))
 
+  const produtoDoItem = (item) => produtos.find(p => p.id === item.product_id)
+  // Pacote sem sabor não diz à cozinha o que fritar, nem baixa o estoque
+  const faltaSabor = (item) => Boolean(produtoDoItem(item)?.pack_size) && !item.flavors?.length
+
   const adicionar = (produtoId) => {
     const p = produtos.find(x => String(x.id) === String(produtoId))
     if (!p) return
+    if (p.pack_size) { setMontando({ produto: p, idx: null }); return }
     setItens(atual => [...atual, {
       product_id: p.id, product_name: p.name, quantity: 1, unit_price: Number(p.price), flavors: [],
     }])
   }
 
+  const confirmarSabores = (sabores, preco) => {
+    const { produto, idx } = montando
+    const flavors = sabores.map(sb => ({ flavor_id: sb.id, flavor_name: sb.name, quantity: sb.quantity }))
+    // nos pastéis cada recheio tem preço: o seletor devolve o preço do pacote montado
+    const unit_price = Number(preco?.price ?? produto.price)
+    setItens(atual => idx === null
+      ? [...atual, { product_id: produto.id, product_name: produto.name, quantity: 1, unit_price, flavors }]
+      : atual.map((it, i) => (i === idx ? { ...it, unit_price, flavors } : it)))
+    setMontando(null)
+  }
+
   const salvar = async () => {
     if (!itens.length) {
       toast.error('O pedido precisa ter pelo menos um item. Para zerar, cancele o pedido.')
+      return
+    }
+    if (itens.some(faltaSabor)) {
+      toast.error('Escolha os sabores de todos os pacotes antes de salvar.')
       return
     }
     setSalvando(true)
@@ -113,6 +137,17 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{item.product_name}</p>
               <p className="text-xs text-gray-500">{formatCurrency(item.unit_price)} cada</p>
+              {item.flavors?.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  {item.flavors.map(f => `${f.quantity}x ${f.flavor_name}`).join(', ')}
+                </p>
+              )}
+              {faltaSabor(item) && (
+                <button type="button" onClick={() => setMontando({ produto: produtoDoItem(item), idx })}
+                  className="mt-0.5 cursor-pointer text-xs font-semibold text-red-600 underline">
+                  Escolher sabores
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => alterarQtd(idx, -1)}
@@ -178,6 +213,15 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
           <HiX className="size-4" />
         </button>
       </div>
+
+      {montando && (
+        <FlavorPicker
+          product={montando.produto}
+          aberto={!!montando}
+          aoFechar={() => setMontando(null)}
+          aoConfirmar={confirmarSabores}
+        />
+      )}
     </div>
   )
 }
