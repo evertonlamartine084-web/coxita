@@ -1,9 +1,14 @@
+/* global process -- roda no servidor da Vercel, onde as variaveis de ambiente existem */
 /**
  * Modo "voltamos ja": troca o site inteiro por um aviso, sem tirar nada do ar.
  *
- * Liga e desliga pela variavel EM_BREVE na Vercel (ver AMBIENTES.md). Sem ela,
- * este arquivo deixa tudo passar -- e o que mantem homolog e as previews com o
- * site completo enquanto producao esta pausada.
+ * Liga e desliga pelo botao do painel (configuracao `site_em_manutencao` no
+ * banco), sem deploy. A variavel EM_BREVE na Vercel continua valendo como
+ * interruptor de emergencia: com ela, o site fica em manutencao seja qual for o
+ * botao (ver AMBIENTES.md).
+ *
+ * O botao so vale para coxelli.com.br: homolog e as previews usam o mesmo
+ * banco e continuam com o site completo, para a loja poder testar.
  *
  * Por que middleware e nao um rewrite no vercel.json: as 59 paginas publicas
  * sao arquivos de verdade no dist (dist/cardapio/index.html e companhia), e
@@ -27,6 +32,39 @@
 
 const PAGINA = '/em-breve.html'
 
+const DOMINIOS_DE_PRODUCAO = ['coxelli.com.br', 'www.coxelli.com.br']
+
+// Quanto tempo o valor lido do banco vale. Ler a cada visita somaria a ida ao
+// banco a toda pagina; 15 s e o atraso maximo entre apertar o botao e o site
+// obedecer.
+const VALIDADE_MS = 15_000
+let lido = { valor: false, ate: 0 }
+
+/**
+ * Se o botao do painel esta em "manutencao".
+ *
+ * Falha na leitura mantem o ultimo valor conhecido -- e, sem nenhum, o site no
+ * ar: derrubar a loja porque o banco demorou seria pior que o problema.
+ */
+async function botaoEmManutencao() {
+  if (Date.now() < lido.ate) return lido.valor
+  const base = process.env.VITE_SUPABASE_URL
+  const chave = process.env.VITE_SUPABASE_ANON_KEY
+  if (!base || !chave) return false
+  try {
+    const r = await fetch(`${base}/rest/v1/settings?key=eq.site_em_manutencao&select=value`, {
+      headers: { apikey: chave, authorization: `Bearer ${chave}` },
+      signal: AbortSignal.timeout(1500),
+    })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const linhas = await r.json()
+    lido = { valor: linhas?.[0]?.value === 'sim', ate: Date.now() + VALIDADE_MS }
+  } catch {
+    lido = { valor: lido.valor, ate: Date.now() + VALIDADE_MS }
+  }
+  return lido.valor
+}
+
 // Uma hora. O valor e um palpite de quando vale a pena o bot voltar; nao e
 // promessa. Curto demais desperdicaria rastreio, longo demais atrasaria a volta
 // do site ao indice.
@@ -48,10 +86,12 @@ function passaDireto(pathname) {
 }
 
 export default async function middleware(request) {
-  if (!process.env.EM_BREVE) return
-
   const url = new URL(request.url)
   if (passaDireto(url.pathname)) return
+
+  const emManutencao = process.env.EM_BREVE
+    || (DOMINIOS_DE_PRODUCAO.includes(url.hostname) && await botaoEmManutencao())
+  if (!emManutencao) return
 
   const cabecalhos = {
     'content-type': 'text/html; charset=utf-8',

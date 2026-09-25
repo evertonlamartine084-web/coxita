@@ -46,33 +46,30 @@ redundante.
 
 ## Modo "Voltamos já"
 
-Modo **desligado**: produção está no ar normalmente. Quando ligado,
-`coxelli.com.br` e as 59 páginas respondem 503 com `public/em-breve.html`
-(aviso + botão de WhatsApp), e homolog e as previews continuam com o site
-inteiro.
+Com o modo ligado, `coxelli.com.br` e as 59 páginas respondem 503 com
+`public/em-breve.html` (aviso + botão de WhatsApp). Homolog e as previews
+continuam com o site inteiro.
 
-Quem decide é `middleware.js` na raiz, ligado pela variável `EM_BREVE` na
-Vercel. Continuam respondendo normal, mesmo com o modo ligado: `/admin`,
-assets e fotos, `robots.txt`, `sitemap.xml` e o arquivo de verificação do
-Search Console.
+**Liga e desliga pelo botão do painel**, no topo do menu lateral ("🟢 Site no
+ar" / "🔴 Site em manutenção"). Não precisa de deploy: o botão grava
+`site_em_manutencao` (`sim`/`nao`) na tabela `settings`, e o `middleware.js` lê
+esse valor, guardando-o por 15 s. Se o banco não responder, o site fica no ar.
 
-**Desligar** (site volta ao ar):
+Continuam respondendo normal, mesmo com o modo ligado: `/admin`, assets e
+fotos, `robots.txt`, `sitemap.xml` e o arquivo de verificação do Search
+Console.
+
+**Emergência sem painel:** a variável `EM_BREVE` na Vercel liga o modo em
+qualquer caso (esta, sim, exige redeploy):
 
 ```sh
-npx vercel env rm EM_BREVE production --yes
+npx vercel env add EM_BREVE production --value 1 --yes   # liga
+npx vercel env rm EM_BREVE production --yes              # desliga
 git checkout main && npm run deploy:producao
 ```
 
-**Ligar de novo:**
-
-```sh
-npx vercel env add EM_BREVE production --value 1 --yes
-git checkout main && npm run deploy:producao
-```
-
-O redeploy é obrigatório nos dois casos: a variável é lida no deploy, não a
-cada visita. Para conferir: `curl -s -o /dev/null -w '%{http_code}\n'
-https://coxelli.com.br/` — 503 é modo ligado, 200 é site no ar.
+Para conferir: `curl -s -o /dev/null -w '%{http_code}\n' https://coxelli.com.br/`
+— 503 é modo ligado, 200 é site no ar.
 
 Por que 503 e não uma página comum com status 200: 503 quer dizer
 "indisponível agora, volta". O Google segura as páginas no índice esperando; um

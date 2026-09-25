@@ -5,6 +5,7 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
+import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 
 const navItems = [
@@ -27,6 +28,36 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const lastOrderCountRef = useRef(null)
+  // null = ainda lendo. Lido direto do banco, sem o cache de settings: é o estado do site agora
+  const [emManutencao, setEmManutencao] = useState(null)
+  const [trocandoSite, setTrocandoSite] = useState(false)
+
+  useEffect(() => {
+    supabase.from('settings').select('value').eq('key', 'site_em_manutencao').maybeSingle()
+      .then(({ data }) => setEmManutencao(data?.value === 'sim'))
+  }, [])
+
+  // Liga e desliga o aviso "Voltamos já" no lugar do site (middleware.js). O painel continua
+  // funcionando com o site em manutenção.
+  const alternarSite = async () => {
+    const ligar = !emManutencao
+    const pergunta = ligar
+      ? 'Colocar o site em manutenção? Os clientes vão ver o aviso "Voltamos já" com o botão do WhatsApp, e não vão conseguir fazer pedidos pelo site.'
+      : 'Colocar o site de volta no ar? Os clientes voltam a ver o cardápio e a fazer pedidos.'
+    if (!window.confirm(pergunta)) return
+    setTrocandoSite(true)
+    try {
+      await updateSetting('site_em_manutencao', ligar ? 'sim' : 'nao')
+      setEmManutencao(ligar)
+      toast.success(ligar
+        ? 'Site em manutenção. Em até 15 segundos os clientes veem o aviso.'
+        : 'Site de volta no ar. Em até 15 segundos os clientes veem o cardápio.')
+    } catch (e) {
+      toast.error(`Não foi possível trocar: ${e.message}`)
+    } finally {
+      setTrocandoSite(false)
+    }
+  }
 
   // Poll for new orders every 15 seconds
   useEffect(() => {
@@ -176,6 +207,25 @@ export default function AdminLayout() {
             <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-brown mt-1">Painel da cozinha</p>
           </div>
         </div>
+        {emManutencao !== null && (
+          <div className="px-4 pt-4 shrink-0">
+            <button
+              type="button"
+              onClick={alternarSite}
+              disabled={trocandoSite}
+              title={emManutencao ? 'Clique para colocar o site de volta no ar' : 'Clique para colocar o site em manutenção'}
+              className={`flex w-full items-center gap-2 border-2 px-3 py-2.5 text-left text-sm font-bold transition-colors disabled:opacity-60 ${
+                emManutencao
+                  ? 'border-red-400 bg-red-600 text-white hover:bg-red-700'
+                  : 'border-green-400/60 bg-green-700/40 text-cream hover:bg-green-700/60'
+              }`}
+            >
+              <span aria-hidden="true">{emManutencao ? '🔴' : '🟢'}</span>
+              <span className="flex-1">{emManutencao ? 'Site em manutenção' : 'Site no ar'}</span>
+              <span className="text-xs font-semibold opacity-80">{trocandoSite ? '…' : emManutencao ? 'Reabrir' : 'Pausar'}</span>
+            </button>
+          </div>
+        )}
         <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1.5">
           {navItems.map(({ to, icon, label }) => {
             const active = location.pathname === to
