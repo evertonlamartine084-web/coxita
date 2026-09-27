@@ -89,6 +89,7 @@ const HomePage = lazyWithRetry(importarPagina.home)
 const MenuPage = lazyWithRetry(importarPagina.cardapio)
 const FlavorsIndexPage = lazyWithRetry(importarPagina.sabores)
 const FlavorPage = lazyWithRetry(importarPagina.sabor)
+const GourmetPage = lazyWithRetry(importarPagina.gourmet)
 const OccasionPage = lazyWithRetry(importarPagina.ocasiao)
 const BairrosIndexPage = lazyWithRetry(importarPagina.bairros)
 const BairroPage = lazyWithRetry(importarPagina.bairro)
@@ -129,6 +130,9 @@ export default function App() {
       <ErrorBoundary>
       <Suspense fallback={<Loading />}>
         <Routes>
+          {/* Linha Gourmet: layout proprio, sem o cabecalho festivo do site -- outro publico */}
+          <Route path="/gourmet" element={<GourmetPage />} />
+
           {/* Public */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<HomePage />} />

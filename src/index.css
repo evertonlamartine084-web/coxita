@@ -33,6 +33,17 @@
   --color-success: #16a34a;
   --color-festa: #3f6bb5;
   --color-festa-light: #6b93cb;
+  /* Coxelli Gourmet (/gourmet): a linha premium da própria marca. Preto com o laranja Coxelli
+     (o mesmo --color-brand do logo e da sacola) e as formas orgânicas dos posts da marca. Os
+     nomes dizem o papel: `paper` fundo, `ivory` seção alternada, `ink` texto, `cocoa` texto de
+     apoio, `terra` o laranja de botão e destaque. Laranja sobre o preto passa AA (8:1), e o
+     texto do botão é preto sobre laranja pelo mesmo motivo. */
+  --color-gourmet-paper: #0c0a09;
+  --color-gourmet-ivory: #171310;
+  --color-gourmet-ink: #f6efe6;
+  --color-gourmet-cocoa: #b3a597;
+  --color-gourmet-terra: #f28c28;
+  --color-gourmet-gold: #f28c28;
   --font-display: 'Barlow Condensed', Arial, sans-serif;
   --font-body: 'Barlow', Arial, sans-serif;
 
@@ -144,6 +155,53 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 
+/* Coxelli Gourmet (/gourmet). Tudo devagar e sem salto: é a página da linha premium.
+   A foto entra com um zoom que assenta (a moldura parada, a imagem se acomodando dentro dela),
+   e o "gourmet" desliza para o lado do logo. */
+.foto-entra img {
+  transform: scale(1.12);
+}
+.foto-entra[data-visible='true'] img {
+  transform: none;
+}
+/* A camada de flores pronta entra com o mesmo zoom da foto, pelo mesmo centro, para as flores
+   não descolarem da foto durante a entrada. */
+.foto-entra .camada-flores {
+  transform: scale(1.12);
+  transition: transform 1600ms var(--ease-entrance) var(--reveal-delay, 0ms);
+}
+.foto-entra[data-visible='true'] .camada-flores {
+  transform: none;
+}
+
+/* A foto nunca depende de JS para aparecer (quando dependia, as fotos sumiram no navegador da loja);
+   aqui só as transições do zoom de entrada e do zoom do hover. */
+.foto {
+  transition:
+    transform 1600ms var(--ease-entrance) var(--reveal-delay, 0ms),
+    scale 1400ms var(--ease-entrance);
+}
+
+/* Palavra de destaque dos títulos: a serifa fina do "gourmet" do logo. Um pouco maior que a
+   caixa alta em volta, porque a serifa minúscula é bem mais baixa que a Barlow Condensed. */
+.italico-gourmet {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1.12em;
+  line-height: 0.9;
+}
+
+@keyframes gourmet-assina {
+  from { opacity: 0; transform: translate3d(-0.6em, 0, 0); filter: blur(3px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.gourmet-assina {
+  animation: gourmet-assina 1100ms var(--ease-entrance) 300ms both;
+}
+
 /* Raio uniforme. O antigo era 1rem/1.5rem alternado, o que deixava cada card
    visivelmente torto contra o grid. */
 .card-organic {
@@ -234,8 +292,13 @@ h1, h2, h3, h4, h5, h6 {
   .palavra {
     animation: none;
   }
-  .pop {
+  .pop,
+  .gourmet-assina {
     animation: none;
+  }
+  .foto-entra img,
+  .foto-entra .camada-flores {
+    transform: none;
   }
   *,
   *::before,

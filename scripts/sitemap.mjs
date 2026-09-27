@@ -68,6 +68,7 @@ try {
   const entradas = [
     url({ loc: '/', prioridade: '1.0' }),
     url({ loc: '/cardapio', prioridade: '0.9' }),
+    url({ loc: '/gourmet', prioridade: '0.8' }),
     url({ loc: '/salgados', prioridade: '0.9' }),
     ...LISTA_OCASIOES.map(o => url({ loc: `/${o.slug}`, prioridade: '0.8', frequencia: 'monthly' })),
     url({ loc: '/salgados-em-natal', prioridade: '0.9' }),

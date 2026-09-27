@@ -47,6 +47,9 @@ export default function Header() {
           <NavLink to="/cardapio">
             Cardápio
           </NavLink>
+          <NavLink to="/gourmet">
+            Coxelli Gourmet
+          </NavLink>
           <NavLink to="/meus-pedidos">
             Meus pedidos
           </NavLink>
@@ -114,6 +117,7 @@ export default function Header() {
           {[
             { to: '/', label: 'Início' },
             { to: '/cardapio', label: 'Cardápio' },
+            { to: '/gourmet', label: 'Coxelli Gourmet' },
             { to: '/meus-pedidos', label: 'Meus pedidos' },
             { to: '/acompanhar', label: 'Acompanhar' },
             { to: '/carrinho', label: `Carrinho${itemCount > 0 ? ` (${itemCount})` : ''}` },

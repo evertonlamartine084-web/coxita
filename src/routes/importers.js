@@ -11,6 +11,7 @@ export const importarPagina = {
   cardapio: () => import('../pages/public/MenuPage'),
   sabores: () => import('../pages/public/FlavorsIndexPage'),
   sabor: () => import('../pages/public/FlavorPage'),
+  gourmet: () => import('../pages/public/GourmetPage'),
   ocasiao: () => import('../pages/public/OccasionPage'),
   bairros: () => import('../pages/public/BairrosIndexPage'),
   bairro: () => import('../pages/public/BairroPage'),
@@ -38,6 +39,7 @@ export const importarPagina = {
 const paginaPorRota = {
   '/': 'home',
   '/cardapio': 'cardapio',
+  '/gourmet': 'gourmet',
   '/salgados': 'sabores',
   '/salgados-em-natal': 'bairros',
   '/carrinho': 'carrinho',
