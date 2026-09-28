@@ -24,7 +24,7 @@ export const FOLGA_CAMADA = 0.04
 const comCamada = (f) => ({ ...f, camada: f.src.replace('.jpg', '-flores.png') })
 
 // Ordem da página: os cinco salgados e depois os cinco doces (uma fileira de cada no computador).
-// Sabores novos de 27/09/2026: sertanejo e camarão; choux e cannoli ainda a confirmar com a loja.
+// Sabores novos de 27/09/2026. A fruta do creme do cannoli ainda está a confirmar com a loja.
 export const SABORES_GOURMET = [
   {
     slug: 'caprese',
@@ -86,7 +86,7 @@ export const SABORES_GOURMET = [
     slug: 'craquelin',
     nome: 'Choux craquelin',
     tipo: 'doce',
-    descricao: 'Carolina de massa choux com casquinha crocante de craquelin.',
+    descricao: 'Carolina de massa choux recheada com creme pâtissière, com casquinha crocante de craquelin.',
     foto: foto('craquelin'),
     fotoPrato: foto('craquelin-prato'),
   },
