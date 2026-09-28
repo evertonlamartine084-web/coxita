@@ -24,7 +24,7 @@ export const FOLGA_CAMADA = 0.04
 const comCamada = (f) => ({ ...f, camada: f.src.replace('.jpg', '-flores.png') })
 
 // Ordem da página: os cinco salgados e depois os cinco doces (uma fileira de cada no computador).
-// Sabores novos de 27/09/2026. A fruta do creme do cannoli ainda está a confirmar com a loja.
+// Sabores novos de 27/09/2026, com nomes e recheios confirmados pela loja.
 export const SABORES_GOURMET = [
   {
     slug: 'caprese',
@@ -102,7 +102,7 @@ export const SABORES_GOURMET = [
     slug: 'cannoli',
     nome: 'Cannoli',
     tipo: 'doce',
-    descricao: 'Casquinha crocante com açúcar de confeiteiro e creme rosado com fruta vermelha.',
+    descricao: 'Casquinha crocante com açúcar de confeiteiro e creme de cereja com pedacinhos da fruta.',
     foto: foto('cannoli'),
     fotoPrato: foto('cannoli-prato'),
   },
