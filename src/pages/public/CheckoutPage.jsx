@@ -196,7 +196,7 @@ export default function CheckoutPage() {
   }
 
   // Recalcula a entrega quando o CEP fica completo (inclusive o que veio preenchido do último
-  // pedido). O número vai junto só para ficar registrado na cotação: a distância é pelo CEP.
+  // pedido) e quando o número muda: com o Google no servidor a distância é pela casa.
   const cepDigitos = form.address_cep.replace(/\D/g, '')
   const numeroEndereco = form.address_number.trim()
   useEffect(() => {
@@ -207,14 +207,14 @@ export default function CheckoutPage() {
     let cancelado = false
     setCotacao({ status: 'calculando' })
     const t = setTimeout(() => {
-      cotarEntrega(cepDigitos, numeroEndereco)
+      cotarEntrega({ cep: cepDigitos, numero: numeroEndereco, rua: form.address, bairro: form.neighborhood })
         .then(c => { if (!cancelado) setCotacao({ status: c.dentro_area ? 'ok' : 'fora', ...c }) })
         .catch(e => { if (!cancelado) setCotacao({ status: 'erro', motivo: e.message }) })
-    }, 400)
+    }, 700)
     return () => { cancelado = true; clearTimeout(t) }
-    // o número não dispara recálculo: não muda a distância
+    // rua e bairro vão junto mas não disparam: o ViaCEP preenche os dois logo depois do CEP
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.delivery_type, cepDigitos, recotar])
+  }, [form.delivery_type, cepDigitos, numeroEndereco, recotar])
 
   // a taxa do resumo é sempre a da cotação; sem cotação válida, zero (e o envio fica bloqueado)
   useEffect(() => {
@@ -861,7 +861,7 @@ function DeliveryOption({ active, onChange, icon, label, sublabel, name, value, 
 /** Resultado do cálculo da entrega logo abaixo do CEP. */
 function AvisoEntrega({ cotacao, aoRetirar }) {
   if (cotacao.status === 'vazio') {
-    return <p className="text-xs text-text-light -mt-2">A taxa de entrega é de R$ 2,00 por km, calculada pelo CEP.</p>
+    return <p className="text-xs text-text-light -mt-2">A taxa de entrega é de R$ 2,00 por km, calculada pelo endereço.</p>
   }
   if (cotacao.status === 'calculando') {
     return <p className="text-sm text-text-light -mt-2 animate-pulse">Calculando a entrega…</p>

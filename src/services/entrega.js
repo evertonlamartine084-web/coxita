@@ -1,7 +1,8 @@
 import { supabase } from './supabase'
 
 /**
- * Cotação da taxa de entrega pelo CEP (R$ por km pelo caminho de carro, até o limite da loja).
+ * Cotação da taxa de entrega (R$ por km pelo caminho de carro, até o limite da loja). Com a chave
+ * do Google no servidor, a distância sai pelo endereço com número; sem ela, pelo CEP.
  *
  * Quem calcula e grava a cotação é a função `calcular-entrega`; o pedido de entrega só é aceito
  * com o id que ela devolve. A coordenada do CEP é buscada aqui, no navegador, e vai junto:
@@ -10,7 +11,7 @@ import { supabase } from './supabase'
  *
  * Devolve { id, km, taxa, dentro_area, max_km } ou lança Error('cep-nao-encontrado' | 'falha').
  */
-export async function cotarEntrega(cep, numero) {
+export async function cotarEntrega({ cep, numero, rua, bairro }) {
   const limpo = String(cep).replace(/\D/g, '')
   let lat = null
   let lng = null
@@ -26,7 +27,7 @@ export async function cotarEntrega(cep, numero) {
   }
 
   const { data, error } = await supabase.functions.invoke('calcular-entrega', {
-    body: { cep: limpo, numero, lat, lng },
+    body: { cep: limpo, numero, rua, bairro, lat, lng },
   })
   if (error) {
     // 404 do servidor = CEP que nenhum serviço achou

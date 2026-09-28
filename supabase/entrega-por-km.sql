@@ -8,9 +8,10 @@
 insert into settings (key, value) values
   ('delivery_fee_per_km', '2'),
   ('delivery_max_km', '10'),
-  -- coordenada do CEP da loja (59133-302, Rua José Miranda da Silva, Pajuçara)
-  ('loja_lat', '-5.7371042'),
-  ('loja_lng', '-35.2337835')
+  -- porta da loja (Rua José Miranda da Silva, 301), pelo Street View que o dono mandou. O CEP
+  -- 59133-302 cai no meio da rua, a uns 600 m daqui, e errava a distância em até 1 km
+  ('loja_lat', '-5.7352728'),
+  ('loja_lng', '-35.2321784')
 on conflict (key) do nothing;
 
 create table if not exists entrega_cotacoes (

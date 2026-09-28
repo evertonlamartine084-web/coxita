@@ -80,7 +80,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     if (form.address_cep.replace(/\D/g, '').length !== 8) return toast.error('Informe o CEP completo.')
     setCalculando(true)
     try {
-      const c = await cotarEntrega(form.address_cep, form.address_number)
+      const c = await cotarEntrega({ cep: form.address_cep, numero: form.address_number, rua: form.address, bairro: form.neighborhood })
       setForm(f => ({ ...f, taxa_entrega: String(c.taxa), delivery_km: c.km }))
       if (!c.dentro_area) toast(`Fica a ${c.km} km, acima dos ${c.max_km} km do site. A taxa foi preenchida mesmo assim.`)
     } catch (e) {
