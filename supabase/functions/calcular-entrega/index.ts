@@ -13,10 +13,11 @@ import { createClient } from "npm:@supabase/supabase-js@2"
  *
  * 1. Google (Routes API), com a chave GOOGLE_MAPS_KEY (secret da função), pelo endereço completo
  *    com número: a mesma distância que o dono confere no Google Maps.
- * 2. Mapa aberto: coordenada do CEP (cep.awesomeapi.com.br) e rota do OSRM. Em 28/09/2026 errava
- *    para mais em trechos da Zona Norte (6,5 km contra 5,3 km do Google até a Rua João Paulo II),
- *    porque monta um caminho mais longo depois da Av. Rio Doce. Se o OSRM falhar, linha reta
- *    x 1,35 (cotação "estimada").
+ * 2. Mapa aberto (grátis, escolha do dono): coordenada do CEP (cep.awesomeapi.com.br) e o
+ *    caminho mais curto do Valhalla (servidor público da FOSSGIS). Na Rua João Paulo II deu
+ *    5,65 km contra 5,3 km do Google; o OSRM dava 6,5 a 7,8 km, porque escolhe pelo tempo do
+ *    modelo dele e fazia uma volta depois da Av. Rio Doce. Se o Valhalla falhar, a alternativa
+ *    mais curta do OSRM; se os dois falharem, linha reta x 1,35 (cotação "estimada").
  *
  * Os serviços de coordenada por CEP bloqueiam o servidor da Supabase (429 no awesomeapi, IP
  * compartilhado; 403 no Nominatim). Do celular do cliente funcionam, então o checkout manda a
@@ -133,6 +134,21 @@ function linhaReta(a: Ponto, b: Ponto) {
 }
 
 async function kmDeCarro(a: Ponto, b: Ponto) {
+  try {
+    const q = {
+      locations: [{ lat: a.lat, lon: a.lng }, { lat: b.lat, lon: b.lng }],
+      costing: "auto",
+      // a taxa é por km: o caminho mais curto de carro, não o mais rápido pelo modelo do serviço
+      costing_options: { auto: { shortest: true } },
+      units: "kilometers",
+      directions_type: "none",
+    }
+    const r = await buscar(`https://valhalla1.openstreetmap.de/route?json=${encodeURIComponent(JSON.stringify(q))}`, 8000)
+    const km = r?.trip?.summary?.length
+    if (Number.isFinite(km)) return { km, metodo: "rota" }
+  } catch (e) {
+    falhas.push(`valhalla: ${e}`)
+  }
   try {
     const r = await buscar(
       `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=false&alternatives=3`,
