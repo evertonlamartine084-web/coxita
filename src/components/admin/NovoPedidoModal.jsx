@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { getProducts } from '../../services/products'
 import { getSettings, peekSettings } from '../../services/settings'
 import { createOrder } from '../../services/orders'
+import { cotarEntrega } from '../../services/entrega'
 import { calcularDescontoAvista, ehAVista } from '../../utils/descontoAvista'
 import { formatCurrency } from '../../utils/format'
 import FlavorPicker from '../product/FlavorPicker'
@@ -31,9 +32,13 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     customer_name: '',
     customer_phone: '',
     delivery_type: 'retirada',
+    address_cep: '',
     address: '',
     neighborhood: '',
     address_number: '',
+    // taxa de entrega: o botão "Calcular pelo CEP" preenche (R$ por km), mas o atendente pode mudar
+    taxa_entrega: '',
+    delivery_km: null,
     payment_method: 'dinheiro',
     notes: '',
     agendado: false,
@@ -69,7 +74,21 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
   const remover = (idx) => setItens(atual => atual.filter((_, i) => i !== idx))
 
   const subtotal = itens.reduce((s, i) => s + Number(i.price) * i.quantity, 0)
-  const taxaEntrega = form.delivery_type === 'entrega' ? Number(settings.delivery_fee || 0) : 0
+  const taxaEntrega = form.delivery_type === 'entrega' ? Number(String(form.taxa_entrega).replace(',', '.')) || 0 : 0
+  const [calculando, setCalculando] = useState(false)
+  const calcularEntrega = async () => {
+    if (form.address_cep.replace(/\D/g, '').length !== 8) return toast.error('Informe o CEP completo.')
+    setCalculando(true)
+    try {
+      const c = await cotarEntrega(form.address_cep, form.address_number)
+      setForm(f => ({ ...f, taxa_entrega: String(c.taxa), delivery_km: c.km }))
+      if (!c.dentro_area) toast(`Fica a ${c.km} km, acima dos ${c.max_km} km do site. A taxa foi preenchida mesmo assim.`)
+    } catch (e) {
+      toast.error(e.message === 'cep-nao-encontrado' ? 'CEP não encontrado.' : 'Não deu para calcular agora. Informe a taxa à mão.')
+    } finally {
+      setCalculando(false)
+    }
+  }
   const descontoAvista = useMemo(
     () => calcularDescontoAvista(itens, form.payment_method, settings, subtotal),
     [itens, form.payment_method, settings, subtotal],
@@ -89,6 +108,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
         customer_name: form.customer_name.trim(),
         customer_phone: form.customer_phone.trim(),
         delivery_type: form.delivery_type,
+        address_cep: form.address_cep.replace(/\D/g, '') || null,
         address: form.address.trim(),
         neighborhood: form.neighborhood.trim(),
         address_number: form.address_number.trim(),
@@ -99,6 +119,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
           : null,
         subtotal,
         delivery_fee: taxaEntrega,
+        delivery_km: form.delivery_type === 'entrega' ? form.delivery_km : null,
         discount: descontoAvista,
         discount_avista: descontoAvista,
         total,
@@ -158,6 +179,17 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
               <Input label="Endereço" value={form.address} onChange={e => mudar('address', e.target.value)} />
               <Input label="Número" value={form.address_number} onChange={e => mudar('address_number', e.target.value)} />
               <Input label="Bairro" value={form.neighborhood} onChange={e => mudar('neighborhood', e.target.value)} />
+              <Input label="CEP" value={form.address_cep} onChange={e => mudar('address_cep', e.target.value)} placeholder="00000-000" inputMode="numeric" />
+              <Input
+                label={`Taxa de entrega (R$)${form.delivery_km != null ? ` · ${form.delivery_km} km` : ''}`}
+                value={form.taxa_entrega} onChange={e => mudar('taxa_entrega', e.target.value)} inputMode="decimal"
+              />
+              <button
+                type="button" onClick={calcularEntrega} disabled={calculando}
+                className="self-end rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+              >
+                {calculando ? 'Calculando…' : 'Calcular pelo CEP'}
+              </button>
             </div>
           )}
 

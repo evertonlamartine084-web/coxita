@@ -5,6 +5,7 @@ import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
 import { getSettings } from '../../services/settings'
+import { cotarEntrega } from '../../services/entrega'
 import { getProducts } from '../../services/products'
 import { getPrecoPorSabor } from '../../services/precoPorSabor'
 import { pagarComCartao, gerarPix } from '../../services/cielo'
@@ -21,6 +22,8 @@ import { formatCurrency } from '../../utils/format'
 import { calcularDescontoAvista, ehAVista, rotuloDoDesconto } from '../../utils/descontoAvista'
 import toast from 'react-hot-toast'
 import Seo from '../../components/ui/Seo'
+
+const formatarKm = (km) => `${Number(km).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`
 
 const initialForm = {
   customer_name: '',
@@ -57,6 +60,10 @@ export default function CheckoutPage() {
   // da tela de "pedido confirmado".
   const finalizando = useRef(false)
   const [cepLoading, setCepLoading] = useState(false)
+  // taxa de entrega por km, calculada no servidor a partir do CEP (ver services/entrega.js)
+  // status: 'vazio' (sem CEP completo) | 'calculando' | 'ok' | 'fora' | 'erro'
+  const [cotacao, setCotacao] = useState({ status: 'vazio' })
+  const [recotar, setRecotar] = useState(0) // sobe para forçar um novo cálculo com o mesmo CEP
   const [couponCode, setCouponCode] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [couponLoading, setCouponLoading] = useState(false)
@@ -125,7 +132,6 @@ export default function CheckoutPage() {
 
     getSettings().then(s => {
       setSettingsData(s)
-      setDeliveryFee(parseFloat(s.delivery_fee || '0'))
 
       // Check if store is open
       if (s.opening_time && s.closing_time) {
@@ -189,13 +195,31 @@ export default function CheckoutPage() {
     finally { setCepLoading(false) }
   }
 
+  // Recalcula a entrega quando o CEP fica completo (inclusive o que veio preenchido do último
+  // pedido). O número vai junto só para ficar registrado na cotação: a distância é pelo CEP.
+  const cepDigitos = form.address_cep.replace(/\D/g, '')
+  const numeroEndereco = form.address_number.trim()
   useEffect(() => {
-    if (form.delivery_type === 'retirada') {
-      setDeliveryFee(0)
-    } else {
-      setDeliveryFee(parseFloat(settings.delivery_fee || '0'))
+    if (form.delivery_type !== 'entrega' || cepDigitos.length !== 8) {
+      setCotacao({ status: 'vazio' })
+      return
     }
-  }, [form.delivery_type, settings, setDeliveryFee])
+    let cancelado = false
+    setCotacao({ status: 'calculando' })
+    const t = setTimeout(() => {
+      cotarEntrega(cepDigitos, numeroEndereco)
+        .then(c => { if (!cancelado) setCotacao({ status: c.dentro_area ? 'ok' : 'fora', ...c }) })
+        .catch(e => { if (!cancelado) setCotacao({ status: 'erro', motivo: e.message }) })
+    }, 400)
+    return () => { cancelado = true; clearTimeout(t) }
+    // o número não dispara recálculo: não muda a distância
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.delivery_type, cepDigitos, recotar])
+
+  // a taxa do resumo é sempre a da cotação; sem cotação válida, zero (e o envio fica bloqueado)
+  useEffect(() => {
+    setDeliveryFee(form.delivery_type === 'entrega' && cotacao.status === 'ok' ? Number(cotacao.taxa) : 0)
+  }, [form.delivery_type, cotacao, setDeliveryFee])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -213,6 +237,10 @@ export default function CheckoutPage() {
       errs.customer_cpf = 'CPF inválido. Deixe em branco se não quiser na nota.'
     }
     if (form.delivery_type === 'entrega') {
+      if (form.address_cep.replace(/\D/g, '').length !== 8) errs.address_cep = 'CEP obrigatório para calcular a entrega'
+      else if (cotacao.status === 'calculando') errs.address_cep = 'Aguarde o cálculo da entrega'
+      else if (cotacao.status === 'fora') errs.address_cep = `Entregamos até ${cotacao.max_km} km. Escolha a retirada.`
+      else if (cotacao.status !== 'ok') errs.address_cep = 'Não conseguimos calcular a entrega para este CEP'
       if (!form.address.trim()) errs.address = 'Endereço obrigatório'
       if (!form.neighborhood.trim()) errs.neighborhood = 'Bairro obrigatório'
       if (!form.address_number.trim()) errs.address_number = 'Número obrigatório'
@@ -263,6 +291,8 @@ export default function CheckoutPage() {
         scheduled_for: form.order_type === 'agendado' ? new Date(`${form.scheduled_date}T${form.scheduled_time}`).toISOString() : null,
         subtotal: getSubtotal(),
         delivery_fee: deliveryFee,
+        // o banco confere a taxa por esta cotação (ver supabase/entrega-por-km.sql)
+        cotacao_entrega: form.delivery_type === 'entrega' ? cotacao.id : null,
         discount: getDiscount(),
         discount_avista: getDescontoAvista(),
         coupon_code: appliedCoupon?.code || null,
@@ -333,7 +363,14 @@ export default function CheckoutPage() {
       concluir(order)
     } catch (err) {
       console.error(err)
-      toast.error('Erro ao enviar pedido. Tente novamente.')
+      const msg = String(err?.message ?? '')
+      if (msg.includes('entrega-')) {
+        // cotação vencida, fora da área ou CEP trocado depois do cálculo: recalcula e pede de novo
+        setRecotar(n => n + 1)
+        toast.error('A taxa de entrega foi atualizada. Confira o valor e envie de novo.')
+      } else {
+        toast.error('Erro ao enviar pedido. Tente novamente.')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -476,11 +513,16 @@ export default function CheckoutPage() {
                     onChange={handleChange}
                     onBlur={handleCepBlur}
                     placeholder="00000-000"
+                    error={errors.address_cep}
                   />
                   {cepLoading && (
                     <span className="absolute right-3 top-9 text-xs text-primary font-semibold animate-pulse">Buscando...</span>
                   )}
                 </div>
+                <AvisoEntrega
+                  cotacao={cotacao}
+                  aoRetirar={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
+                />
                 <Input label="Rua *" name="address" value={form.address} onChange={handleChange} error={errors.address} />
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Número *" name="address_number" value={form.address_number} onChange={handleChange} error={errors.address_number} />
@@ -707,9 +749,14 @@ export default function CheckoutPage() {
                   </div>
                 )}
                 <div className="flex justify-between text-sm text-text-light">
-                  <span>Taxa de entrega</span>
-                  <span className={deliveryFee === 0 ? 'text-accent font-semibold' : ''}>
-                    {deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis'}
+                  <span>
+                    Taxa de entrega
+                    {form.delivery_type === 'entrega' && cotacao.status === 'ok' && ` (${formatarKm(cotacao.km)})`}
+                  </span>
+                  <span className={form.delivery_type === 'retirada' ? 'text-accent font-semibold' : ''}>
+                    {form.delivery_type === 'retirada'
+                      ? 'Grátis'
+                      : cotacao.status === 'ok' ? formatCurrency(deliveryFee) : 'Informe o CEP'}
                   </span>
                 </div>
                 <div className="flex justify-between pt-3 border-t border-border">
@@ -808,5 +855,36 @@ function DeliveryOption({ active, onChange, icon, label, sublabel, name, value, 
       <span className="font-bold text-sm block">{label}</span>
       <span className="text-xs text-text-light">{sublabel}</span>
     </label>
+  )
+}
+
+/** Resultado do cálculo da entrega logo abaixo do CEP. */
+function AvisoEntrega({ cotacao, aoRetirar }) {
+  if (cotacao.status === 'vazio') {
+    return <p className="text-xs text-text-light -mt-2">A taxa de entrega é de R$ 2,00 por km, calculada pelo CEP.</p>
+  }
+  if (cotacao.status === 'calculando') {
+    return <p className="text-sm text-text-light -mt-2 animate-pulse">Calculando a entrega…</p>
+  }
+  if (cotacao.status === 'ok') {
+    return (
+      <p className="text-sm text-text -mt-2">
+        Entrega: <strong>{formatarKm(cotacao.km)}</strong> da loja, <strong>{formatCurrency(cotacao.taxa)}</strong>
+      </p>
+    )
+  }
+  return (
+    <div className="-mt-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+      <p>
+        {cotacao.status === 'fora'
+          ? `Este endereço fica a ${formatarKm(cotacao.km)} da loja. Entregamos até ${cotacao.max_km} km.`
+          : cotacao.motivo === 'cep-nao-encontrado'
+            ? 'Não encontramos este CEP. Confira os números.'
+            : 'Não conseguimos calcular a entrega agora. Tente de novo em instantes.'}
+      </p>
+      <button type="button" onClick={aoRetirar} className="mt-1 font-semibold text-primary underline cursor-pointer">
+        Prefiro retirar na loja
+      </button>
+    </div>
   )
 }

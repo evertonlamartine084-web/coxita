@@ -14,7 +14,9 @@ const fields = [
   { key: 'opening_time', label: 'Horário de abertura', type: 'time' },
   { key: 'closing_time', label: 'Horário de fechamento', type: 'time' },
   { key: 'estimated_delivery', label: 'Tempo estimado de entrega', placeholder: 'Ex: 30-45 min' },
-  { key: 'delivery_fee', label: 'Taxa de Entrega (R$)', type: 'number' },
+  // a taxa é calculada pelo CEP: R$ por km pelo caminho de carro, até a distância máxima
+  { key: 'delivery_fee_per_km', label: 'Taxa de entrega (R$ por km)', type: 'number' },
+  { key: 'delivery_max_km', label: 'Entrega até (km)', type: 'number' },
   { key: 'min_order', label: 'Pedido Mínimo (R$)', type: 'number' },
   { key: 'pix_key', label: 'Chave Pix' },
   { key: 'pix_name', label: 'Nome no Pix' },

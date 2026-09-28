@@ -479,7 +479,7 @@ export default function OrdersPage() {
                     <span>-{formatCurrency(selectedOrder.discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between"><span>Entrega</span><span>{formatCurrency(selectedOrder.delivery_fee)}</span></div>
+                <div className="flex justify-between"><span>Entrega{selectedOrder.delivery_km != null && ` (${String(selectedOrder.delivery_km).replace('.', ',')} km)`}</span><span>{formatCurrency(selectedOrder.delivery_fee)}</span></div>
                 <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{formatCurrency(selectedOrder.total)}</span></div>
               </div>
               </>
