@@ -134,14 +134,15 @@ export const CAIXA_DEGUSTACAO = {
 }
 
 // Segunda caixa pronta, das fotos de 27/09/2026: os cinco sabores novos, três de cada, na
-// ordem das fileiras da foto de cima. O nome é provisório, a confirmar com a loja.
+// ordem das fileiras da foto de cima. Por enquanto a loja chama também de Caixa Degustação; a
+// chamada ("Outra caixa pronta") e a lista de sabores é que a separam da primeira.
 export const CAIXA_COQUETEL = {
   id: 'caixa-coquetel',
-  nome: 'Caixa Coquetel',
-  titulo: ['Caixa', 'coquetel'],
+  nome: 'Caixa Degustação',
+  titulo: ['Caixa', 'degustação'],
   chamada: 'Outra caixa pronta',
   pecas: 15,
-  alt: 'Caixa Coquetel vista de cima: sertanejo, camarão, choux craquelin, choux de chocolate e cannoli',
+  alt: 'Caixa Degustação de 15 peças vista de cima: sertanejo, camarão, choux craquelin, choux de chocolate e cannoli',
   composicao: [
     { slug: 'sertanejo', quantidade: 3 },
     { slug: 'camarao', quantidade: 3 },
@@ -153,7 +154,7 @@ export const CAIXA_COQUETEL = {
     principal: comCamada(foto('caixa-coquetel')),
     // no canto da principal: a mesma caixa fechada com laço, na frente da sacola
     detalhe: foto('caixa-coquetel-sacola'),
-    altDetalhe: 'Caixa Coquetel fechada com laço dourado, na frente da sacola Coxelli',
+    altDetalhe: 'Caixa Degustação fechada com laço dourado, na frente da sacola Coxelli',
     cantoDetalhe: 'inferior-direito',    // em cima das flores, sem cobrir sabor
   },
 }
