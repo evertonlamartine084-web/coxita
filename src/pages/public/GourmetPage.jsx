@@ -6,7 +6,7 @@ import SplitText from '../../components/ui/SplitText'
 import { getSettings, peekSettings } from '../../services/settings'
 import { metaGourmet } from '../../content/paginas'
 import {
-  ANTECEDENCIA_HORAS, CAIXA_DEGUSTACAO, FOLGA_CAMADA, SABORES_GOURMET, saborPorSlug,
+  ANTECEDENCIA_HORAS, CAIXA_DEGUSTACAO, CAIXAS_PRONTAS, FOLGA_CAMADA, SABORES_GOURMET, saborPorSlug,
 } from '../../content/gourmet'
 
 /**
@@ -126,11 +126,16 @@ function FotoVazada({ foto, alt, prioridade, sizes, className = '', delay, raio 
           <Foto foto={foto} alt={alt} prioridade={prioridade} sizes={sizes} />
         </div>
       </div>
-      <div aria-hidden="true" className="pointer-events-none absolute" style={{ inset: VAZAMENTO }}>
+      <div aria-hidden="true" className="pointer-events-none absolute" style={{ inset: VAZAMENTO, containerType: 'size' }}>
         {foto.camada ? (
-          // Camada pronta: a foto inteira (3:4) centralizada, que é onde o object-cover a põe;
-          // ela passa do enquadramento em cima e embaixo, e é isso que deixa a flor aparecer inteira
-          <div className="camada-flores absolute left-0 top-1/2 aspect-[3/4] w-full -translate-y-1/2">
+          // Camada pronta: a foto inteira (3:4) no mesmo lugar em que o object-cover põe a foto de
+          // baixo, em qualquer proporção de moldura: cobre a área toda (max entre caber na largura e
+          // caber na altura) e fica centralizada. Ela passa do enquadramento, e é isso que deixa a
+          // flor aparecer inteira
+          <div
+            className="camada-flores absolute left-1/2 top-1/2 aspect-[3/4]"
+            style={{ width: 'max(100cqw, 75cqh)', translate: '-50% -50%' }}
+          >
             <img
               src={foto.camada} alt="" loading={prioridade ? 'eager' : 'lazy'} decoding="async"
               className="absolute left-0 w-full"
@@ -249,21 +254,21 @@ export default function GourmetPage() {
         </section>
 
         <section id="sabores" aria-labelledby="titulo-sabores" className="scroll-mt-6 bg-[linear-gradient(to_bottom,var(--color-gourmet-paper),var(--color-gourmet-ivory)_18%,var(--color-gourmet-ivory)_82%,var(--color-gourmet-paper))] px-5 py-24 sm:px-8 sm:py-32">
-          <Titulo id="titulo-sabores" apoio="Três salgados e três doces, do tamanho de uma mordida.">Os <Italico>sabores</Italico></Titulo>
-          <ul className="mx-auto mt-14 grid max-w-6xl list-none grid-cols-2 gap-x-4 gap-y-10 p-0 sm:grid-cols-3 sm:gap-x-8 sm:gap-y-14">
+          <Titulo id="titulo-sabores" apoio="Cinco salgados e cinco doces, do tamanho de uma mordida.">Os <Italico>sabores</Italico></Titulo>
+          <ul className="mx-auto mt-14 grid max-w-6xl list-none grid-cols-2 gap-x-4 gap-y-10 p-0 sm:grid-cols-3 sm:gap-x-8 sm:gap-y-14 lg:grid-cols-5 lg:gap-x-6">
             {SABORES_GOURMET.map((sabor, i) => (
-              <Reveal as="li" key={sabor.slug} delay={(i % 3) * 120} className="foto-entra">
+              <Reveal as="li" key={sabor.slug} delay={(i % 5) * 100} className="foto-entra">
                 {/* Com mouse, a foto na mão dá lugar à foto no prato. A do prato só existe em aparelho
                     com mouse (`hidden` no resto): assim o celular nem baixa a foto que nunca veria. */}
                 <div className="group relative aspect-[4/5] overflow-hidden rounded-3xl">
                   <Foto
                     foto={sabor.foto}
                     alt={`${sabor.nome}: ${sabor.descricao}`}
-                    sizes="(min-width: 640px) 30vw, 46vw"
+                    sizes="(min-width: 1024px) 19vw, (min-width: 640px) 30vw, 46vw"
                     className="motion-safe:group-hover:scale-[1.04]"
                   />
                   <div aria-hidden="true" className="absolute inset-0 hidden opacity-0 transition-opacity duration-[1200ms] ease-in-out group-hover:opacity-100 [@media(hover:hover)]:block">
-                    <Foto foto={sabor.fotoPrato} alt="" sizes="(min-width: 640px) 30vw, 46vw" className="motion-safe:group-hover:scale-[1.04]" />
+                    <Foto foto={sabor.fotoPrato} alt="" sizes="(min-width: 1024px) 19vw, (min-width: 640px) 30vw, 46vw" className="motion-safe:group-hover:scale-[1.04]" />
                   </div>
                 </div>
                 <p className="mt-4 font-display text-sm font-bold uppercase tracking-[0.18em] text-gourmet-terra">
@@ -276,7 +281,9 @@ export default function GourmetPage() {
           </ul>
         </section>
 
-        <CaixaDegustacao telefone={telefone} minimo={minimo} />
+        {CAIXAS_PRONTAS.map((caixa, i) => (
+          <CaixaPronta key={caixa.id} caixa={caixa} invertida={i % 2 === 1} telefone={telefone} minimo={minimo} />
+        ))}
         <MonteSuaCaixa telefone={telefone} minimo={minimo} />
         <Eventos telefone={telefone} minimo={minimo} />
       </main>
@@ -298,9 +305,10 @@ export default function GourmetPage() {
   )
 }
 
-function CaixaDegustacao({ telefone, minimo }) {
+/** Uma caixa pronta: foto de um lado, composição e pedido do outro. As caixas se alternam de lado. */
+function CaixaPronta({ caixa, invertida, telefone, minimo }) {
   const [data, setData] = useState('')
-  const caixa = CAIXA_DEGUSTACAO
+  const tituloId = `titulo-${caixa.id}`
 
   const pedir = () => {
     const linhas = [
@@ -315,21 +323,35 @@ function CaixaDegustacao({ telefone, minimo }) {
   }
 
   return (
-    <section id="caixa" aria-labelledby="titulo-caixa" className="scroll-mt-6 px-5 py-20 sm:px-8 sm:py-28">
+    <section id={caixa.id} aria-labelledby={tituloId} className="scroll-mt-6 px-5 py-20 sm:px-8 sm:py-28">
       {/* No computador a foto estica até a altura do texto: começa no "A caixa pronta" e termina
           com a última linha, em vez de ficar centralizada com sobra em cima e embaixo */}
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2 lg:items-stretch lg:gap-20">
-        <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-          <FotoVazada
-            className="aspect-[4/5] lg:absolute lg:inset-0 lg:aspect-auto"
-            foto={caixa.fotos.principal}
-            alt="Caixa Degustação vista de cima, com as tarteletes em fileiras"
-          />
+        <div className={`relative mx-auto w-full max-w-md lg:max-w-none ${invertida ? 'lg:order-2' : ''}`}>
+          {caixa.fotos.principal.flores || caixa.fotos.principal.camada ? (
+            <FotoVazada className="aspect-[4/5] lg:absolute lg:inset-0 lg:aspect-auto" foto={caixa.fotos.principal} alt={caixa.alt} />
+          ) : (
+            <Reveal className="foto-entra relative aspect-[4/5] overflow-hidden rounded-[2rem] lg:absolute lg:inset-0 lg:aspect-auto">
+              <Foto foto={caixa.fotos.principal} alt={caixa.alt} />
+            </Reveal>
+          )}
+          {caixa.fotos.detalhe && (
+            // Segunda foto sobreposta num canto em que a principal só tem flores (cada caixa diz qual,
+            // para não esconder nenhum sabor), com uma borda da cor do fundo que a destaca
+            <Reveal
+              delay={350}
+              className={`foto-entra absolute z-10 aspect-[3/4] w-[42%] overflow-hidden rounded-2xl border-4 border-gourmet-paper shadow-2xl ${
+                caixa.fotos.cantoDetalhe === 'superior-esquerdo' ? '-left-3 -top-8 sm:-left-8' : '-bottom-8 -right-3 sm:-right-8'
+              }`}
+            >
+              <Foto foto={caixa.fotos.detalhe} alt={caixa.fotos.altDetalhe} sizes="(min-width: 1024px) 20vw, 40vw" />
+            </Reveal>
+          )}
         </div>
 
         <Reveal className="text-center lg:text-left">
-          <p className="font-display text-lg font-bold uppercase tracking-[0.2em] text-gourmet-terra">A caixa pronta</p>
-          <h2 id="titulo-caixa" className="mt-2 font-display text-5xl font-extrabold uppercase leading-none sm:text-6xl">Caixa <Italico>degustação</Italico></h2>
+          <p className="font-display text-lg font-bold uppercase tracking-[0.2em] text-gourmet-terra">{caixa.chamada}</p>
+          <h2 id={tituloId} className="mt-2 font-display text-5xl font-extrabold uppercase leading-none sm:text-6xl">{caixa.titulo[0]} <Italico>{caixa.titulo[1]}</Italico></h2>
           <p className="mt-3 text-lg text-gourmet-cocoa">{caixa.pecas} unidades, salgadas e doces</p>
 
           <ul className="mx-auto mt-8 max-w-sm list-none space-y-3 p-0 text-lg lg:mx-0">
