@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -7,6 +7,7 @@ import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
+import { useAppDoPainel } from '../../hooks/useAppDoPainel'
 
 const navItems = [
   { to: '/admin', icon: HiHome, label: 'Dashboard' },
@@ -31,6 +32,7 @@ export default function AdminLayout() {
   // null = ainda lendo. Lido direto do banco, sem o cache de settings: é o estado do site agora
   const [emManutencao, setEmManutencao] = useState(null)
   const [trocandoSite, setTrocandoSite] = useState(false)
+  const appDoPainel = useAppDoPainel()
 
   useEffect(() => {
     supabase.from('settings').select('value').eq('key', 'site_em_manutencao').maybeSingle()
@@ -253,6 +255,15 @@ export default function AdminLayout() {
           })}
         </nav>
         <div className="shrink-0 p-4 border-t border-white/15 bg-brown">
+          {appDoPainel.podeInstalar && (
+            <button
+              onClick={appDoPainel.instalar}
+              className="mb-2 flex items-center gap-3 px-3 py-2.5 w-full border-2 border-secondary text-secondary hover:bg-secondary hover:text-brown font-semibold transition-colors"
+            >
+              <HiDownload size={20} />
+              <span>Instalar o painel</span>
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 text-cream/70 hover:text-white w-full border-2 border-transparent hover:border-white/20 transition-colors"

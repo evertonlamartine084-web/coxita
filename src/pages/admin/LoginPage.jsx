@@ -4,8 +4,11 @@ import { signIn } from '../../services/auth'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import toast from 'react-hot-toast'
+import { useAppDoPainel } from '../../hooks/useAppDoPainel'
 
 export default function LoginPage() {
+  // o painel instalado abre aqui quando a sessão vence: o manifesto do painel tem que valer já
+  useAppDoPainel()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
