@@ -127,9 +127,12 @@ export const CAIXA_DEGUSTACAO = {
     abertura: comFlores(foto('caixa-diagonal')),
     principal: comFlores(foto('caixa-aberta')),
     presente: foto('caixa-sacola'),
-    detalhe: foto('caixa-perto'),
-    altDetalhe: 'Caixa Degustação vista de perto, com as fileiras de tarteletes',
-    cantoDetalhe: 'superior-esquerdo',   // em cima do lírio, sem cobrir tartelete
+    // a caixa e as flores já recortadas (fundo transparente, 29/09/2026): aparece solta sobre o
+    // preto, sem moldura, no lugar da `principal`
+    recorte: {
+      src: '/fotos/gourmet/caixa-degustacao-recorte.webp',
+      srcPequena: '/fotos/gourmet/caixa-degustacao-recorte-800.webp',
+    },
   },
 }
 
@@ -152,10 +155,13 @@ export const CAIXA_COQUETEL = {
   ],
   fotos: {
     principal: comCamada(foto('caixa-coquetel')),
-    // no canto da principal: a mesma caixa fechada com laço, na frente da sacola
-    detalhe: foto('caixa-coquetel-sacola'),
-    altDetalhe: 'Caixa Degustação fechada com laço dourado, na frente da sacola Coxelli',
-    cantoDetalhe: 'inferior-direito',    // em cima das flores, sem cobrir sabor
+    // caixa e flores já recortadas (fundo transparente, 29/09/2026), soltas sobre o preto
+    recorte: {
+      src: '/fotos/gourmet/caixa-coquetel-recorte.webp',
+      srcPequena: '/fotos/gourmet/caixa-coquetel-recorte-800.webp',
+      largura: 1086,
+      altura: 1402,
+    },
   },
 }
 

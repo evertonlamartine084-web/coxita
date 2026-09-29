@@ -328,7 +328,18 @@ function CaixaPronta({ caixa, invertida, telefone, minimo }) {
           com a última linha, em vez de ficar centralizada com sobra em cima e embaixo */}
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2 lg:items-stretch lg:gap-20">
         <div className={`relative mx-auto w-full max-w-md lg:max-w-none ${invertida ? 'lg:order-2' : ''}`}>
-          {caixa.fotos.principal.flores || caixa.fotos.principal.camada ? (
+          {caixa.fotos.recorte ? (
+            // recorte com fundo transparente: sem moldura, a caixa e as flores soltas no preto
+            <Reveal className="foto-entra relative lg:absolute lg:inset-0">
+              <img
+                src={caixa.fotos.recorte.srcPequena}
+                srcSet={`${caixa.fotos.recorte.srcPequena} 600w, ${caixa.fotos.recorte.src} ${caixa.fotos.recorte.largura ?? 1072}w`}
+                sizes="(min-width: 1024px) 45vw, 92vw"
+                width={caixa.fotos.recorte.largura ?? 1072} height={caixa.fotos.recorte.altura ?? 1432} alt={caixa.alt} loading="lazy" decoding="async"
+                className="h-full w-full object-contain drop-shadow-[0_24px_40px_rgb(0_0_0/0.55)]"
+              />
+            </Reveal>
+          ) : caixa.fotos.principal.flores || caixa.fotos.principal.camada ? (
             <FotoVazada className="aspect-[4/5] lg:absolute lg:inset-0 lg:aspect-auto" foto={caixa.fotos.principal} alt={caixa.alt} />
           ) : (
             <Reveal className="foto-entra relative aspect-[4/5] overflow-hidden rounded-[2rem] lg:absolute lg:inset-0 lg:aspect-auto">
