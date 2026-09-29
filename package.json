@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/dados-iniciais.mjs && node scripts/sitemap.mjs && node scripts/prerender.mjs",
+    "build": "vite build && node scripts/dados-iniciais.mjs && node scripts/sitemap.mjs && node scripts/prerender.mjs && node scripts/painel-html.mjs",
     "lint": "eslint .",
     "deploy:homolog": "./scripts/deploy.sh homolog",
     "deploy:producao": "./scripts/deploy.sh producao",

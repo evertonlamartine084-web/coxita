@@ -7,7 +7,7 @@
 //
 // Ao mexer em qualquer coisa deste arquivo, suba a VERSION: é ela que descarta os caches velhos.
 
-const VERSION = 'v6'
+const VERSION = 'v7'
 const SHELL_CACHE = `coxelli-shell-${VERSION}`
 const ASSET_CACHE = `coxelli-assets-${VERSION}`
 
@@ -72,6 +72,9 @@ self.addEventListener('fetch', (event) => {
   // Navegação (qualquer rota do SPA): rede primeiro, cache como rede de segurança.
   // Sem isso, abrir /cardapio offline dá erro do navegador em vez da tela do app.
   if (request.mode === 'navigate') {
+    // o painel tem HTML próprio (manifesto e ícone dele, ver scripts/painel-html.mjs): guarda e
+    // devolve na chave dele, senão o offline de um app abriria com o <head> do outro
+    const chave = url.pathname === '/admin' || url.pathname.startsWith('/admin/') ? '/admin/' : '/'
     event.respondWith(
       fetch(request)
         .then((res) => {
@@ -81,11 +84,11 @@ self.addEventListener('fetch', (event) => {
           // instalou o app, ainda aparecendo depois que o site voltasse.
           if (res.ok) {
             const copy = res.clone()
-            caches.open(SHELL_CACHE).then((c) => c.put('/', copy))
+            caches.open(SHELL_CACHE).then((c) => c.put(chave, copy))
           }
           return res
         })
-        .catch(() => caches.match('/', { cacheName: SHELL_CACHE }).then((r) => r || caches.match('/')))
+        .catch(() => caches.match(chave, { cacheName: SHELL_CACHE }).then((r) => r || caches.match('/')))
     )
     return
   }
