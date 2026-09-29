@@ -246,6 +246,11 @@ h1, h2, h3, h4, h5, h6 {
   background-size: 20px 20px;
 }
 
+/* O selo das prévias sobe quando a barra do carrinho está aberta, para não cobrir o total. */
+body:has(.barra-carrinho) .selo-ambiente {
+  bottom: 6.5rem;
+}
+
 .print-shadow {
   box-shadow: 5px 5px 0 var(--color-brown);
 }

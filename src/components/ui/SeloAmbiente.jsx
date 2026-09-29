@@ -36,7 +36,7 @@ export default function SeloAmbiente() {
 
   return (
     <div
-      className="fixed bottom-2 left-2 z-[9999] pointer-events-none select-none"
+      className="selo-ambiente fixed bottom-2 left-2 z-[9999] pointer-events-none select-none"
       aria-hidden="true"
     >
       <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/95 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-lg ring-1 ring-amber-700/30">

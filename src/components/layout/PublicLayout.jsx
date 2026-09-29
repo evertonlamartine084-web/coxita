@@ -3,6 +3,7 @@ import Header from './Header'
 import Footer from './Footer'
 import InstallBar from '../ui/InstallBar'
 import InstallPrompt from '../ui/InstallPrompt'
+import BarraCarrinho from '../cart/BarraCarrinho'
 import { useCapturarInstalacao } from '../../hooks/useCapturarInstalacao'
 
 export default function PublicLayout() {
@@ -16,6 +17,7 @@ export default function PublicLayout() {
         <Outlet />
       </main>
       <Footer />
+      <BarraCarrinho />
       <InstallPrompt />
     </div>
   )
