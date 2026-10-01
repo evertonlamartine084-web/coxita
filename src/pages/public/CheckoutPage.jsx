@@ -20,6 +20,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
 import { calcularDescontoAvista, ehAVista, rotuloDoDesconto } from '../../utils/descontoAvista'
+import { abertoEm, dataLocal, erroDeAgendamento, horarioDaLoja } from '../../utils/funcionamento'
 import toast from 'react-hot-toast'
 import Seo from '../../components/ui/Seo'
 
@@ -133,14 +134,10 @@ export default function CheckoutPage() {
     getSettings().then(s => {
       setSettingsData(s)
 
-      // Check if store is open
-      if (s.opening_time && s.closing_time) {
-        const now = new Date()
-        const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-        if (hhmm < s.opening_time || hhmm >= s.closing_time) {
-          setStoreClosed(true)
-          setForm(f => ({ ...f, order_type: 'agendado' }))
-        }
+      // Fora do dia ou da hora de entrega, só dá para agendar
+      if (!abertoEm(new Date(), s)) {
+        setStoreClosed(true)
+        setForm(f => ({ ...f, order_type: 'agendado' }))
       }
     })
 
@@ -251,6 +248,10 @@ export default function CheckoutPage() {
       if (form.scheduled_date && form.scheduled_time) {
         const scheduled = new Date(`${form.scheduled_date}T${form.scheduled_time}`)
         if (scheduled <= new Date()) errs.scheduled_date = 'Data/hora deve ser no futuro'
+        else {
+          const foraDoHorario = erroDeAgendamento(form.scheduled_date, form.scheduled_time, settings)
+          if (foraDoHorario) errs.scheduled_time = foraDoHorario
+        }
       }
     }
     const minOrder = parseFloat(settings.min_order || '0')
@@ -539,7 +540,7 @@ export default function CheckoutPage() {
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
                   <p className="text-sm font-bold text-yellow-700">Estamos fechados no momento</p>
                   <p className="text-xs text-yellow-600 mt-0.5">
-                    Horário: {settings.opening_time}–{settings.closing_time}. Agende seu pedido!
+                    Entregamos de segunda a sábado, das {horarioDaLoja(settings).abre} às {horarioDaLoja(settings).fecha}. Agende seu pedido!
                   </p>
                 </div>
               )}
@@ -574,7 +575,7 @@ export default function CheckoutPage() {
                       name="scheduled_date"
                       value={form.scheduled_date}
                       onChange={handleChange}
-                      min={new Date().toISOString().split('T')[0]}
+                      min={dataLocal()}
                       className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
                         errors.scheduled_date ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
                       }`}
@@ -588,6 +589,8 @@ export default function CheckoutPage() {
                       name="scheduled_time"
                       value={form.scheduled_time}
                       onChange={handleChange}
+                      min={horarioDaLoja(settings).abre}
+                      max={horarioDaLoja(settings).fecha}
                       className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
                         errors.scheduled_time ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
                       }`}
