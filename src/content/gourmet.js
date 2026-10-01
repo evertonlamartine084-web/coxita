@@ -1,10 +1,11 @@
 /**
- * Linha Coxelli Gourmet: tarteletes e empadinhas para presente e evento.
+ * Linha Coxelli Gourmet: salgados e doces finos para presente e evento.
  *
- * Fonte única da página /gourmet e do HTML pré-renderizado dela. Os nomes e as descrições
- * vêm do que aparece nas fotos enviadas pela loja (27/09/2026) e ainda passam por revisão;
- * os preços ainda não existem, por isso todo pedido sai pelo WhatsApp com a composição
- * montada. Quando houver preço, é aqui que ele entra.
+ * Fonte única da página /gourmet e do HTML pré-renderizado dela. Nomes, descrições, preços e
+ * pedido mínimo vêm dos cardápios em PDF da loja ("Salgados e Doces Finos" e "Box
+ * personalizada", 01/10/2026). O pedido continua saindo pelo WhatsApp, agora com o total.
+ *
+ * Preço por unidade: `cartao` é crédito ou débito; `avista` é Pix ou dinheiro.
  */
 
 /** Horas mínimas entre o pedido e a retirada. Valor provisório, a confirmar com a loja. */
@@ -24,85 +25,98 @@ export const FOLGA_CAMADA = 0.04
 const comCamada = (f) => ({ ...f, camada: f.src.replace('.jpg', '-flores.png') })
 
 // Ordem da página: os cinco salgados e depois os cinco doces (uma fileira de cada no computador).
-// Sabores novos de 27/09/2026, com nomes e recheios confirmados pela loja.
+// `minimo`: pedido mínimo de unidades daquele sabor fora das boxes.
 export const SABORES_GOURMET = [
   {
     slug: 'caprese',
-    nome: 'Caprese',
+    nome: 'Quiche de tomate confit',
     tipo: 'salgada',
-    descricao: 'Creme branco, tomate-cereja confitado e folhas de manjericão.',
+    descricao: 'Massa sablée com creme de mussarela de búfala, tomate confit e manjericão fresco.',
+    preco: { cartao: 1.78, avista: 1.54 },
     foto: foto('caprese'),
     fotoPrato: comCamada(foto('caprese-prato')),
   },
   {
     slug: 'frango',
-    nome: 'Frango cremoso',
+    nome: 'Quiche de frango cremoso',
     tipo: 'salgada',
-    descricao: 'Frango desfiado cremoso, fio de azeite e ervas secas.',
+    descricao: 'Massa sablée com recheio de frango cremoso, coberto por ervas frescas e azeite.',
+    preco: { cartao: 0.50, avista: 0.43 },
     foto: foto('frango'),
     fotoPrato: foto('frango-prato'),
   },
   {
     slug: 'camarao',
-    nome: 'Camarão',
+    nome: 'Quiche de camarão',
     tipo: 'salgada',
-    descricao: 'Camarão inteiro sobre creme branco, na massa sablée.',
+    descricao: 'Massa sablée com creme de mussarela de búfala e camarão alho e óleo.',
+    preco: { cartao: 1.88, avista: 1.63 },
     foto: foto('camarao'),
     fotoPrato: foto('camarao-prato'),
   },
   {
     slug: 'sertanejo',
-    nome: 'Sertanejo',
+    nome: 'Quiche sertanejo',
     tipo: 'salgada',
-    descricao: 'Carne de sol na nata com queijo coalho, finalizada com pimenta biquinho, na massa sablée.',
+    descricao: 'Massa sablée com carne de sol, queijo coalho, requeijão, nata, coentro e pimenta biquinho.',
+    preco: { cartao: 1.13, avista: 0.98 },
     foto: foto('biquinho'),
     fotoPrato: foto('biquinho-prato'),
   },
   {
     slug: 'empadinha',
-    nome: 'Empadinha',
+    nome: 'Empada de frango clássica',
     tipo: 'salgada',
-    descricao: 'Fechada, com a massa dourada no forno e ervas por cima.',
+    descricao: 'Massa sablée com recheio de frango cremoso, coberta por ervas frescas.',
+    preco: { cartao: 0.43, avista: 0.37 },
     foto: foto('empadinha'),
     fotoPrato: foto('empadinha-prato'),
   },
   {
     slug: 'frutas',
-    nome: 'Frutas frescas',
+    nome: 'Tartelete de frutas frescas',
     tipo: 'doce',
-    descricao: 'Morango, manga e kiwi em cubos, sob uma rosa de creme.',
+    descricao: 'Massa sablée com creme pâtissière, kiwi, morango e manga picados.',
+    preco: { cartao: 0.85, avista: 0.74 },
     foto: foto('frutas'),
     fotoPrato: comCamada(foto('frutas-prato')),
   },
   {
     slug: 'doce-de-leite',
-    nome: 'Doce de leite',
+    nome: 'Empada de doce de leite',
     tipo: 'doce',
-    descricao: 'Doce de leite cremoso, espelhado, na massa sablée.',
+    descricao: 'Empada de massa sablée com doce de leite.',
+    preco: { cartao: 0.70, avista: 0.61 },
     foto: foto('doce-de-leite'),
     fotoPrato: foto('doce-de-leite-prato'),
   },
   {
     slug: 'craquelin',
-    nome: 'Choux craquelin',
+    nome: 'Choux au craquelin',
     tipo: 'doce',
-    descricao: 'Carolina de massa choux recheada com creme pâtissière, com casquinha crocante de craquelin.',
+    descricao: 'Massa choux com casquinha de craquelin, recheada com creme pâtissière.',
+    preco: { cartao: 0.30, avista: 0.26 },
+    minimo: 25,
     foto: foto('craquelin'),
     fotoPrato: foto('craquelin-prato'),
   },
   {
     slug: 'choux-chocolate',
-    nome: 'Choux de chocolate',
+    nome: 'Carolina',
     tipo: 'doce',
-    descricao: 'Carolina de massa choux com cobertura brilhante de chocolate.',
+    descricao: 'Massa choux recheada com doce de leite e coberta com chocolate meio amargo.',
+    preco: { cartao: 1.28, avista: 1.11 },
+    minimo: 25,
     foto: foto('choux-chocolate'),
     fotoPrato: foto('choux-chocolate-prato'),
   },
   {
     slug: 'cannoli',
-    nome: 'Cannoli',
+    nome: 'Cannoli tradicional',
     tipo: 'doce',
-    descricao: 'Casquinha crocante com açúcar de confeiteiro e creme de cereja com pedacinhos da fruta.',
+    descricao: 'Recheado com creme de ricota, cream cheese e cerejas.',
+    preco: { cartao: 2.58, avista: 2.24 },
+    minimo: 25,
     foto: foto('cannoli'),
     fotoPrato: foto('cannoli-prato'),
   },
@@ -110,11 +124,12 @@ export const SABORES_GOURMET = [
 
 export const CAIXA_DEGUSTACAO = {
   id: 'caixa',
-  nome: 'Caixa Degustação',
-  titulo: ['Caixa', 'degustação'],   // a segunda palavra vai em itálico
-  chamada: 'A caixa pronta',
+  nome: 'Box personalizada 1',
+  titulo: ['Box', 'personalizada'],   // a segunda palavra vai em itálico
+  chamada: 'Box 1',
   pecas: 13,
-  alt: 'Caixa Degustação vista de cima, com as tarteletes em fileiras',
+  preco: { cartao: 24, avista: 22.5 },
+  alt: 'Box personalizada 1 vista de cima, com as peças em fileiras',
   // a composição da caixa das fotos, na ordem em que as fileiras aparecem
   composicao: [
     { slug: 'caprese', quantidade: 3 },
@@ -136,16 +151,16 @@ export const CAIXA_DEGUSTACAO = {
   },
 }
 
-// Segunda caixa pronta, das fotos de 27/09/2026: os cinco sabores novos, três de cada, na
-// ordem das fileiras da foto de cima. Por enquanto a loja chama também de Caixa Degustação; a
-// chamada ("Outra caixa pronta") e a lista de sabores é que a separam da primeira.
+// Segunda box, das fotos de 27/09/2026: os outros cinco sabores, três de cada, na ordem das
+// fileiras da foto de cima.
 export const CAIXA_COQUETEL = {
   id: 'caixa-coquetel',
-  nome: 'Caixa Degustação',
-  titulo: ['Caixa', 'degustação'],
-  chamada: 'Outra caixa pronta',
+  nome: 'Box personalizada 2',
+  titulo: ['Box', 'personalizada'],
+  chamada: 'Box 2',
   pecas: 15,
-  alt: 'Caixa Degustação de 15 peças vista de cima: sertanejo, camarão, choux craquelin, choux de chocolate e cannoli',
+  preco: { cartao: 34, avista: 32.5 },
+  alt: 'Box personalizada 2 vista de cima: quiche sertanejo, quiche de camarão, choux au craquelin, carolinas e cannoli',
   composicao: [
     { slug: 'sertanejo', quantidade: 3 },
     { slug: 'camarao', quantidade: 3 },

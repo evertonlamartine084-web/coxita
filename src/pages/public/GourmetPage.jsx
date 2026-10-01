@@ -5,20 +5,21 @@ import Reveal from '../../components/ui/Reveal'
 import SplitText from '../../components/ui/SplitText'
 import { getSettings, peekSettings } from '../../services/settings'
 import { metaGourmet } from '../../content/paginas'
+import { formatCurrency } from '../../utils/format'
 import {
   ANTECEDENCIA_HORAS, CAIXA_DEGUSTACAO, CAIXAS_PRONTAS, FOLGA_CAMADA, SABORES_GOURMET, saborPorSlug,
 } from '../../content/gourmet'
 
 /**
- * Coxelli Gourmet — a linha de tarteletes e empadinhas da marca, para presente e evento.
+ * Coxelli Gourmet — a linha de salgados e doces finos da marca, para presente e evento.
  *
  * É a Coxelli de sempre vestida de preto: o logo verdadeiro com "gourmet" ao lado, o laranja
  * da marca e as formas orgânicas dos posts e da sacola, com as fontes do próprio site. As duas tentativas anteriores
  * (serifa com dourado, depois confeitaria clara) pareceram genéricas justamente por inventar
  * uma identidade em vez de usar a da loja.
  *
- * Ainda sem preço: toda escolha vira uma mensagem de WhatsApp com a composição pronta, e a loja
- * confirma valor e data.
+ * Com preço (cartão e Pix/dinheiro): toda escolha vira uma mensagem de WhatsApp com a composição
+ * e o total prontos, e a loja confirma a data.
  */
 
 const WHATSAPP_PADRAO = '(84) 99616-9478'
@@ -79,6 +80,27 @@ function dataMinima() {
   const d = new Date(Date.now() + ANTECEDENCIA_HORAS * 3600_000)
   const p = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/** Total de uma lista de { preco, quantidade }, nas duas formas de pagamento. */
+const somar = (itens) => itens.reduce(
+  (t, { preco, quantidade }) => ({ cartao: t.cartao + preco.cartao * quantidade, avista: t.avista + preco.avista * quantidade }),
+  { cartao: 0, avista: 0 },
+)
+
+const linhaDoTotal = (t) => `Total: ${formatCurrency(t.cartao)} no crédito ou débito, ou ${formatCurrency(t.avista)} no Pix ou dinheiro`
+
+/** Os dois preços, um sob o outro: o de cartão e o à vista, como no cardápio da loja. */
+function Preco({ preco, unidade = '', className = '', destaque = 'text-gourmet-ink' }) {
+  return (
+    <p className={`m-0 leading-snug ${className}`}>
+      <span className={`font-display text-xl font-bold tabular-nums ${destaque}`}>{formatCurrency(preco.cartao)}</span>
+      <span className="text-sm"> crédito ou débito{unidade}</span>
+      <br />
+      <span className={`font-display text-xl font-bold tabular-nums ${destaque}`}>{formatCurrency(preco.avista)}</span>
+      <span className="text-sm"> Pix ou dinheiro{unidade}</span>
+    </p>
+  )
 }
 
 const dataPorExtenso = (iso) =>
@@ -176,11 +198,18 @@ function Titulo({ children, apoio, id, claro = true }) {
   )
 }
 
-function Contador({ valor, aoMudar, nome }) {
-  const botao = 'flex size-9 cursor-pointer items-center justify-center rounded-full border-2 border-gourmet-paper text-lg font-bold text-gourmet-paper transition-colors hover:bg-gourmet-paper hover:text-gourmet-terra disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-gourmet-paper'
+const BOTAO_CONTADOR = {
+  // sobre o laranja da "Monte a sua caixa"
+  laranja: 'border-gourmet-paper text-gourmet-paper hover:bg-gourmet-paper hover:text-gourmet-terra disabled:hover:bg-transparent disabled:hover:text-gourmet-paper',
+  // sobre o preto das boxes
+  escuro: 'border-gourmet-terra text-gourmet-terra hover:bg-gourmet-terra hover:text-gourmet-paper disabled:hover:bg-transparent disabled:hover:text-gourmet-terra',
+}
+
+function Contador({ valor, aoMudar, nome, tema = 'laranja', piso = 0 }) {
+  const botao = `flex size-9 cursor-pointer items-center justify-center rounded-full border-2 text-lg font-bold transition-colors disabled:cursor-default disabled:opacity-25 ${BOTAO_CONTADOR[tema]}`
   return (
     <div className="flex items-center gap-1.5" role="group" aria-label={`Quantidade de ${nome}`}>
-      <button type="button" className={botao} onClick={() => aoMudar(valor - 1)} disabled={valor === 0} aria-label={`Menos ${nome}`}>−</button>
+      <button type="button" className={botao} onClick={() => aoMudar(valor - 1)} disabled={valor <= piso} aria-label={`Menos ${nome}`}>−</button>
       <span key={valor} className="pop w-8 text-center font-display text-2xl font-bold tabular-nums" aria-live="polite">{valor}</span>
       <button type="button" className={botao} onClick={() => aoMudar(valor + 1)} aria-label={`Mais ${nome}`}>+</button>
     </div>
@@ -226,13 +255,13 @@ export default function GourmetPage() {
           <div className="text-center lg:text-left">
             <Reveal as="p" className="font-display text-lg font-bold uppercase tracking-[0.2em] text-gourmet-terra">Sob encomenda</Reveal>
             {/* SplitText só divide texto puro: a palavra em itálico entra depois, com o atraso dela */}
-            <h1 aria-label="Tarteletes e empadinhas para ocasiões especiais" className="mt-3 font-display text-5xl font-extrabold uppercase leading-[0.95] sm:text-6xl lg:text-7xl">
-              <SplitText aria-hidden="true" delay={150} passo={70}>Tarteletes e empadinhas para ocasiões</SplitText>{' '}
+            <h1 aria-label="Salgados e doces finos para ocasiões especiais" className="mt-3 font-display text-5xl font-extrabold uppercase leading-[0.95] sm:text-6xl lg:text-7xl">
+              <SplitText aria-hidden="true" delay={150} passo={70}>Salgados e doces finos para ocasiões</SplitText>{' '}
               <span aria-hidden="true" className="palavra italico-gourmet text-gourmet-terra" style={{ '--palavra-delay': '500ms' }}>especiais</span>
             </h1>
             <Reveal as="p" delay={550} className="mx-auto mt-6 max-w-md text-lg leading-relaxed text-gourmet-cocoa lg:mx-0">
-              Salgadas e doces, feitas à mão e arrumadas em caixa com laço. Para presentear,
-              receber em casa ou servir num evento.
+              Quiches, empadas, tarteletes, carolinas e cannoli, feitos à mão e arrumados em caixa
+              com laço. Para presentear, receber em casa, degustar ou servir num evento.
             </Reveal>
             <Reveal delay={700} className="mt-9 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
               <a href="#caixa" className={`${botao} no-underline`}>Encomendar</a>
@@ -247,14 +276,14 @@ export default function GourmetPage() {
               delay={250}
               className="aspect-[4/5]"
               foto={CAIXA_DEGUSTACAO.fotos.abertura}
-              alt="Caixa Coxelli Gourmet aberta: tarteletes caprese à frente, frango, frutas, doce de leite e empadinhas atrás"
+              alt="Box Coxelli Gourmet aberta: quiches de tomate confit à frente, quiches de frango, tarteletes de frutas, empadas de doce de leite e empadas de frango atrás"
               prioridade
             />
           </div>
         </section>
 
         <section id="sabores" aria-labelledby="titulo-sabores" className="scroll-mt-6 bg-[linear-gradient(to_bottom,var(--color-gourmet-paper),var(--color-gourmet-ivory)_18%,var(--color-gourmet-ivory)_82%,var(--color-gourmet-paper))] px-5 py-24 sm:px-8 sm:py-32">
-          <Titulo id="titulo-sabores" apoio="Cinco salgados e cinco doces, do tamanho de uma mordida.">Os <Italico>sabores</Italico></Titulo>
+          <Titulo id="titulo-sabores" apoio="Cinco salgados e cinco doces, do tamanho de uma mordida. Preço por unidade.">Os <Italico>sabores</Italico></Titulo>
           <ul className="mx-auto mt-14 grid max-w-6xl list-none grid-cols-2 gap-x-4 gap-y-10 p-0 sm:grid-cols-3 sm:gap-x-8 sm:gap-y-14 lg:grid-cols-5 lg:gap-x-6">
             {SABORES_GOURMET.map((sabor, i) => (
               <Reveal as="li" key={sabor.slug} delay={(i % 5) * 100} className="foto-entra">
@@ -276,6 +305,8 @@ export default function GourmetPage() {
                 </p>
                 <h3 className="mt-1 font-display text-2xl font-extrabold uppercase leading-tight sm:text-3xl">{sabor.nome}</h3>
                 <p className="mt-2 text-[0.95rem] leading-relaxed text-gourmet-cocoa">{sabor.descricao}</p>
+                <Preco preco={sabor.preco} className="mt-3 text-gourmet-cocoa" />
+                {sabor.minimo && <p className="mt-2 text-sm font-semibold text-gourmet-terra">Pedido mínimo de {sabor.minimo} unidades</p>}
               </Reveal>
             ))}
           </ul>
@@ -308,15 +339,18 @@ export default function GourmetPage() {
 /** Uma caixa pronta: foto de um lado, composição e pedido do outro. As caixas se alternam de lado. */
 function CaixaPronta({ caixa, invertida, telefone, minimo }) {
   const [data, setData] = useState('')
+  const [quantidade, setQuantidade] = useState(1)
   const tituloId = `titulo-${caixa.id}`
+  const total = somar([{ preco: caixa.preco, quantidade }])
 
   const pedir = () => {
     const linhas = [
       'Olá! Quero encomendar da linha Coxelli Gourmet:',
       '',
-      `${caixa.nome} (${caixa.pecas} unidades)`,
+      `${quantidade}x ${caixa.nome} (${caixa.pecas} unidades cada)`,
       ...caixa.composicao.map(c => `${c.quantidade} ${saborPorSlug(c.slug).nome}`),
       '',
+      linhaDoTotal(total),
       data ? `Para ${dataPorExtenso(data)}` : 'Data a combinar',
     ]
     abrirWhatsApp(telefone, linhas.join('\n'))
@@ -378,13 +412,21 @@ function CaixaPronta({ caixa, invertida, telefone, minimo }) {
             Em caixa branca com visor, fechada com laço, dentro da sacola Coxelli.
           </p>
 
+          <Preco preco={caixa.preco} unidade=" (cada box)" className="mx-auto mt-6 max-w-sm text-gourmet-cocoa lg:mx-0" destaque="text-gourmet-terra" />
+
           <div className="mx-auto mt-9 max-w-sm text-left lg:mx-0">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <span className={`${rotuloCampo} mb-0`}>Quantas boxes?</span>
+              <Contador valor={quantidade} aoMudar={n => setQuantidade(Math.max(1, n))} nome={caixa.nome} tema="escuro" piso={1} />
+            </div>
             <label className="block">
               <span className={rotuloCampo}>Para quando?</span>
               <input type="date" min={minimo} value={data} onChange={e => setData(e.target.value)} className={campo} />
             </label>
             <button type="button" onClick={pedir} className={`${botao} mt-5 w-full`}>Encomendar pelo WhatsApp</button>
-            <p className="mt-3 text-center text-sm text-gourmet-cocoa">O valor é confirmado na conversa.</p>
+            <p className="mt-3 text-center text-sm text-gourmet-cocoa">
+              Total: {formatCurrency(total.cartao)} no cartão ou {formatCurrency(total.avista)} no Pix ou dinheiro
+            </p>
           </div>
         </Reveal>
       </div>
@@ -396,15 +438,24 @@ function MonteSuaCaixa({ telefone, minimo }) {
   const [qtd, setQtd] = useState({})
   const [data, setData] = useState('')
   const total = Object.values(qtd).reduce((s, n) => s + n, 0)
-  const mudar = (slug, n) => setQtd(q => ({ ...q, [slug]: Math.max(0, n) }))
+  const escolhidos = SABORES_GOURMET.filter(s => qtd[s.slug] > 0)
+  const valor = somar(escolhidos.map(s => ({ preco: s.preco, quantidade: qtd[s.slug] })))
+  // Sabor com pedido mínimo pula de 0 direto para o mínimo, e do mínimo volta para 0
+  const mudar = (sabor, n) => setQtd(q => {
+    const atual = q[sabor.slug] ?? 0
+    const minimo = sabor.minimo ?? 1
+    const novo = n > atual ? Math.max(n, minimo) : n < minimo ? 0 : n
+    return { ...q, [sabor.slug]: novo }
+  })
 
   const pedir = () => {
     const linhas = [
       'Olá! Quero montar uma caixa da linha Coxelli Gourmet:',
       '',
-      ...SABORES_GOURMET.filter(s => qtd[s.slug] > 0).map(s => `${qtd[s.slug]} ${s.nome}`),
-      `Total: ${total} unidades`,
+      ...escolhidos.map(s => `${qtd[s.slug]} ${s.nome}`),
+      `${total} unidades`,
       '',
+      linhaDoTotal(valor),
       data ? `Para ${dataPorExtenso(data)}` : 'Data a combinar',
     ]
     abrirWhatsApp(telefone, linhas.join('\n'))
@@ -415,7 +466,7 @@ function MonteSuaCaixa({ telefone, minimo }) {
     <section id="monte" aria-labelledby="titulo-monte" className="relative scroll-mt-6 bg-gourmet-terra px-5 py-20 text-gourmet-paper sm:px-8 sm:py-24">
       <Onda className="bottom-full translate-y-px" />
       <Onda className="top-full -translate-y-px rotate-180" />
-      <Titulo id="titulo-monte" claro={false} apoio="Escolha quantas unidades de cada sabor. A gente arruma na caixa e confirma com você.">
+      <Titulo id="titulo-monte" claro={false} apoio="Escolha quantas unidades de cada sabor. A gente arruma na caixa e confirma a data com você.">
         Monte a <Italico className="">sua</Italico> caixa
       </Titulo>
 
@@ -428,9 +479,12 @@ function MonteSuaCaixa({ telefone, minimo }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="m-0 font-display text-2xl font-extrabold uppercase leading-none">{sabor.nome}</p>
-                <p className="m-0 mt-1 text-sm font-medium">{sabor.tipo === 'doce' ? 'Doce' : 'Salgada'}</p>
+                <p className="m-0 mt-1 text-sm font-medium">
+                  {formatCurrency(sabor.preco.cartao)} cartão · {formatCurrency(sabor.preco.avista)} Pix ou dinheiro
+                  {sabor.minimo && <> · mínimo {sabor.minimo}</>}
+                </p>
               </div>
-              <Contador valor={qtd[sabor.slug] ?? 0} aoMudar={n => mudar(sabor.slug, n)} nome={sabor.nome} />
+              <Contador valor={qtd[sabor.slug] ?? 0} aoMudar={n => mudar(sabor, n)} nome={sabor.nome} />
             </li>
           ))}
         </ul>
@@ -439,6 +493,12 @@ function MonteSuaCaixa({ telefone, minimo }) {
           <span className="font-display text-xl font-bold uppercase">Sua caixa</span>
           <span className="font-display text-4xl font-extrabold tabular-nums">{total} <span className="text-2xl">{total === 1 ? 'unidade' : 'unidades'}</span></span>
         </div>
+        {total > 0 && (
+          <div className="mt-2 text-right font-medium tabular-nums">
+            <p className="m-0"><span className="font-display text-2xl font-extrabold">{formatCurrency(valor.cartao)}</span> crédito ou débito</p>
+            <p className="m-0"><span className="font-display text-2xl font-extrabold">{formatCurrency(valor.avista)}</span> Pix ou dinheiro</p>
+          </div>
+        )}
 
         <label className="mt-6 block">
           <span className="mb-1.5 block text-sm font-semibold">Para quando?</span>
@@ -455,7 +515,7 @@ function MonteSuaCaixa({ telefone, minimo }) {
           Enviar minha caixa pelo WhatsApp
         </button>
         <p className="mt-3 text-center text-sm font-medium">
-          {total === 0 ? 'Escolha ao menos um sabor.' : 'O valor é confirmado na conversa.'}
+          {total === 0 ? 'Escolha ao menos um sabor.' : 'A gente confirma a data na conversa.'}
         </p>
       </div>
     </section>
@@ -498,7 +558,7 @@ function Eventos({ telefone, minimo }) {
           <div className="mt-10 grid grid-cols-2 gap-4">
             <FotoVazada
               delay={150} className="aspect-[4/5]" raio="rounded-3xl"
-              foto={saborPorSlug('caprese').fotoPrato} alt="Tarteletes caprese servidas em prato branco" sizes="(min-width: 1024px) 22vw, 46vw"
+              foto={saborPorSlug('caprese').fotoPrato} alt="Quiches de tomate confit servidas em prato branco" sizes="(min-width: 1024px) 22vw, 46vw"
             />
             <FotoVazada
               delay={300} className="mt-8 aspect-[4/5]" raio="rounded-3xl"

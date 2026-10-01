@@ -87,9 +87,9 @@ export function metaOcasiao(ocasiao) {
 export function metaGourmet() {
   return {
     caminho: '/gourmet',
-    titulo: 'Coxelli Gourmet — tarteletes e empadinhas sob encomenda em Natal/RN',
-    h1: 'Tarteletes e empadinhas para ocasiões especiais',
-    descricao: 'Coxelli Gourmet: tarteletes salgadas e doces e empadinhas em caixa com laço, para presente e evento em Natal/RN. Caprese, camarão, frango cremoso, frutas, doce de leite, choux e cannoli. Sob encomenda.',
+    titulo: 'Coxelli Gourmet — salgados e doces finos sob encomenda em Natal/RN',
+    h1: 'Salgados e doces finos para ocasiões especiais',
+    descricao: 'Coxelli Gourmet: quiches, empadas, tarteletes, carolinas e cannoli em box com laço, para presente e evento em Natal/RN. Quiche de camarão, sertanejo e tomate confit, tartelete de frutas e choux au craquelin. Sob encomenda.',
   }
 }
 
