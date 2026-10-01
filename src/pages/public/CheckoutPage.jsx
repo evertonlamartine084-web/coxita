@@ -20,7 +20,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
 import { calcularDescontoAvista, ehAVista, rotuloDoDesconto } from '../../utils/descontoAvista'
-import { abertoEm, dataLocal, erroDeAgendamento, horarioDaLoja } from '../../utils/funcionamento'
+import { dataLocal, entregaAbertaEm, erroDeAgendamento, horarioDeEntrega } from '../../utils/funcionamento'
 import toast from 'react-hot-toast'
 import Seo from '../../components/ui/Seo'
 
@@ -70,7 +70,9 @@ export default function CheckoutPage() {
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState('')
   const [activeOrder, setActiveOrder] = useState(null)
-  const [storeClosed, setStoreClosed] = useState(false)
+  const [entregaForaDoHorario, setEntregaForaDoHorario] = useState(false)
+  // Só a entrega tem horário; quem retira pode pedir para agora a qualquer hora
+  const entregaFechada = form.delivery_type === 'entrega' && entregaForaDoHorario
 
   const getDescontoCupom = () => {
     if (!appliedCoupon) return 0
@@ -134,11 +136,7 @@ export default function CheckoutPage() {
     getSettings().then(s => {
       setSettingsData(s)
 
-      // Fora do dia ou da hora de entrega, só dá para agendar
-      if (!abertoEm(new Date(), s)) {
-        setStoreClosed(true)
-        setForm(f => ({ ...f, order_type: 'agendado' }))
-      }
+      setEntregaForaDoHorario(!entregaAbertaEm(new Date(), s))
     })
 
     // Pedido ainda em andamento deste aparelho, buscado pelos códigos guardados localmente
@@ -218,6 +216,11 @@ export default function CheckoutPage() {
     setDeliveryFee(form.delivery_type === 'entrega' && cotacao.status === 'ok' ? Number(cotacao.taxa) : 0)
   }, [form.delivery_type, cotacao, setDeliveryFee])
 
+  // Fora do horário de entrega, entrega só agendada
+  useEffect(() => {
+    if (entregaFechada) setForm(f => (f.order_type === 'agora' ? { ...f, order_type: 'agendado' } : f))
+  }, [entregaFechada])
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm(f => ({ ...f, [name]: value }))
@@ -248,7 +251,7 @@ export default function CheckoutPage() {
       if (form.scheduled_date && form.scheduled_time) {
         const scheduled = new Date(`${form.scheduled_date}T${form.scheduled_time}`)
         if (scheduled <= new Date()) errs.scheduled_date = 'Data/hora deve ser no futuro'
-        else {
+        else if (form.delivery_type === 'entrega') {
           const foraDoHorario = erroDeAgendamento(form.scheduled_date, form.scheduled_time, settings)
           if (foraDoHorario) errs.scheduled_time = foraDoHorario
         }
@@ -536,24 +539,32 @@ export default function CheckoutPage() {
 
             {/* Quando receber */}
             <CheckoutSection title="Quando você quer?" step="">
-              {storeClosed && (
+              {entregaFechada && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
-                  <p className="text-sm font-bold text-yellow-700">Estamos fechados no momento</p>
+                  <p className="text-sm font-bold text-yellow-700">A entrega está fora do horário agora</p>
                   <p className="text-xs text-yellow-600 mt-0.5">
-                    Entregamos de segunda a sábado, das {horarioDaLoja(settings).abre} às {horarioDaLoja(settings).fecha}. Agende seu pedido!
+                    A loja segue aberta. A entrega funciona de segunda a sábado, das {horarioDeEntrega(settings).abre} às {horarioDeEntrega(settings).fecha}:
+                    agende a entrega ou retire o pedido na loja agora.
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
+                    className="mt-2 text-xs font-bold text-yellow-800 underline"
+                  >
+                    Quero retirar na loja
+                  </button>
                 </div>
               )}
               <div className="flex gap-3">
                 <DeliveryOption
-                  active={form.order_type === 'agora' && !storeClosed}
-                  onChange={() => !storeClosed && handleChange({ target: { name: 'order_type', value: 'agora' } })}
+                  active={form.order_type === 'agora' && !entregaFechada}
+                  onChange={() => !entregaFechada && handleChange({ target: { name: 'order_type', value: 'agora' } })}
                   icon={<HiLightningBolt size={22} />}
                   label="Agora"
-                  sublabel={storeClosed ? 'Indisponível agora' : 'O mais rápido possível'}
+                  sublabel={entregaFechada ? 'Entrega só no horário' : 'O mais rápido possível'}
                   name="order_type"
                   value="agora"
-                  disabled={storeClosed}
+                  disabled={entregaFechada}
                 />
                 <DeliveryOption
                   active={form.order_type === 'agendado'}
@@ -589,8 +600,8 @@ export default function CheckoutPage() {
                       name="scheduled_time"
                       value={form.scheduled_time}
                       onChange={handleChange}
-                      min={horarioDaLoja(settings).abre}
-                      max={horarioDaLoja(settings).fecha}
+                      min={form.delivery_type === 'entrega' ? horarioDeEntrega(settings).abre : undefined}
+                      max={form.delivery_type === 'entrega' ? horarioDeEntrega(settings).fecha : undefined}
                       className={`w-full px-4 py-2.5 border-2 rounded-xl outline-none transition-all duration-200 font-body text-sm ${
                         errors.scheduled_time ? 'border-danger bg-danger/5' : 'border-border focus:border-primary'
                       }`}

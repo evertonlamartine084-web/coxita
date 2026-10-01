@@ -10,9 +10,9 @@ const fields = [
   { key: 'hero_image', label: 'Imagem do topo da home', placeholder: 'Ex: /fotos/coxinha-frango-mao.webp' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'address', label: 'Endereço' },
-  { key: 'opening_hours', label: 'Horário de Funcionamento (exibição)', placeholder: 'Ex: Segunda a sábado, das 13h às 18h' },
-  { key: 'opening_time', label: 'Horário de abertura', type: 'time' },
-  { key: 'closing_time', label: 'Horário de fechamento', type: 'time' },
+  { key: 'opening_hours', label: 'Horário de Funcionamento (exibição)', placeholder: 'Ex: Loja: todos os dias, 9h às 21h. Entrega: segunda a sábado, das 13h às 18h' },
+  { key: 'opening_time', label: 'Entrega começa às (seg a sáb)', type: 'time' },
+  { key: 'closing_time', label: 'Entrega termina às', type: 'time' },
   { key: 'estimated_delivery', label: 'Tempo estimado de entrega', placeholder: 'Ex: 30-45 min' },
   // a taxa é calculada pelo CEP: R$ por km pelo caminho de carro, até a distância máxima
   { key: 'delivery_fee_per_km', label: 'Taxa de entrega (R$ por km)', type: 'number' },

@@ -271,7 +271,7 @@ export default function HomePage() {
               {
                 icon: <HiClock size={26} />,
                 title: 'Horários',
-                text: settings.opening_hours || 'Segunda a sábado, das 13h às 18h',
+                text: settings.opening_hours || 'Loja: todos os dias, 9h às 21h. Entrega: segunda a sábado, das 13h às 18h',
                 color: 'primary',
               },
               {
