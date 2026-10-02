@@ -39,8 +39,7 @@ function useFonteAssinatura() {
 
 /**
  * A palavra de destaque de cada título, na mesma letra fina e itálica do "gourmet" do logo:
- * tira o peso das caixas altas e amarra os títulos à assinatura. Laranja no fundo preto;
- * na seção laranja herda o preto do título.
+ * tira o peso das caixas altas e amarra os títulos à assinatura, em laranja sobre o preto.
  */
 function Italico({ children, className = 'text-gourmet-terra' }) {
   return <span className={`italico-gourmet ${className}`}>{children}</span>
@@ -172,41 +171,22 @@ function FotoVazada({ foto, alt, prioridade, sizes, className = '', delay, raio 
   )
 }
 
-/**
- * Borda em onda da seção laranja: faz o laranja entrar e sair do preto com a curva das formas
- * da marca, em vez de um corte reto. Fica colada na seção, por fora dela.
- */
-function Onda({ className = '' }) {
-  return (
-    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true" className={`pointer-events-none absolute left-0 h-8 w-full text-gourmet-terra sm:h-12 ${className}`}>
-      <path fill="currentColor" d="M0 60V38C180 12 360 4 560 18s380 36 560 26 260-26 320-34V60z" />
-    </svg>
-  )
-}
-
 /** Título de seção: condensado e em caixa alta, como nos títulos do site da Coxelli. */
-function Titulo({ children, apoio, id, claro = true }) {
+function Titulo({ children, apoio, id }) {
   return (
     <Reveal className="mx-auto max-w-2xl text-center">
-      <h2 id={id} className={`font-display text-4xl font-extrabold uppercase leading-none sm:text-5xl ${claro ? 'text-gourmet-ink' : 'text-gourmet-paper'}`}>
+      <h2 id={id} className={`font-display text-4xl font-extrabold uppercase leading-none sm:text-5xl text-gourmet-ink`}>
         {children}
       </h2>
       {apoio && (
-        <p className={`mx-auto mt-4 max-w-xl text-[1.05rem] leading-relaxed ${claro ? 'text-gourmet-cocoa' : 'text-gourmet-paper/80'}`}>{apoio}</p>
+        <p className={`mx-auto mt-4 max-w-xl text-[1.05rem] leading-relaxed text-gourmet-cocoa`}>{apoio}</p>
       )}
     </Reveal>
   )
 }
 
-const BOTAO_CONTADOR = {
-  // sobre o laranja da "Monte a sua caixa"
-  laranja: 'border-gourmet-paper text-gourmet-paper hover:bg-gourmet-paper hover:text-gourmet-terra disabled:hover:bg-transparent disabled:hover:text-gourmet-paper',
-  // sobre o preto das boxes
-  escuro: 'border-gourmet-terra text-gourmet-terra hover:bg-gourmet-terra hover:text-gourmet-paper disabled:hover:bg-transparent disabled:hover:text-gourmet-terra',
-}
-
-function Contador({ valor, aoMudar, nome, tema = 'laranja', piso = 0 }) {
-  const botao = `flex size-9 cursor-pointer items-center justify-center rounded-full border-2 text-lg font-bold transition-colors disabled:cursor-default disabled:opacity-25 ${BOTAO_CONTADOR[tema]}`
+function Contador({ valor, aoMudar, nome, piso = 0 }) {
+  const botao = 'flex size-9 cursor-pointer items-center justify-center rounded-full border-2 border-gourmet-terra text-lg font-bold text-gourmet-terra transition-colors hover:bg-gourmet-terra hover:text-gourmet-paper disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-gourmet-terra'
   return (
     <div className="flex items-center gap-1.5" role="group" aria-label={`Quantidade de ${nome}`}>
       <button type="button" className={botao} onClick={() => aoMudar(valor - 1)} disabled={valor <= piso} aria-label={`Menos ${nome}`}>−</button>
@@ -242,7 +222,6 @@ export default function GourmetPage() {
           </Link>
           <nav className="flex items-center gap-6 font-display text-base font-semibold uppercase tracking-wide" aria-label="Seções">
             <a href="#sabores" className="hidden text-gourmet-cocoa no-underline hover:text-gourmet-terra md:inline">Sabores</a>
-            <a href="#monte" className="hidden text-gourmet-cocoa no-underline hover:text-gourmet-terra md:inline">Monte a sua</a>
             <a href="#eventos" className="hidden text-gourmet-cocoa no-underline hover:text-gourmet-terra md:inline">Eventos</a>
             <Link to="/" className="text-gourmet-cocoa no-underline hover:text-gourmet-terra">Salgados</Link>
           </nav>
@@ -315,7 +294,6 @@ export default function GourmetPage() {
         {CAIXAS_PRONTAS.map((caixa, i) => (
           <CaixaPronta key={caixa.id} caixa={caixa} invertida={i % 2 === 1} telefone={telefone} minimo={minimo} />
         ))}
-        <MonteSuaCaixa telefone={telefone} minimo={minimo} />
         <Eventos telefone={telefone} minimo={minimo} />
       </main>
 
@@ -417,7 +395,7 @@ function CaixaPronta({ caixa, invertida, telefone, minimo }) {
           <div className="mx-auto mt-9 max-w-sm text-left lg:mx-0">
             <div className="mb-5 flex items-center justify-between gap-4">
               <span className={`${rotuloCampo} mb-0`}>Quantas boxes?</span>
-              <Contador valor={quantidade} aoMudar={n => setQuantidade(Math.max(1, n))} nome={caixa.nome} tema="escuro" piso={1} />
+              <Contador valor={quantidade} aoMudar={n => setQuantidade(Math.max(1, n))} nome={caixa.nome} piso={1} />
             </div>
             <label className="block">
               <span className={rotuloCampo}>Para quando?</span>
@@ -429,94 +407,6 @@ function CaixaPronta({ caixa, invertida, telefone, minimo }) {
             </p>
           </div>
         </Reveal>
-      </div>
-    </section>
-  )
-}
-
-function MonteSuaCaixa({ telefone, minimo }) {
-  const [qtd, setQtd] = useState({})
-  const [data, setData] = useState('')
-  const total = Object.values(qtd).reduce((s, n) => s + n, 0)
-  const escolhidos = SABORES_GOURMET.filter(s => qtd[s.slug] > 0)
-  const valor = somar(escolhidos.map(s => ({ preco: s.preco, quantidade: qtd[s.slug] })))
-  // Sabor com pedido mínimo pula de 0 direto para o mínimo, e do mínimo volta para 0
-  const mudar = (sabor, n) => setQtd(q => {
-    const atual = q[sabor.slug] ?? 0
-    const minimo = sabor.minimo ?? 1
-    const novo = n > atual ? Math.max(n, minimo) : n < minimo ? 0 : n
-    return { ...q, [sabor.slug]: novo }
-  })
-
-  const pedir = () => {
-    const linhas = [
-      'Olá! Quero montar uma caixa da linha Coxelli Gourmet:',
-      '',
-      ...escolhidos.map(s => `${qtd[s.slug]} ${s.nome}`),
-      `${total} unidades`,
-      '',
-      linhaDoTotal(valor),
-      data ? `Para ${dataPorExtenso(data)}` : 'Data a combinar',
-    ]
-    abrirWhatsApp(telefone, linhas.join('\n'))
-  }
-
-  // Seção laranja, como as peças da marca: texto e controles em preto sobre o laranja Coxelli
-  return (
-    <section id="monte" aria-labelledby="titulo-monte" className="relative scroll-mt-6 bg-gourmet-terra px-5 py-20 text-gourmet-paper sm:px-8 sm:py-24">
-      <Onda className="bottom-full translate-y-px" />
-      <Onda className="top-full -translate-y-px rotate-180" />
-      <Titulo id="titulo-monte" claro={false} apoio="Escolha quantas unidades de cada sabor. A gente arruma na caixa e confirma a data com você.">
-        Monte a <Italico className="">sua</Italico> caixa
-      </Titulo>
-
-      <div className="mx-auto mt-12 max-w-xl">
-        <ul className="m-0 list-none p-0">
-          {SABORES_GOURMET.map(sabor => (
-            <li key={sabor.slug} className="flex items-center gap-4 border-b-2 border-gourmet-paper/15 py-3.5">
-              <div className="size-14 shrink-0 overflow-hidden rounded-full border-2 border-gourmet-paper">
-                <Foto foto={sabor.foto} alt="" sizes="56px" className="object-[50%_40%]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="m-0 font-display text-2xl font-extrabold uppercase leading-none">{sabor.nome}</p>
-                <p className="m-0 mt-1 text-sm font-medium">
-                  {formatCurrency(sabor.preco.cartao)} cartão · {formatCurrency(sabor.preco.avista)} Pix ou dinheiro
-                  {sabor.minimo && <> · mínimo {sabor.minimo}</>}
-                </p>
-              </div>
-              <Contador valor={qtd[sabor.slug] ?? 0} aoMudar={n => mudar(sabor, n)} nome={sabor.nome} />
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-6 flex items-baseline justify-between">
-          <span className="font-display text-xl font-bold uppercase">Sua caixa</span>
-          <span className="font-display text-4xl font-extrabold tabular-nums">{total} <span className="text-2xl">{total === 1 ? 'unidade' : 'unidades'}</span></span>
-        </div>
-        {total > 0 && (
-          <div className="mt-2 text-right font-medium tabular-nums">
-            <p className="m-0"><span className="font-display text-2xl font-extrabold">{formatCurrency(valor.cartao)}</span> crédito ou débito</p>
-            <p className="m-0"><span className="font-display text-2xl font-extrabold">{formatCurrency(valor.avista)}</span> Pix ou dinheiro</p>
-          </div>
-        )}
-
-        <label className="mt-6 block">
-          <span className="mb-1.5 block text-sm font-semibold">Para quando?</span>
-          <input
-            type="date" min={minimo} value={data} onChange={e => setData(e.target.value)}
-            className="w-full rounded-xl border-2 border-gourmet-paper/25 bg-gourmet-paper/10 px-4 py-3 text-base text-gourmet-paper outline-none [color-scheme:light] focus:border-gourmet-paper"
-          />
-        </label>
-
-        <button
-          type="button" onClick={pedir} disabled={total === 0}
-          className="mt-5 inline-flex min-h-12 w-full cursor-pointer items-center justify-center rounded-full bg-gourmet-paper px-8 font-display text-lg font-bold uppercase tracking-wide text-gourmet-terra transition-colors hover:bg-gourmet-ivory disabled:cursor-default disabled:opacity-40"
-        >
-          Enviar minha caixa pelo WhatsApp
-        </button>
-        <p className="mt-3 text-center text-sm font-medium">
-          {total === 0 ? 'Escolha ao menos um sabor.' : 'A gente confirma a data na conversa.'}
-        </p>
       </div>
     </section>
   )
