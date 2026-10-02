@@ -1,4 +1,5 @@
-import { getSettings, peekSettings } from './settings'
+import { supabase } from './supabase'
+import { peekSettings } from './settings'
 
 /**
  * Tag do Google (GA4 e Google Ads) para medir de onde vêm os pedidos e os contatos.
@@ -50,12 +51,25 @@ function carregar(s) {
   fila = []
 }
 
-/** Chamado uma vez, no boot. Os settings já vêm embutidos no HTML na maior parte das vezes. */
+const CHAVES = ['google_tag_id', 'google_ads_id', 'google_ads_conversao_pedido', 'google_ads_conversao_whatsapp']
+
+/**
+ * Chamado uma vez, no boot. Os settings embutidos no HTML são os do último deploy: se os
+ * códigos ainda não estão lá (foram colados no painel depois), busca só essas chaves no banco,
+ * para o painel valer sem deploy.
+ */
 export function iniciarRastreio() {
   if (ids) return
   const s = peekSettings()
-  if (s) carregar(s)
-  else getSettings().then(carregar).catch(() => { ids = { ga: '', ads: '' }; fila = [] })
+  if (s?.google_tag_id || s?.google_ads_id) carregar(s)
+  else {
+    supabase.from('settings').select('key, value').in('key', CHAVES)
+      .then(({ data, error }) => {
+        if (error) throw error
+        carregar(Object.fromEntries((data ?? []).map(l => [l.key, l.value])))
+      })
+      .catch(() => { ids = { ga: '', ads: '' }; fila = [] })
+  }
 
   // Qualquer link de WhatsApp do site conta como contato, sem precisar marcar um por um
   document.addEventListener('click', (e) => {
