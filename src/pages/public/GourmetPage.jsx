@@ -39,7 +39,8 @@ function useFonteAssinatura() {
 
 /**
  * A palavra de destaque de cada título, na mesma letra fina e itálica do "gourmet" do logo:
- * tira o peso das caixas altas e amarra os títulos à assinatura, em laranja sobre o preto.
+ * tira o peso das caixas altas e amarra os títulos à assinatura. Laranja no fundo preto;
+ * na seção laranja (Eventos) herda o preto do título.
  */
 function Italico({ children, className = 'text-gourmet-terra' }) {
   return <span className={`italico-gourmet ${className}`}>{children}</span>
@@ -168,6 +169,18 @@ function FotoVazada({ foto, alt, prioridade, sizes, className = '', delay, raio 
         )}
       </div>
     </Reveal>
+  )
+}
+
+/**
+ * Borda em onda da seção laranja: faz o laranja entrar e sair do preto com a curva das formas
+ * da marca, em vez de um corte reto. Fica colada na seção, por fora dela.
+ */
+function Onda({ className = '' }) {
+  return (
+    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true" className={`pointer-events-none absolute left-0 h-8 w-full text-gourmet-terra sm:h-12 ${className}`}>
+      <path fill="currentColor" d="M0 60V38C180 12 360 4 560 18s380 36 560 26 260-26 320-34V60z" />
+    </svg>
   )
 }
 
@@ -412,6 +425,11 @@ function CaixaPronta({ caixa, invertida, telefone, minimo }) {
   )
 }
 
+// Campos da seção laranja: preto sobre o laranja, como as peças da marca
+const rotuloLaranja = 'mb-1.5 block text-sm font-semibold text-gourmet-paper'
+const campoLaranja = 'w-full rounded-xl border-2 border-gourmet-paper/25 bg-gourmet-paper/10 px-4 py-3 text-base text-gourmet-paper outline-none transition-colors [color-scheme:light] placeholder:text-gourmet-paper/55 focus:border-gourmet-paper'
+
+/** Orçamento para evento, na faixa laranja da página: o destaque que chama para o pedido grande. */
 function Eventos({ telefone, minimo }) {
   const [form, setForm] = useState({ nome: '', data: '', pessoas: '', tipo: '', obs: '' })
   const [sabores, setSabores] = useState([])
@@ -434,14 +452,16 @@ function Eventos({ telefone, minimo }) {
   }
 
   return (
-    <section id="eventos" aria-labelledby="titulo-eventos" className="scroll-mt-6 px-5 py-20 sm:px-8 sm:py-28">
+    <section id="eventos" aria-labelledby="titulo-eventos" className="relative mt-12 scroll-mt-16 bg-gourmet-terra px-5 py-20 text-gourmet-paper sm:mt-16 sm:px-8 sm:py-24">
+      <Onda className="bottom-full translate-y-px" />
+      <Onda className="top-full -translate-y-px rotate-180" />
       <div className="mx-auto grid max-w-6xl gap-14 lg:grid-cols-2 lg:gap-20">
         <Reveal>
-          <p className="font-display text-lg font-bold uppercase tracking-[0.2em] text-gourmet-terra">Eventos</p>
+          <p className="font-display text-lg font-bold uppercase tracking-[0.2em]">Eventos</p>
           <h2 id="titulo-eventos" className="mt-2 font-display text-5xl font-extrabold uppercase leading-none sm:text-6xl">
-            Para a mesa da sua <Italico>festa</Italico>
+            Para a mesa da sua <Italico className="">festa</Italico>
           </h2>
-          <p className="mt-5 max-w-md text-lg leading-relaxed text-gourmet-cocoa">
+          <p className="mt-5 max-w-md text-lg font-medium leading-relaxed text-gourmet-paper/80">
             Casamentos, aniversários, coquetéis e encontros de empresa. Conte a data e quantas pessoas
             vão estar lá, e a gente monta a proposta.
           </p>
@@ -460,32 +480,32 @@ function Eventos({ telefone, minimo }) {
         <Reveal as="form" delay={150} onSubmit={pedir} className="self-center">
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="block sm:col-span-2">
-              <span className={rotuloCampo}>Seu nome</span>
-              <input value={form.nome} onChange={mudar('nome')} className={campo} autoComplete="name" />
+              <span className={rotuloLaranja}>Seu nome</span>
+              <input value={form.nome} onChange={mudar('nome')} className={campoLaranja} autoComplete="name" />
             </label>
             <label className="block">
-              <span className={rotuloCampo}>Data do evento</span>
-              <input type="date" min={minimo} required value={form.data} onChange={mudar('data')} className={campo} />
+              <span className={rotuloLaranja}>Data do evento</span>
+              <input type="date" min={minimo} required value={form.data} onChange={mudar('data')} className={campoLaranja} />
             </label>
             <label className="block">
-              <span className={rotuloCampo}>Número de convidados</span>
-              <input type="number" min="1" inputMode="numeric" required value={form.pessoas} onChange={mudar('pessoas')} className={campo} placeholder="Ex.: 80" />
+              <span className={rotuloLaranja}>Número de convidados</span>
+              <input type="number" min="1" inputMode="numeric" required value={form.pessoas} onChange={mudar('pessoas')} className={campoLaranja} placeholder="Ex.: 80" />
             </label>
             <label className="block sm:col-span-2">
-              <span className={rotuloCampo}>Tipo de evento</span>
-              <input value={form.tipo} onChange={mudar('tipo')} className={campo} placeholder="Casamento, aniversário, coquetel…" />
+              <span className={rotuloLaranja}>Tipo de evento</span>
+              <input value={form.tipo} onChange={mudar('tipo')} className={campoLaranja} placeholder="Casamento, aniversário, coquetel…" />
             </label>
           </div>
 
           <fieldset className="mt-6 border-0 p-0">
-            <legend className={rotuloCampo}>Sabores que você gostaria de ter</legend>
+            <legend className={rotuloLaranja}>Sabores que você gostaria de ter</legend>
             <div className="mt-1 flex flex-wrap gap-2">
               {SABORES_GOURMET.map(s => {
                 const ativo = sabores.includes(s.slug)
                 return (
                   <button
                     key={s.slug} type="button" onClick={() => alternar(s.slug)} aria-pressed={ativo}
-                    className={`cursor-pointer rounded-full border px-4 py-2 text-[0.95rem] font-medium transition-colors ${ativo ? 'border-gourmet-terra bg-gourmet-terra text-gourmet-paper' : 'border-white/15 text-gourmet-ink hover:border-gourmet-terra'}`}
+                    className={`cursor-pointer rounded-full border px-4 py-2 text-[0.95rem] font-medium transition-colors ${ativo ? 'border-gourmet-paper bg-gourmet-paper text-gourmet-terra' : 'border-gourmet-paper/30 text-gourmet-paper hover:border-gourmet-paper'}`}
                   >
                     {s.nome}
                   </button>
@@ -495,11 +515,11 @@ function Eventos({ telefone, minimo }) {
           </fieldset>
 
           <label className="mt-6 block">
-            <span className={rotuloCampo}>Algo mais que devemos saber</span>
-            <textarea value={form.obs} onChange={mudar('obs')} rows={3} className={`${campo} resize-none`} placeholder="Local, horário, restrições…" />
+            <span className={rotuloLaranja}>Algo mais que devemos saber</span>
+            <textarea value={form.obs} onChange={mudar('obs')} rows={3} className={`${campoLaranja} resize-none`} placeholder="Local, horário, restrições…" />
           </label>
 
-          <button type="submit" className={`${botao} mt-8 w-full`}>Pedir orçamento pelo WhatsApp</button>
+          <button type="submit" className="mt-8 inline-flex min-h-12 w-full cursor-pointer items-center justify-center rounded-full bg-gourmet-paper px-8 font-display text-lg font-bold uppercase tracking-wide text-gourmet-terra transition-[background-color,translate] duration-300 hover:-translate-y-0.5 hover:bg-gourmet-ivory active:translate-y-0">Pedir orçamento pelo WhatsApp</button>
         </Reveal>
       </div>
     </section>
