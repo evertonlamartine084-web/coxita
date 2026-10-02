@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { precoDaComposicao } from '../utils/pacote'
+import { adicionouAoCarrinho } from '../services/rastreio'
 
 /**
  * Identidade de uma linha do carrinho.
@@ -44,6 +45,7 @@ export const useCartStore = create(
         } else {
           set({ items: [...items, { ...product, flavors: sabores, lineId, quantity: 1 }] })
         }
+        adicionouAoCarrinho(product)
       },
 
       removeItem: (lineId) => {

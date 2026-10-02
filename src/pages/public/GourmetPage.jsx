@@ -6,6 +6,7 @@ import SplitText from '../../components/ui/SplitText'
 import { getSettings, peekSettings } from '../../services/settings'
 import { metaGourmet } from '../../content/paginas'
 import { formatCurrency } from '../../utils/format'
+import { contatoWhatsApp } from '../../services/rastreio'
 import {
   ANTECEDENCIA_HORAS, CAIXA_DEGUSTACAO, CAIXAS_PRONTAS, FOLGA_CAMADA, SABORES_GOURMET, saborPorSlug,
 } from '../../content/gourmet'
@@ -70,7 +71,8 @@ function useRolou() {
   return rolou
 }
 
-function abrirWhatsApp(telefone, texto) {
+function abrirWhatsApp(telefone, texto, origem) {
+  contatoWhatsApp(origem)
   const numero = telefone.replace(/\D/g, '')
   window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
 }
@@ -319,7 +321,7 @@ export default function GourmetPage() {
         </p>
         <p className="mt-1 text-[0.95rem] text-gourmet-cocoa">{settings.address || 'Pajuçara, Natal/RN'}</p>
         <p className="mt-5">
-          <a href={`https://wa.me/55${telefone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="font-display text-lg font-bold uppercase tracking-wide text-gourmet-terra no-underline hover:text-gourmet-ink">
+          <a href={`https://wa.me/55${telefone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" data-origem="gourmet-rodape" className="font-display text-lg font-bold uppercase tracking-wide text-gourmet-terra no-underline hover:text-gourmet-ink">
             WhatsApp {telefone}
           </a>
         </p>
@@ -345,7 +347,7 @@ function CaixaPronta({ caixa, invertida, telefone, minimo }) {
       linhaDoTotal(total),
       data ? `Para ${dataPorExtenso(data)}` : 'Data a combinar',
     ]
-    abrirWhatsApp(telefone, linhas.join('\n'))
+    abrirWhatsApp(telefone, linhas.join('\n'), `gourmet-${caixa.id}`)
   }
 
   return (
@@ -449,7 +451,7 @@ function Eventos({ telefone, minimo }) {
       sabores.length > 0 && `Sabores: ${sabores.map(s => saborPorSlug(s).nome).join(', ')}`,
       form.obs && `\n${form.obs}`,
     ].filter(Boolean)
-    abrirWhatsApp(telefone, linhas.join('\n'))
+    abrirWhatsApp(telefone, linhas.join('\n'), 'gourmet-evento')
   }
 
   return (

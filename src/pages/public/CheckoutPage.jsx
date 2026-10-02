@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { cepNaZonaNorte } from '../../content/entrega'
+import { comecouCheckout, fezPedido } from '../../services/rastreio'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
@@ -62,6 +63,7 @@ export default function CheckoutPage() {
   // ele fica vazio de propósito, e sem esta trava o cliente era jogado no carrinho vazio em vez
   // da tela de "pedido confirmado".
   const finalizando = useRef(false)
+  const checkoutContado = useRef(false)
   const [cepLoading, setCepLoading] = useState(false)
   // taxa de entrega por km, calculada no servidor a partir do CEP (ver services/entrega.js)
   // status: 'vazio' (sem CEP completo) | 'calculando' | 'ok' | 'fora' | 'erro'
@@ -128,6 +130,11 @@ export default function CheckoutPage() {
       navigate('/carrinho')
       return
     }
+    // uma vez por visita ao checkout, mesmo que o efeito rode de novo
+    if (!checkoutContado.current) {
+      checkoutContado.current = true
+      comecouCheckout(items, getSubtotal())
+    }
     // Ultima parada antes de virar pedido: o preco da linha volta a ser o do
     // banco. Sem isto, um carrinho aberto antes de a cozinha mexer na tabela
     // fecharia pedido pelo valor antigo.
@@ -170,6 +177,8 @@ export default function CheckoutPage() {
         console.warn('Dados salvos do cliente estão inválidos:', error)
       }
     }
+    // items e getSubtotal só servem ao begin_checkout, que conta uma vez (checkoutContado)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, navigate, setDeliveryFee, sincronizarComCatalogo])
 
   const handleCepBlur = async () => {
@@ -330,6 +339,7 @@ export default function CheckoutPage() {
       const order = await createOrder(orderData, items)
 
       notifyNewOrder(order, items)
+      fezPedido(order, items)
 
       // Increment coupon usage
       if (appliedCoupon) {
@@ -921,7 +931,7 @@ function AvisoEntrega({ cotacao, aoRetirar, linkWhatsApp }) {
           faça o pedido pelo WhatsApp que a gente passa a taxa.
         </p>
         <a
-          href={linkWhatsApp} target="_blank" rel="noopener noreferrer"
+          href={linkWhatsApp} target="_blank" rel="noopener noreferrer" data-origem="entrega-fora-da-zona"
           className="mt-2.5 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 font-display font-bold text-white no-underline hover:brightness-95"
         >
           <FaWhatsapp size={20} aria-hidden="true" /> Pedir pelo WhatsApp

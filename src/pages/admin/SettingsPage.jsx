@@ -27,6 +27,11 @@ const fields = [
   { key: 'desconto_avista_percent', label: 'Desconto no pix/dinheiro (%)', type: 'number' },
   // Só ligar depois que o contador configurar NCM e tributação no Bling: antes disso toda
   // tentativa falha. Desligada, a nota sai pelo botão no pedido.
+  // Tag do Google: medem visitas, pedidos e cliques no WhatsApp. Vazios, nada é carregado no site.
+  { key: 'google_tag_id', label: 'Google Analytics (ID da métrica, G-...)', placeholder: 'Ex: G-AB12CD34EF' },
+  { key: 'google_ads_id', label: 'Google Ads (ID da conta, AW-...)', placeholder: 'Ex: AW-123456789' },
+  { key: 'google_ads_conversao_pedido', label: 'Google Ads: rótulo da conversão "pedido feito"', placeholder: 'Ex: AbC-D_efG-h12' },
+  { key: 'google_ads_conversao_whatsapp', label: 'Google Ads: rótulo da conversão "chamou no WhatsApp"', placeholder: 'Ex: XyZ-1_abC-d34' },
   { key: 'bling_nfe_automatica', label: 'Emitir nota sozinho ao sair para entrega (sim/nao)', placeholder: 'sim ou nao' },
 ]
 

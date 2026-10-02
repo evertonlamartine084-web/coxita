@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense, Component } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { onAuthStateChange } from './services/auth'
 import { useAuthStore } from './store/authStore'
@@ -11,6 +11,7 @@ import SeloAmbiente from './components/ui/SeloAmbiente'
 import { importarPagina } from './routes/importers'
 import { LISTA_OCASIOES } from './content/ocasioes'
 import { BAIRROS } from './content/bairros'
+import { paginaVista } from './services/rastreio'
 
 /**
  * Recarrega uma vez so.
@@ -113,6 +114,18 @@ const SettingsPage = lazyWithRetry(importarPagina.configuracoes)
 const ReviewsPage = lazyWithRetry(importarPagina.avaliacoes)
 const CouponsPage = lazyWithRetry(importarPagina.cupons)
 
+/** Uma visita por troca de rota (o site é SPA). O painel fica de fora. */
+function RastreioDeRotas() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    if (pathname.startsWith('/admin')) return
+    // espera o título da página nova (o <Seo> troca no efeito dela)
+    const t = setTimeout(() => paginaVista(pathname), 0)
+    return () => clearTimeout(t)
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   const setSession = useAuthStore(s => s.setSession)
 
@@ -127,6 +140,7 @@ export default function App() {
     <BrowserRouter>
       <Toaster position="top-center" toastOptions={{ duration: 2000 }} />
       <SeloAmbiente />
+      <RastreioDeRotas />
       <ErrorBoundary>
       <Suspense fallback={<Loading />}>
         <Routes>
