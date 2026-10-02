@@ -310,8 +310,9 @@ export default function GourmetPage() {
         <Eventos telefone={telefone} minimo={minimo} />
       </main>
 
-      <footer className="px-5 py-12 text-center sm:px-8">
-        <div aria-hidden="true" className="mx-auto mb-12 h-px max-w-3xl bg-[linear-gradient(to_right,transparent,rgb(255_255_255/0.14),transparent)]" />
+      {/* A onda da faixa laranja de Eventos já separa o rodapé: sem linha divisória, e com folga
+          em cima para a curva não encostar no logo */}
+      <footer className="px-5 pb-12 pt-24 text-center sm:px-8 sm:pt-28">
         <Assinatura tamanho="h-10" className="justify-center" />
         <p className="mt-5 text-[0.95rem] text-gourmet-cocoa">
           Encomendas com pelo menos {ANTECEDENCIA_HORAS} horas de antecedência.
