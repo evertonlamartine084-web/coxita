@@ -233,14 +233,17 @@ Deno.serve(async (req) => {
     }
 
     const taxa = Math.round(km * porKm * 100) / 100
-    const dentro_area = km <= maxKm
+    // Pelo site, só a Zona Norte de Natal (CEP 59100-000 a 59139-999); o resto pede pelo
+    // WhatsApp. A cotação de fora ainda sai com km e taxa, que o painel usa como sugestão.
+    const zona_norte = cep >= "59100000" && cep <= "59139999"
+    const dentro_area = zona_norte && km <= maxKm
 
     const { data: cot, error } = await supabase.from("entrega_cotacoes").insert({
       cep, numero, lat: destino?.lat ?? null, lng: destino?.lng ?? null, km, taxa, dentro_area, metodo,
     }).select("id").single()
     if (error) throw error
 
-    return json({ id: cot.id, km, taxa, dentro_area, max_km: maxKm, por_km: porKm, metodo, falhas })
+    return json({ id: cot.id, km, taxa, dentro_area, zona_norte, max_km: maxKm, por_km: porKm, metodo, falhas })
   } catch (e) {
     console.error("calcular-entrega:", e)
     return json({ erro: "falha", detalhe: String((e as Error)?.message ?? e) }, 500)

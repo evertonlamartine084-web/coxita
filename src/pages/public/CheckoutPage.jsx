@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
+import { FaWhatsapp } from 'react-icons/fa'
+import { cepNaZonaNorte } from '../../content/entrega'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
@@ -199,6 +201,11 @@ export default function CheckoutPage() {
       setCotacao({ status: 'vazio' })
       return
     }
+    // Fora da Zona Norte nem calcula: a entrega é combinada pelo WhatsApp
+    if (!cepNaZonaNorte(cepDigitos)) {
+      setCotacao({ status: 'fora-zona' })
+      return
+    }
     let cancelado = false
     setCotacao({ status: 'calculando' })
     const t = setTimeout(() => {
@@ -221,6 +228,22 @@ export default function CheckoutPage() {
     if (entregaFechada) setForm(f => (f.order_type === 'agora' ? { ...f, order_type: 'agendado' } : f))
   }, [entregaFechada])
 
+  /** Pedido de entrega fora da Zona Norte: vai pronto para o WhatsApp, onde a loja passa a taxa. */
+  const linkPedidoWhatsApp = () => {
+    const numero = (settings.whatsapp || '(84) 99616-9478').replace(/\D/g, '')
+    const endereco = [form.address, form.address_number, form.neighborhood].map(s => s.trim()).filter(Boolean).join(', ')
+    const texto = [
+      'Olá! Quero fazer um pedido com entrega fora da Zona Norte:',
+      '',
+      ...items.map(i => `${i.quantity}x ${i.name}${i.flavors?.length ? ` (${i.flavors.map(s => `${s.quantity} ${s.name}`).join(', ')})` : ''}`),
+      `Subtotal: ${formatCurrency(getSubtotal())}`,
+      '',
+      `CEP: ${form.address_cep}${endereco ? ` — ${endereco}` : ''}`,
+      'Qual fica a taxa de entrega?',
+    ].join('\n')
+    return `https://wa.me/55${numero}?text=${encodeURIComponent(texto)}`
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm(f => ({ ...f, [name]: value }))
@@ -239,6 +262,7 @@ export default function CheckoutPage() {
     if (form.delivery_type === 'entrega') {
       if (form.address_cep.replace(/\D/g, '').length !== 8) errs.address_cep = 'CEP obrigatório para calcular a entrega'
       else if (cotacao.status === 'calculando') errs.address_cep = 'Aguarde o cálculo da entrega'
+      else if (cotacao.status === 'fora-zona') errs.address_cep = 'Fora da Zona Norte, a entrega é combinada pelo WhatsApp.'
       else if (cotacao.status === 'fora') errs.address_cep = `Entregamos até ${cotacao.max_km} km. Escolha a retirada.`
       else if (cotacao.status !== 'ok') errs.address_cep = 'Não conseguimos calcular a entrega para este CEP'
       if (!form.address.trim()) errs.address = 'Endereço obrigatório'
@@ -526,6 +550,7 @@ export default function CheckoutPage() {
                 <AvisoEntrega
                   cotacao={cotacao}
                   aoRetirar={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
+                  linkWhatsApp={linkPedidoWhatsApp()}
                 />
                 <Input label="Rua *" name="address" value={form.address} onChange={handleChange} error={errors.address} />
                 <div className="grid grid-cols-2 gap-4">
@@ -873,7 +898,7 @@ function DeliveryOption({ active, onChange, icon, label, sublabel, name, value, 
 }
 
 /** Resultado do cálculo da entrega logo abaixo do CEP. */
-function AvisoEntrega({ cotacao, aoRetirar }) {
+function AvisoEntrega({ cotacao, aoRetirar, linkWhatsApp }) {
   if (cotacao.status === 'vazio') {
     return <p className="text-xs text-text-light -mt-2">A taxa de entrega é de R$ 2,00 por km, calculada pelo endereço.</p>
   }
@@ -885,6 +910,26 @@ function AvisoEntrega({ cotacao, aoRetirar }) {
       <p className="text-sm text-text -mt-2">
         Entrega: <strong>{formatarKm(cotacao.km)}</strong> da loja, <strong>{formatCurrency(cotacao.taxa)}</strong>
       </p>
+    )
+  }
+  if (cotacao.status === 'fora-zona') {
+    return (
+      <div className="-mt-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+        <p className="font-semibold">Entregamos aí também!</p>
+        <p className="mt-0.5">
+          Pelo site a entrega é só na Zona Norte. Para a Zona Sul, Parnamirim e outras regiões,
+          faça o pedido pelo WhatsApp que a gente passa a taxa.
+        </p>
+        <a
+          href={linkWhatsApp} target="_blank" rel="noopener noreferrer"
+          className="mt-2.5 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 font-display font-bold text-white no-underline hover:brightness-95"
+        >
+          <FaWhatsapp size={20} aria-hidden="true" /> Pedir pelo WhatsApp
+        </a>
+        <button type="button" onClick={aoRetirar} className="mt-2 font-semibold text-primary underline cursor-pointer">
+          Prefiro retirar na loja
+        </button>
+      </div>
     )
   }
   return (

@@ -82,7 +82,8 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     try {
       const c = await cotarEntrega({ cep: form.address_cep, numero: form.address_number, rua: form.address, bairro: form.neighborhood })
       setForm(f => ({ ...f, taxa_entrega: String(c.taxa), delivery_km: c.km }))
-      if (!c.dentro_area) toast(`Fica a ${c.km} km, acima dos ${c.max_km} km do site. A taxa foi preenchida mesmo assim.`)
+      if (c.zona_norte === false) toast(`Fora da Zona Norte (${c.km} km). A taxa de R$ ${c.taxa} é só sugestão: confira.`)
+      else if (!c.dentro_area) toast(`Fica a ${c.km} km, acima dos ${c.max_km} km do site. A taxa foi preenchida mesmo assim.`)
     } catch (e) {
       toast.error(e.message === 'cep-nao-encontrado' ? 'CEP não encontrado.' : 'Não deu para calcular agora. Informe a taxa à mão.')
     } finally {

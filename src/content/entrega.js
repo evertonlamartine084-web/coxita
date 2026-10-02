@@ -36,3 +36,14 @@ export function areaAtendida() {
     sameAs: 'https://pt.wikipedia.org/wiki/Natal_(Rio_Grande_do_Norte)',
   }
 }
+
+/**
+ * Entrega pelo site: só a Zona Norte de Natal, que é exatamente a faixa de CEP 59100-000 a
+ * 59139-999 (Igapó, Salinas, Potengi, N. Sra. da Apresentação, Redinha, Pajuçara e Lagoa Azul,
+ * conferido no ViaCEP em 02/10/2026). Zona Sul, Parnamirim e o resto pedem pelo WhatsApp, onde a
+ * loja combina a taxa. A função `calcular-entrega` repete a mesma faixa, e é ela que vale.
+ */
+export function cepNaZonaNorte(cep) {
+  const d = String(cep).replace(/\D/g, '')
+  return d.length === 8 && d >= '59100000' && d <= '59139999'
+}
