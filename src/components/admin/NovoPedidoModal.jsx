@@ -8,6 +8,7 @@ import { cotarEntrega } from '../../services/entrega'
 import { calcularDescontoAvista, ehAVista } from '../../utils/descontoAvista'
 import { formatCurrency } from '../../utils/format'
 import FlavorPicker from '../product/FlavorPicker'
+import AvulsoPorUnidade from './AvulsoPorUnidade'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
 import Button from '../ui/Button'
@@ -66,6 +67,11 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     setItens(atual => [...atual, { ...montando, ...(preco ?? {}), quantity: 1, flavors: sabores }])
     setMontando(null)
   }
+
+  const adicionarPorUnidade = (item) => setItens(atual => [...atual, {
+    id: item.product_id, name: item.product_name, price: item.price, cash_price: item.cash_price,
+    quantity: 1, flavors: item.flavors,
+  }])
 
   const alterarQtd = (idx, delta) =>
     setItens(atual => atual.map((it, i) =>
@@ -221,6 +227,10 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
                   <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="mb-2">
+              <AvulsoPorUnidade produtos={produtos} aoAdicionar={adicionarPorUnidade} />
             </div>
 
             {itens.length === 0 ? (

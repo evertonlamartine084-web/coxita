@@ -220,3 +220,37 @@ export function validarComposicao(produto, sabores) {
 
   return { valido: true, erro: null }
 }
+
+/**
+ * Quanto do pacote este item leva: 1 no pacote fechado, 0,7 em 70 de um cento.
+ *
+ * Só o painel monta item quebrado (ver itemPorUnidade); o site continua de
+ * 25 em 25. O preço à vista do produto é do pacote inteiro, então quem calcula
+ * desconto de item quebrado precisa desta fração.
+ */
+export function fracaoDoPacote(produto, sabores) {
+  if (!ehPacote(produto)) return 1
+  const total = totalEscolhido(sabores)
+  return total > 0 ? total / produto.pack_size : 1
+}
+
+const centavos = valor => Math.round(valor * 100) / 100
+
+/**
+ * Item vendido por unidade, a partir do preço de um pacote: 70 churros saem a
+ * 70/100 do cento. Encomenda combinada no balcão nem sempre fecha em 25.
+ *
+ * Fica como um item de um sabor só, ligado ao produto do pacote -- é ele que
+ * dá o código do Bling e o preço à vista.
+ */
+export function itemPorUnidade(produto, sabor, unidades) {
+  const fracao = unidades / produto.pack_size
+  const cash = Number(produto.cash_price)
+  return {
+    product_id: produto.id,
+    product_name: `${unidades} un. ${sabor.name}`,
+    price: centavos(Number(produto.price) * fracao),
+    cash_price: cash > 0 ? centavos(cash * fracao) : null,
+    flavors: [{ id: sabor.id, name: sabor.name, quantity: unidades }],
+  }
+}

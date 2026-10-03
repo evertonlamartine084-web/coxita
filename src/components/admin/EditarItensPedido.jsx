@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { HiPlus, HiTrash, HiX } from 'react-icons/hi'
 import toast from 'react-hot-toast'
-import { getProducts } from '../../services/products'
+import { getAllProducts } from '../../services/products'
 import { editarItensPedido } from '../../services/orders'
 import { formatCurrency } from '../../utils/format'
 import { getSettings, peekSettings } from '../../services/settings'
 import { calcularDescontoAvista } from '../../utils/descontoAvista'
 import FlavorPicker from '../product/FlavorPicker'
+import AvulsoPorUnidade from './AvulsoPorUnidade'
+import { fracaoDoPacote } from '../../utils/pacote'
 
 /** Depois de despachado não se mexe: o que a cozinha mandou é o que vale. */
 const EDITAVEL = ['pendente', 'em_preparo']
@@ -39,7 +41,9 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
   const [settings, setSettings] = useState(() => peekSettings() ?? {})
 
   useEffect(() => {
-    getProducts().then(setProdutos).catch(() => setProdutos([]))
+    // todos, inclusive os desativados: item de promoção já gravado no pedido precisa achar o seu
+    // preço à vista, senão a tela aplica o percentual por cima de um preço que já é de Pix
+    getAllProducts().then(setProdutos).catch(() => setProdutos([]))
     getSettings().then(setSettings).catch(() => {})
   }, [])
 
@@ -56,7 +60,12 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
     ? calcularDescontoAvista(
         itens.map(i => {
           const produto = produtos.find(p => p.id === i.product_id)
-          return { price: i.unit_price, quantity: i.quantity, cash_price: produto?.cash_price }
+          // item por unidade leva só a fração do preço à vista do pacote
+          const cash = Number(produto?.cash_price)
+          const cash_price = cash > 0
+            ? Math.round(cash * fracaoDoPacote(produto, i.flavors) * 100) / 100
+            : undefined
+          return { price: i.unit_price, quantity: i.quantity, cash_price }
         }),
         'pix',
         settings,
@@ -87,6 +96,11 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
       product_id: p.id, product_name: p.name, quantity: 1, unit_price: Number(p.price), flavors: [],
     }])
   }
+
+  const adicionarPorUnidade = (item) => setItens(atual => [...atual, {
+    product_id: item.product_id, product_name: item.product_name, quantity: 1, unit_price: item.price,
+    flavors: item.flavors.map(f => ({ flavor_id: f.id, flavor_name: f.name, quantity: f.quantity })),
+  }])
 
   const confirmarSabores = (sabores, preco) => {
     const { produto, idx } = montando
@@ -175,11 +189,13 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
           className="flex-1 cursor-pointer rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-primary"
         >
           <option value="" disabled>Adicionar item…</option>
-          {produtos.map(p => (
+          {produtos.filter(p => p.active).map(p => (
             <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}</option>
           ))}
         </select>
       </div>
+
+      <AvulsoPorUnidade produtos={produtos} aoAdicionar={adicionarPorUnidade} />
 
       <div className="space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
         <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>

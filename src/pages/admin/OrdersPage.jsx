@@ -22,6 +22,10 @@ const AGENDADOS = 'agendados'
 const ehAgendadoEmAberto = (o) =>
   !!o.scheduled_for && !['entregue', 'cancelado'].includes(o.status)
 
+/** Levou algum produto de promoção ("Promo Cento + Refri 1L"): a etiqueta separa essas vendas. */
+const ehPromocao = (o) =>
+  (o.order_items ?? []).some(i => /^promo/i.test(i.product_name ?? ''))
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [filter, setFilter] = useState('')
@@ -321,6 +325,9 @@ export default function OrdersPage() {
                         )}
                         {order.scheduled_for && (
                           <span className="ml-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">AGENDADO</span>
+                        )}
+                        {ehPromocao(order) && (
+                          <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">PROMOÇÃO</span>
                         )}
                       </td>
                       <td className="px-4 py-3">{order.customer_name}</td>
