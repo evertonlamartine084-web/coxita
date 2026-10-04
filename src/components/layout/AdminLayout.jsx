@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -7,6 +7,7 @@ import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
+import { usePushDoPainel } from '../../hooks/usePushDoPainel'
 import { useAppDoPainel } from '../../hooks/useAppDoPainel'
 
 const navItems = [
@@ -37,6 +38,7 @@ export default function AdminLayout() {
   const [emManutencao, setEmManutencao] = useState(null)
   const [trocandoSite, setTrocandoSite] = useState(false)
   const appDoPainel = useAppDoPainel()
+  const pushDoPainel = usePushDoPainel()
 
   useEffect(() => {
     supabase.from('settings').select('value').eq('key', 'site_em_manutencao').maybeSingle()
@@ -310,6 +312,26 @@ export default function AdminLayout() {
               <HiDownload size={20} />
               <span>Instalar o painel</span>
             </button>
+          )}
+          {pushDoPainel.estado === 'desligado' && (
+            <button
+              onClick={() => pushDoPainel.ativar()
+                .then(() => toast.success('Pronto: este aparelho avisa quando chegar pedido.'))
+                .catch(() => toast.error('Não foi possível ativar as notificações.'))}
+              className="mb-2 flex items-center gap-3 px-3 py-2.5 w-full border-2 border-secondary text-secondary hover:bg-secondary hover:text-brown font-semibold transition-colors"
+            >
+              <HiBell size={20} />
+              <span>Ativar notificações</span>
+            </button>
+          )}
+          {pushDoPainel.estado === 'ativo' && (
+            <p className="mb-2 flex items-center gap-2 px-3 text-xs text-cream/70"><HiBell size={16} /> Notificações ligadas neste aparelho</p>
+          )}
+          {pushDoPainel.estado === 'bloqueado' && (
+            <p className="mb-2 px-3 text-xs text-cream/70">Notificações bloqueadas. Libere nos Ajustes do aparelho para o Painel.</p>
+          )}
+          {pushDoPainel.estado === 'abrir-app' && (
+            <p className="mb-2 px-3 text-xs text-cream/70">Para receber aviso de pedido no iPhone, abra o painel pelo app instalado na Tela de Início.</p>
           )}
           <button
             onClick={handleLogout}

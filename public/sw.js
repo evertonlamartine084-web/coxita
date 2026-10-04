@@ -7,7 +7,7 @@
 //
 // Ao mexer em qualquer coisa deste arquivo, suba a VERSION: é ela que descarta os caches velhos.
 
-const VERSION = 'v7'
+const VERSION = 'v8'
 const SHELL_CACHE = `coxelli-shell-${VERSION}`
 const ASSET_CACHE = `coxelli-assets-${VERSION}`
 
@@ -130,11 +130,12 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/logo-192.png',
-      badge: '/logo-192.png',
-      tag: 'coxelli-' + (data.url || 'general'),
+      // o aviso do painel manda o próprio ícone e tag (um por pedido, para não se sobreporem)
+      icon: data.icon || '/logo-192.png',
+      badge: data.icon || '/logo-192.png',
+      tag: data.tag || 'coxelli-' + (data.url || 'general'),
       renotify: true,
-      requireInteraction: false,
+      requireInteraction: !!data.requireInteraction,
       silent: false,
       data: data.url || '/',
     })
@@ -146,8 +147,10 @@ self.addEventListener('notificationclick', (event) => {
   const url = event.notification.data || '/'
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then((clientList) => {
+      // abre a página do aviso: no painel, a lista de pedidos; no cliente, o acompanhamento
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if (url !== '/' && 'navigate' in client && !client.url.endsWith(url)) client.navigate(url)
           return client.focus()
         }
       }
