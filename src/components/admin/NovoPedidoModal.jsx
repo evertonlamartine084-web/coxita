@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { HiPlus, HiTrash } from 'react-icons/hi'
 import toast from 'react-hot-toast'
-import { getProducts } from '../../services/products'
+import { getAllProducts, getProducts } from '../../services/products'
 import { getSettings, peekSettings } from '../../services/settings'
 import { createOrder } from '../../services/orders'
 import { cotarEntrega } from '../../services/entrega'
@@ -28,6 +28,9 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
   const [settings, setSettings] = useState(() => peekSettings() ?? {})
   const [itens, setItens] = useState([])
   const [montando, setMontando] = useState(null) // produto que está tendo os sabores escolhidos
+  // promo "cento + refri 1L por R$ 33": produto desativado (não aparece no site), lançado só aqui
+  const [promo, setPromo] = useState(null)
+  const [refriPromo, setRefriPromo] = useState('guarana')
   const [salvando, setSalvando] = useState(false)
   const [form, setForm] = useState({
     customer_name: '',
@@ -50,6 +53,13 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
   useEffect(() => {
     if (!aberto) return
     getProducts().then(setProdutos).catch(() => setProdutos([]))
+    getAllProducts()
+      .then(todos => setPromo({
+        produto: todos.find(p => p.name === 'Promo Cento + Refri 1L') ?? null,
+        guarana: todos.find(p => p.name === 'Guaraná Antarctica 1 Litro') ?? null,
+        pepsi: todos.find(p => p.name === 'Pepsi 1 Litro') ?? null,
+      }))
+      .catch(() => {})
     getSettings().then(setSettings).catch(() => {})
   }, [aberto])
 
@@ -64,6 +74,20 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
   }
 
   const confirmarSabores = (sabores, preco) => {
+    if (montando === promo?.produto) {
+      // o refri vai como item próprio, a R$ 0: a cozinha vê o que separar
+      const refri = promo[refriPromo]
+      setItens(atual => [...atual,
+        { ...montando, quantity: 1, flavors: sabores },
+        {
+          id: refri?.id ?? null,
+          name: refri ? `${refri.name} (promo)` : 'Refri 1L (promo)',
+          price: 0, cash_price: null, quantity: 1, flavors: [],
+        },
+      ])
+      setMontando(null)
+      return
+    }
     setItens(atual => [...atual, { ...montando, ...(preco ?? {}), quantity: 1, flavors: sabores }])
     setMontando(null)
   }
@@ -230,6 +254,20 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
             </div>
 
             <div className="mb-2">
+              {promo?.produto && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-2">
+                  <button type="button" onClick={() => setMontando(promo.produto)}
+                    className="flex-1 cursor-pointer rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-300">
+                    🥤 Promo: cento + refri 1L — {formatCurrency(promo.produto.price)}
+                  </button>
+                  <select value={refriPromo} onChange={e => setRefriPromo(e.target.value)} aria-label="Refri da promo"
+                    className="rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm">
+                    <option value="guarana">Guaraná</option>
+                    <option value="pepsi">Pepsi</option>
+                    <option value="">Não sei</option>
+                  </select>
+                </div>
+              )}
               <AvulsoPorUnidade produtos={produtos} aoAdicionar={adicionarPorUnidade} />
             </div>
 
