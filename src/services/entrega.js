@@ -36,3 +36,13 @@ export async function cotarEntrega({ cep, numero, rua, bairro }) {
   }
   return data
 }
+
+/** Horários de entrega já tomados entre `de` e `ate`: [{ horario: ISO, entregas: n }]. */
+export async function horariosOcupados(de, ate) {
+  const { data, error } = await supabase.rpc('horarios_entrega_ocupados', {
+    p_de: de.toISOString(),
+    p_ate: ate.toISOString(),
+  })
+  if (error) throw error
+  return data ?? []
+}

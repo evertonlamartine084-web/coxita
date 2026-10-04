@@ -17,6 +17,10 @@ const fields = [
   // a taxa é calculada pelo CEP: R$ por km pelo caminho de carro, até a distância máxima
   // "nao" tira a entrega do site (só retirada); o painel continua lançando entrega combinada
   { key: 'entrega_ativa', label: 'Entrega pelo site ligada (sim/nao)', placeholder: 'sim ou nao' },
+  // agenda de entrega de 30 em 30 min (aba Rotas e checkout)
+  { key: 'entrega_por_horario', label: 'Entregas por horário de 30 min', type: 'number' },
+  { key: 'entrega_antecedencia_min', label: 'Antecedência mínima para marcar entrega (min)', type: 'number' },
+  { key: 'entrega_dias_agenda', label: 'Dias à frente para marcar entrega', type: 'number' },
   { key: 'delivery_fee_per_km', label: 'Taxa de entrega (R$ por km)', type: 'number' },
   { key: 'delivery_max_km', label: 'Entrega até (km)', type: 'number' },
   { key: 'min_order', label: 'Pedido Mínimo (R$)', type: 'number' },

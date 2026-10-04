@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
 import { FaWhatsapp } from 'react-icons/fa'
@@ -15,6 +15,7 @@ import { pagarComCartao, gerarPix } from '../../services/cielo'
 import { guardarToken, linkDoPedido, lerTokens } from '../../utils/pedidosLocais'
 import { mascararCpf, cpfValido } from '../../utils/cpf'
 import CardForm from '../../components/checkout/CardForm'
+import HorariosDeEntrega from '../../components/checkout/HorariosDeEntrega'
 import PixPayment from '../../components/checkout/PixPayment'
 import Modal from '../../components/ui/Modal'
 import { notifyNewOrder } from '../../services/notifications'
@@ -258,9 +259,22 @@ export default function CheckoutPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setForm(f => ({ ...f, [name]: value }))
+    setForm(f => {
+      // entrega é sempre com horário marcado; voltar para retirada volta ao "Agora"
+      if (name === 'delivery_type' && value === 'entrega') return { ...f, delivery_type: value, order_type: 'agendado', scheduled_date: '', scheduled_time: '' }
+      if (name === 'delivery_type' && value === 'retirada' && f.delivery_type === 'entrega') return { ...f, delivery_type: value, order_type: 'agora', scheduled_date: '', scheduled_time: '' }
+      return { ...f, [name]: value }
+    })
     setErrors(e => ({ ...e, [name]: '' }))
   }
+
+  const [recarregarHorarios, setRecarregarHorarios] = useState(0)
+  const escolherHorario = useCallback((data, hora) => {
+    setForm(f => (f.scheduled_date === data && f.scheduled_time === hora
+      ? f
+      : { ...f, order_type: 'agendado', scheduled_date: data, scheduled_time: hora }))
+    setErrors(e => ({ ...e, scheduled_time: '', scheduled_date: '' }))
+  }, [])
 
   const validate = () => {
     const errs = {}
@@ -281,7 +295,9 @@ export default function CheckoutPage() {
       if (!form.neighborhood.trim()) errs.neighborhood = 'Bairro obrigatório'
       if (!form.address_number.trim()) errs.address_number = 'Número obrigatório'
     }
-    if (form.order_type === 'agendado') {
+    if (form.delivery_type === 'entrega' && (!form.scheduled_date || !form.scheduled_time)) {
+      errs.scheduled_time = 'Escolha o horário da entrega'
+    } else if (form.order_type === 'agendado') {
       if (!form.scheduled_date) errs.scheduled_date = 'Selecione a data'
       if (!form.scheduled_time) errs.scheduled_time = 'Selecione o horário'
       if (form.scheduled_date && form.scheduled_time) {
@@ -405,7 +421,14 @@ export default function CheckoutPage() {
     } catch (err) {
       console.error(err)
       const msg = String(err?.message ?? '')
-      if (msg.includes('entrega-')) {
+      if (msg.includes('horario-') || msg.includes('entrega-sem-horario')) {
+        // outro cliente pegou o horário primeiro (ou ele passou): atualiza a lista e pede outro
+        setForm(f => ({ ...f, scheduled_date: '', scheduled_time: '' }))
+        setRecarregarHorarios(n => n + 1)
+        toast.error('Esse horário de entrega não está mais disponível. Escolha outro.')
+      } else if (msg.includes('entrega-pausada')) {
+        toast.error('As entregas estão pausadas no momento. Escolha a retirada.')
+      } else if (msg.includes('entrega-')) {
         // cotação vencida, fora da área ou CEP trocado depois do cálculo: recalcula e pede de novo
         setRecotar(n => n + 1)
         toast.error('A taxa de entrega foi atualizada. Confira o valor e envie de novo.')
@@ -581,7 +604,17 @@ export default function CheckoutPage() {
             )}
 
             {/* Quando receber */}
-            <CheckoutSection title="Quando você quer?" step="">
+            <CheckoutSection title={form.delivery_type === 'entrega' ? 'Horário da entrega' : 'Quando você quer?'} step="">
+              {form.delivery_type === 'entrega' ? (
+                <HorariosDeEntrega
+                  settings={settings}
+                  data={form.scheduled_date}
+                  hora={form.scheduled_time}
+                  aoEscolher={escolherHorario}
+                  erro={errors.scheduled_time}
+                  recarregar={recarregarHorarios}
+                />
+              ) : (<>
               {entregaFechada && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
                   <p className="text-sm font-bold text-yellow-700">A entrega está fora do horário agora</p>
@@ -653,6 +686,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
+              </>)}
             </CheckoutSection>
 
             {/* Pagamento */}

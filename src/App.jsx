@@ -109,6 +109,7 @@ const ProductsPage = lazyWithRetry(importarPagina.produtos)
 const MargensPage = lazyWithRetry(importarPagina.margens)
 const PrecosPage = lazyWithRetry(importarPagina.precos)
 const EstoquePage = lazyWithRetry(importarPagina.estoque)
+const RotasPage = lazyWithRetry(importarPagina.rotas)
 const CategoriesPage = lazyWithRetry(importarPagina.categorias)
 const SettingsPage = lazyWithRetry(importarPagina.configuracoes)
 const ReviewsPage = lazyWithRetry(importarPagina.avaliacoes)
@@ -191,6 +192,7 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="pedidos" element={<OrdersPage />} />
+            <Route path="rotas" element={<RotasPage />} />
             <Route path="clientes" element={<CustomersPage />} />
             <Route path="bling/callback" element={<BlingCallbackPage />} />
             <Route path="produtos" element={<ProductsPage />} />

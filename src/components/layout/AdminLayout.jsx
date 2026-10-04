@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -12,6 +12,7 @@ import { useAppDoPainel } from '../../hooks/useAppDoPainel'
 const navItems = [
   { to: '/admin', icon: HiHome, label: 'Dashboard' },
   { to: '/admin/pedidos', icon: HiClipboardList, label: 'Pedidos' },
+  { to: '/admin/rotas', icon: HiMap, label: 'Rotas' },
   { to: '/admin/clientes', icon: HiUsers, label: 'Clientes' },
   { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
   { to: '/admin/margens', icon: HiCalculator, label: 'Margens' },
