@@ -15,6 +15,8 @@ const fields = [
   { key: 'closing_time', label: 'Entrega termina às', type: 'time' },
   { key: 'estimated_delivery', label: 'Tempo estimado de entrega', placeholder: 'Ex: 30-45 min' },
   // a taxa é calculada pelo CEP: R$ por km pelo caminho de carro, até a distância máxima
+  // "nao" tira a entrega do site (só retirada); o painel continua lançando entrega combinada
+  { key: 'entrega_ativa', label: 'Entrega pelo site ligada (sim/nao)', placeholder: 'sim ou nao' },
   { key: 'delivery_fee_per_km', label: 'Taxa de entrega (R$ por km)', type: 'number' },
   { key: 'delivery_max_km', label: 'Entrega até (km)', type: 'number' },
   { key: 'min_order', label: 'Pedido Mínimo (R$)', type: 'number' },

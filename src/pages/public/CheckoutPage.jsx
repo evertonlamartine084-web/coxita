@@ -76,6 +76,7 @@ export default function CheckoutPage() {
   const [activeOrder, setActiveOrder] = useState(null)
   const [entregaForaDoHorario, setEntregaForaDoHorario] = useState(false)
   // Só a entrega tem horário; quem retira pode pedir para agora a qualquer hora
+  const entregaPausada = settings.entrega_ativa === 'nao'
   const entregaFechada = form.delivery_type === 'entrega' && entregaForaDoHorario
 
   const getDescontoCupom = () => {
@@ -144,6 +145,8 @@ export default function CheckoutPage() {
 
     getSettings().then(s => {
       setSettingsData(s)
+      // entrega pausada pelo painel: o site só aceita retirada
+      if (s.entrega_ativa === 'nao') setForm(f => ({ ...f, delivery_type: 'retirada' }))
 
       setEntregaForaDoHorario(!entregaAbertaEm(new Date(), s))
     })
@@ -518,8 +521,13 @@ export default function CheckoutPage() {
 
             {/* Tipo de entrega */}
             <CheckoutSection title="Tipo de entrega" step="2">
+              {entregaPausada && (
+                <p className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                  As entregas estão pausadas no momento. Você pode retirar o pedido na loja.
+                </p>
+              )}
               <div className="flex gap-3">
-                <DeliveryOption
+                {!entregaPausada && <DeliveryOption
                   active={form.delivery_type === 'entrega'}
                   onChange={() => handleChange({ target: { name: 'delivery_type', value: 'entrega' } })}
                   icon={<HiTruck size={22} />}
@@ -527,7 +535,7 @@ export default function CheckoutPage() {
                   sublabel="Receba em casa"
                   name="delivery_type"
                   value="entrega"
-                />
+                />}
                 <DeliveryOption
                   active={form.delivery_type === 'retirada'}
                   onChange={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
