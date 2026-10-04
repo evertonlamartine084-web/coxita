@@ -330,3 +330,13 @@ export async function estornarPedido(orderId, valorCentavos = null) {
   if (data?.erro) throw new Error(data.erro)
   return data
 }
+
+/** Vira os centos escolhidos em "Promo Cento + Refri 1L" — ver supabase/promo-cento-refri.sql. */
+export async function aplicarPromoRefri(orderId, itens) {
+  const { data, error } = await supabase.rpc('aplicar_promo_refri', {
+    p_order_id: orderId,
+    p_itens: itens.map(i => ({ item_id: i.id, refri: i.refri || null })),
+  })
+  if (error) throw error
+  return data
+}

@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Loading from '../../components/ui/Loading'
 import { playOrderAlert } from '../../utils/alertSound'
+import PromoRefri from '../../components/admin/PromoRefri'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 
@@ -448,6 +449,16 @@ export default function OrdersPage() {
                 />
               ) : (
               <>
+              <PromoRefri
+                pedido={selectedOrder}
+                aoAplicar={async () => {
+                  const atualizados = await getOrders(statusDoFiltro).catch(() => null)
+                  if (atualizados) {
+                    setOrders(atualizados)
+                    setSelectedOrder(prev => atualizados.find(o => o.id === prev?.id) ?? prev)
+                  }
+                }}
+              />
               {selectedOrder.order_items?.map(item => (
                 <div key={item.id} className="text-sm py-1">
                   <div className="flex justify-between">
