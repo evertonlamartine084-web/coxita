@@ -23,6 +23,9 @@ const navItems = [
   { to: '/admin/configuracoes', icon: HiCog, label: 'Configurações' },
 ]
 
+/** Quanto antes do horário marcado o agendado faz o alarme tocar. */
+const ANTECEDENCIA_AGENDADO = 60 * 60 * 1000
+
 export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -85,6 +88,49 @@ export default function AdminLayout() {
     checkNewOrders()
     const interval = setInterval(checkNewOrders, 15000)
     return () => clearInterval(interval)
+  }, [])
+
+  // Alarme dos agendados: toca 1 h antes do horário marcado. O alarme de pedido novo só toca
+  // quando o pedido ENTRA — encomenda feita no dia anterior chegava na hora sem ninguém lembrar
+  // (03/10: #113 e #115). Cada pedido toca uma vez por aparelho; o aviso fica na tela até fechar.
+  useEffect(() => {
+    const CHAVE = 'coxelli_agendados_avisados'
+    const lerAvisados = () => {
+      try { return new Set(JSON.parse(localStorage.getItem(CHAVE) || '[]')) } catch { return new Set() }
+    }
+    const verificar = async () => {
+      try {
+        const agora = Date.now()
+        const { data } = await supabase
+          .from('orders')
+          .select('id, order_number, customer_name, scheduled_for, delivery_type')
+          .in('status', ['pendente', 'em_preparo'])
+          .gte('scheduled_for', new Date(agora - 30 * 60 * 1000).toISOString())
+          .lte('scheduled_for', new Date(agora + ANTECEDENCIA_AGENDADO).toISOString())
+        const avisados = lerAvisados()
+        const novos = (data ?? []).filter(o => !avisados.has(o.id))
+        if (!novos.length) return
+        if (localStorage.getItem('coxita_admin_sound') !== 'off') playOrderAlert()
+        for (const o of novos) {
+          const hora = new Date(o.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          toast(t => (
+            <button type="button" onClick={() => toast.dismiss(t.id)} className="cursor-pointer text-left">
+              <strong>⏰ Agendado #{o.order_number} — {o.customer_name}</strong><br />
+              {o.delivery_type === 'entrega' ? 'Entrega' : 'Retirada'} às {hora}. Hora de preparar!
+              <span className="mt-1 block text-xs text-gray-500">Toque para fechar</span>
+            </button>
+          ), { duration: Infinity, id: `agendado-${o.id}` })
+          avisados.add(o.id)
+        }
+        // só os últimos 200: a lista não cresce para sempre
+        try { localStorage.setItem(CHAVE, JSON.stringify([...avisados].slice(-200))) } catch { /* sem armazenamento */ }
+      } catch (e) {
+        console.warn('Erro ao verificar agendados:', e)
+      }
+    }
+    verificar()
+    const intervalo = setInterval(verificar, 60000)
+    return () => clearInterval(intervalo)
   }, [])
 
   // Impressão automática da comanda, assim que o pedido chega. Fica aqui, e não na tela de
