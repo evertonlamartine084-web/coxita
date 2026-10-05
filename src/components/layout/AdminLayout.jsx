@@ -11,7 +11,9 @@ import { usePushDoPainel } from '../../hooks/usePushDoPainel'
 import { useAppDoPainel } from '../../hooks/useAppDoPainel'
 
 const navItems = [
-  { to: '/admin', icon: HiHome, label: 'Dashboard' },
+  // com a barra: o app do painel tem escopo /admin/, e /admin sem barra fica FORA dele — o
+  // Chrome mostrava a faixa de "site externo" no topo toda vez que se abria o Dashboard
+  { to: '/admin/', icon: HiHome, label: 'Dashboard' },
   { to: '/admin/pedidos', icon: HiClipboardList, label: 'Pedidos' },
   { to: '/admin/rotas', icon: HiMap, label: 'Rotas' },
   { to: '/admin/clientes', icon: HiUsers, label: 'Clientes' },
@@ -279,7 +281,7 @@ export default function AdminLayout() {
         )}
         <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1.5">
           {navItems.map(({ to, icon, label }) => {
-            const active = location.pathname === to
+            const active = location.pathname === to || (to === '/admin/' && location.pathname === '/admin')
             return (
               <Link
                 key={to}

@@ -91,7 +91,7 @@ export default function BlingCallbackPage() {
         </div>
       )}
 
-      <Link to="/admin" className="mt-6 inline-block text-sm text-primary hover:underline">
+      <Link to="/admin/" className="mt-6 inline-block text-sm text-primary hover:underline">
         ← Voltar ao painel
       </Link>
     </div>
