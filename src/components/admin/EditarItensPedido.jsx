@@ -76,6 +76,11 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
   const diferenca = novoTotal - totalAnterior
   const jaPago = pedido.payment_status === 'pago'
 
+  const definirQtd = (idx, valor) => {
+    const n = Math.max(1, Number.parseInt(valor, 10) || 1)
+    setItens(atual => atual.map((it, i) => (i === idx ? { ...it, quantity: n } : it)))
+  }
+
   const alterarQtd = (idx, delta) => {
     setItens(atual => atual.map((it, i) =>
       i === idx ? { ...it, quantity: Math.max(1, it.quantity + delta) } : it
@@ -166,7 +171,9 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => alterarQtd(idx, -1)}
                 className="size-7 cursor-pointer rounded border border-gray-300 text-sm hover:bg-gray-50">−</button>
-              <span className="w-7 text-center text-sm font-semibold tabular-nums">{item.quantity}</span>
+              <input type="number" min="1" inputMode="numeric" value={item.quantity} aria-label="Quantidade"
+                onChange={e => definirQtd(idx, e.target.value)}
+                className="w-14 rounded border border-gray-300 px-1 py-0.5 text-center text-sm font-semibold tabular-nums" />
               <button type="button" onClick={() => alterarQtd(idx, 1)}
                 className="size-7 cursor-pointer rounded border border-gray-300 text-sm hover:bg-gray-50">+</button>
             </div>

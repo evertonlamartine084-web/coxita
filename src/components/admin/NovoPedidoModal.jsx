@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { HiPlus, HiTrash } from 'react-icons/hi'
 import toast from 'react-hot-toast'
-import { getAllProducts, getProducts } from '../../services/products'
+import { getAllProducts, getProdutosDoPainel } from '../../services/products'
 import { getSettings, peekSettings } from '../../services/settings'
 import { createOrder } from '../../services/orders'
 import { cotarEntrega } from '../../services/entrega'
@@ -52,7 +52,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
 
   useEffect(() => {
     if (!aberto) return
-    getProducts().then(setProdutos).catch(() => setProdutos([]))
+    getProdutosDoPainel().then(setProdutos).catch(() => setProdutos([]))
     getAllProducts()
       .then(todos => setPromo({
         produto: todos.find(p => p.name === 'Promo Cento + Refri 1L') ?? null,
@@ -96,6 +96,11 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     id: item.product_id, name: item.product_name, price: item.price, cash_price: item.cash_price,
     quantity: 1, flavors: item.flavors,
   }])
+
+  const definirQtd = (idx, valor) => {
+    const n = Math.max(1, Number.parseInt(valor, 10) || 1)
+    setItens(atual => atual.map((it, i) => (i === idx ? { ...it, quantity: n } : it)))
+  }
 
   const alterarQtd = (idx, delta) =>
     setItens(atual => atual.map((it, i) =>
@@ -287,7 +292,10 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
                     </div>
                     <div className="flex items-center gap-1">
                       <button type="button" onClick={() => alterarQtd(idx, -1)} className="size-6 cursor-pointer rounded border border-gray-200">−</button>
-                      <span className="w-6 text-center">{it.quantity}</span>
+                      {/* digitável: item Gourmet vai por unidade, 100 cliques no + não dá */}
+                      <input type="number" min="1" inputMode="numeric" value={it.quantity} aria-label="Quantidade"
+                        onChange={e => definirQtd(idx, e.target.value)}
+                        className="w-14 rounded border border-gray-200 px-1 py-0.5 text-center tabular-nums" />
                       <button type="button" onClick={() => alterarQtd(idx, 1)} className="size-6 cursor-pointer rounded border border-gray-200">+</button>
                     </div>
                     <span className="w-20 text-right font-medium">{formatCurrency(Number(it.price) * it.quantity)}</span>

@@ -14,6 +14,20 @@ export async function getProducts() {
       .from('products')
       .select('*, categories(name, slug, vende_pelo_pacote), sabor_fixo:flavors!products_fixed_flavor_id_fkey(id, name)')
       .eq('active', true)
+      .eq('so_painel', false) // linha Gourmet e afins: só o painel lança (ver gourmet-no-painel.sql)
+      .order('sort_order')
+    if (error) throw error
+    return data
+  })
+}
+
+/** Ativos para lançar pedido no painel: os do site mais os `so_painel` (Gourmet). */
+export async function getProdutosDoPainel() {
+  return cached('products:painel', async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, categories(name, slug, vende_pelo_pacote), sabor_fixo:flavors!products_fixed_flavor_id_fkey(id, name)')
+      .eq('active', true)
       .order('sort_order')
     if (error) throw error
     return data
