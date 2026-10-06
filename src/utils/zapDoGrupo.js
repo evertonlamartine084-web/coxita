@@ -110,6 +110,11 @@ export async function qrCodeDoZap(config) {
     })
     if (r?.qrcode?.base64) return r.qrcode.base64
   }
+  return qrCodeAtualDoZap(config)
+}
+
+/** O QR que vale agora: a Evolution troca a cada ~20 s, e pedir de novo não derruba a conexão. */
+export async function qrCodeAtualDoZap(config) {
   const r = await evolution(`/instance/connect/${config.instancia}`, { config })
   return r?.base64 ?? null
 }

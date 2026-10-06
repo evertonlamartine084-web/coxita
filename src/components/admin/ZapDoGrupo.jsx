@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import {
-  lerConfigZap, gravarConfigZap, zapPronto, estadoDoZap, qrCodeDoZap, desconectarZap, gruposDoZap, mandarNoGrupo,
+  lerConfigZap, gravarConfigZap, zapPronto, estadoDoZap, qrCodeDoZap, qrCodeAtualDoZap, desconectarZap, gruposDoZap, mandarNoGrupo,
 } from '../../utils/zapDoGrupo'
 
 const ROTULO_ESTADO = {
@@ -36,10 +36,11 @@ export default function ZapDoGrupo() {
       if (e === 'open') setQr(null)
       return e
     } catch (err) {
-      setEstado(undefined)
+      // com o QR na tela, uma falha passageira não esconde nada: só avisa, e a próxima volta tenta de novo
+      if (!qr) setEstado(undefined)
       setErro(err.message)
     }
-  }, [config])
+  }, [config, qr])
 
   useEffect(() => {
     if (aberto) verificar()
@@ -51,6 +52,19 @@ export default function ZapDoGrupo() {
     const t = setInterval(verificar, 3000)
     return () => clearInterval(t)
   }, [aberto, qr, verificar])
+
+  // o QR do WhatsApp vence em uns 20 s: a Evolution já gerou outro, e a tela troca pelo novo a cada 10 s
+  const temQr = !!qr
+  useEffect(() => {
+    if (!aberto || !temQr) return
+    const t = setInterval(async () => {
+      try {
+        const novo = await qrCodeAtualDoZap(config)
+        if (novo) setQr(novo)
+      } catch { /* a conferência de 3 s já mostra o erro */ }
+    }, 10000)
+    return () => clearInterval(t)
+  }, [aberto, temQr, config])
 
   const executar = async (fn) => {
     setOcupado(true)
