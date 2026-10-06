@@ -5,6 +5,7 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido } from '../../utils/zapDoGrupo'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -210,6 +211,56 @@ export default function AdminLayout() {
 
     imprimirPendentes()
     const interval = setInterval(imprimirPendentes, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Pedido novo no grupo do WhatsApp, pela Evolution do PC da loja (utils/zapDoGrupo). Mesma
+  // regra e mesma volta da comanda; fica separado para um não travar o outro.
+  useEffect(() => {
+    let enviando = false
+    const jaRegistrado = new Set()
+
+    const enviarPendentes = async () => {
+      const config = lerConfigZap()
+      if (enviando || !zapPronto(config)) return
+      enviando = true
+      try {
+        const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, order_items(*, order_item_flavors(*))')
+          .gte('created_at', config.desde && config.desde > ontem ? config.desde : ontem)
+          .order('created_at', { ascending: true })
+        if (error) throw error
+
+        for (const pedido of data.filter(p => prontoParaComanda(p) && !zapJaEnviado(p.id))) {
+          const enviar = async () => {
+            if (zapJaEnviado(pedido.id)) return
+            try {
+              await mandarNoGrupo(textoDoPedido(pedido), config)
+              marcarZapEnviado(pedido.id)
+              registrarImpressao('zap_enviado', pedido.order_number)
+            } catch (e) {
+              // fica sem marcar: tenta de novo na próxima volta, e o erro entra uma vez no registro
+              const chave = `${pedido.id}${e.message}`
+              if (!jaRegistrado.has(chave)) {
+                jaRegistrado.add(chave)
+                registrarImpressao('zap_falhou', pedido.order_number, { erro: e.message })
+              }
+            }
+          }
+          if (navigator.locks) await navigator.locks.request('coxelli-zap', enviar)
+          else await enviar()
+        }
+      } catch (e) {
+        console.warn('Envio ao grupo do WhatsApp falhou:', e)
+      } finally {
+        enviando = false
+      }
+    }
+
+    enviarPendentes()
+    const interval = setInterval(enviarPendentes, 15000)
     return () => clearInterval(interval)
   }, [])
 

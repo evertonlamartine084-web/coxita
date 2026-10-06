@@ -1,0 +1,61 @@
+# Evolution API no PC da loja: liga o WhatsApp da Coxelli ao painel, que manda cada pedido novo
+# para o grupo (src/utils/zapDoGrupo.js). Escuta só neste computador (127.0.0.1): de fora da
+# máquina ninguém acessa. Sem Redis, para pesar menos; o cache fica na memória.
+#
+# A chave AUTHENTICATION_API_KEY vem do arquivo chave.env ao lado (fora do git). Ela é a mesma que se
+# cola no painel, em Pedidos → 📲 Grupo do Zap.
+
+services:
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    env_file:
+      - chave.env
+    environment:
+      SERVER_URL: http://localhost:8080
+      # o painel em coxelli.com.br chama a Evolution pelo Chrome
+      CORS_ORIGIN: "*"
+      CORS_METHODS: GET,POST,PUT,DELETE
+      CORS_CREDENTIALS: "true"
+      LANGUAGE: pt-BR
+      LOG_LEVEL: ERROR,WARN,INFO
+      TELEMETRY_ENABLED: "false"
+      DEL_INSTANCE: "false"
+      CONFIG_SESSION_PHONE_CLIENT: Painel Coxelli
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: coxelli
+      # só o necessário para a conexão sobreviver a reinício; mensagens e contatos não são guardados
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      RABBITMQ_ENABLED: "false"
+      SQS_ENABLED: "false"
+      WEBSOCKET_ENABLED: "false"
+
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: evolution
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  evolution_instances:
+  postgres_data:

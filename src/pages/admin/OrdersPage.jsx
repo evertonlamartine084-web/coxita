@@ -10,6 +10,7 @@ import Modal from '../../components/ui/Modal'
 import Loading from '../../components/ui/Loading'
 import { playOrderAlert } from '../../utils/alertSound'
 import PromoRefri from '../../components/admin/PromoRefri'
+import ZapDoGrupo from '../../components/admin/ZapDoGrupo'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 
@@ -254,6 +255,7 @@ export default function OrdersPage() {
             Testar impressora
           </button>
         )}
+        <ZapDoGrupo />
         </div>
       </div>
 
