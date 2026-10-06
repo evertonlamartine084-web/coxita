@@ -213,9 +213,10 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold">Pedidos</h1>
-        <div className="flex items-center gap-2">
+        {/* quebra de linha no celular: sem ela, os últimos botões ficavam fora da tela */}
+        <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setCriandoPedido(true)}
           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
