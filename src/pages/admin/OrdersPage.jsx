@@ -13,6 +13,14 @@ import PromoRefri from '../../components/admin/PromoRefri'
 import ZapDoGrupo from '../../components/admin/ZapDoGrupo'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
+import { FaWhatsapp } from 'react-icons/fa'
+
+/** Link da conversa com o cliente. Telefone vem em vários formatos (lançado à mão no painel). */
+function linkWhatsApp(telefone) {
+  const digitos = (telefone || '').replace(/\D/g, '')
+  if (digitos.length < 10) return null
+  return `https://wa.me/${digitos.startsWith('55') && digitos.length >= 12 ? digitos : `55${digitos}`}`
+}
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
 
@@ -334,7 +342,23 @@ export default function OrdersPage() {
                           <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">PROMOÇÃO</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">{order.customer_name}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-2">
+                          {order.customer_name}
+                          {linkWhatsApp(order.customer_phone) && (
+                            <a
+                              href={linkWhatsApp(order.customer_phone)}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={`Chamar ${order.customer_name} no WhatsApp`}
+                              aria-label={`Chamar ${order.customer_name} no WhatsApp`}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <FaWhatsapp className="size-4" />
+                            </a>
+                          )}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 hidden md:table-cell capitalize">{order.delivery_type}</td>
                       <td className="px-4 py-3 hidden md:table-cell">{PAYMENT_LABELS[order.payment_method]}</td>
                       <td className="px-4 py-3 font-medium">{formatCurrency(order.total)}</td>
@@ -408,6 +432,16 @@ export default function OrdersPage() {
               <h4 className="font-medium mb-1">Cliente</h4>
               <p className="text-sm">{selectedOrder.customer_name}</p>
               <p className="text-sm text-text-light">{selectedOrder.customer_phone}</p>
+              {linkWhatsApp(selectedOrder.customer_phone) && (
+                <a
+                  href={linkWhatsApp(selectedOrder.customer_phone)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700"
+                >
+                  <FaWhatsapp className="size-4" /> Chamar no WhatsApp
+                </a>
+              )}
             </div>
 
             {selectedOrder.delivery_type === 'entrega' && (
