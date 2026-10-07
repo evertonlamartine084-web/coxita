@@ -19,7 +19,9 @@ import { FaWhatsapp } from 'react-icons/fa'
 function linkWhatsApp(telefone) {
   const digitos = (telefone || '').replace(/\D/g, '')
   if (digitos.length < 10) return null
-  return `https://wa.me/${digitos.startsWith('55') && digitos.length >= 12 ? digitos : `55${digitos}`}`
+  // "+41 79 ..." é número de fora: já vem com o código do país, não leva o 55
+  const internacional = (telefone || '').trim().startsWith('+')
+  return `https://wa.me/${internacional || (digitos.startsWith('55') && digitos.length >= 12) ? digitos : `55${digitos}`}`
 }
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
