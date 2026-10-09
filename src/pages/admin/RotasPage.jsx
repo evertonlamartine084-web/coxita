@@ -4,8 +4,9 @@ import { FaWhatsapp } from 'react-icons/fa'
 import toast from 'react-hot-toast'
 import { supabase } from '../../services/supabase'
 import { getSettings } from '../../services/settings'
-import { formatCurrency, STATUS_LABELS, STATUS_COLORS } from '../../utils/format'
-import { dataLocal } from '../../utils/funcionamento'
+import { formatCurrency, STATUS_LABELS, STATUS_COLORS, faltaReceber } from '../../utils/format'
+import { dataLocal, horarioDeEntrega } from '../../utils/funcionamento'
+import BloqueioDeHorarios from '../../components/admin/BloqueioDeHorarios'
 import Badge from '../../components/ui/Badge'
 
 /**
@@ -92,6 +93,7 @@ export default function RotasPage() {
   const [pedidos, setPedidos] = useState(null)
   const [coords, setCoords] = useState({})
   const [loja, setLoja] = useState(null)
+  const [funcionamento, setFuncionamento] = useState(() => horarioDeEntrega())
   const [selecionados, setSelecionados] = useState(new Set())
   const [saida, setSaida] = useState('')
   const [rota, setRota] = useState(null)
@@ -99,6 +101,7 @@ export default function RotasPage() {
 
   useEffect(() => {
     getSettings().then(s => {
+      setFuncionamento(horarioDeEntrega(s))
       const lat = Number(s.loja_lat)
       const lng = Number(s.loja_lng)
       if (lat && lng) setLoja({ lat, lng })
@@ -110,7 +113,7 @@ export default function RotasPage() {
     const fim = new Date(+ini + DIA)
     const { data, error } = await supabase
       .from('orders')
-      .select('id, order_number, customer_name, customer_phone, address, address_number, address_complement, neighborhood, address_reference, address_cep, scheduled_for, created_at, status, total, payment_method, entrega_lat, entrega_lng')
+      .select('id, order_number, customer_name, customer_phone, address, address_number, address_complement, neighborhood, address_reference, address_cep, scheduled_for, created_at, status, total, payment_method, payment_status, sinal_valor, entrega_lat, entrega_lng')
       .eq('delivery_type', 'entrega')
       .neq('status', 'cancelado')
       .or(`and(scheduled_for.gte.${ini.toISOString()},scheduled_for.lt.${fim.toISOString()}),and(scheduled_for.is.null,created_at.gte.${ini.toISOString()},created_at.lt.${fim.toISOString()})`)
@@ -218,6 +221,16 @@ export default function RotasPage() {
           className="shrink-0 rounded-lg border border-border bg-white px-2 py-1 text-sm" aria-label="Outro dia" />
       </div>
 
+      {/* Horários do dia no site: fechar o que foi combinado por fora */}
+      <section className="rounded-xl border border-border bg-white p-4 sm:p-5">
+        <h2 className="text-lg font-semibold">Horários de entrega no site</h2>
+        <p className="text-sm text-text-light">
+          Verde está livre para o cliente escolher. Toque para <strong>fechar</strong> um horário combinado por fora do site,
+          e toque de novo para reabrir. Azul já tem entrega marcada.
+        </p>
+        <BloqueioDeHorarios dia={dia} abre={funcionamento.abre} fecha={funcionamento.fecha} pedidos={pedidos} />
+      </section>
+
       {/* Entregas do dia */}
       <section className="rounded-xl border border-border bg-white p-4 sm:p-5">
         <h2 className="text-lg font-semibold">Entregas do dia</h2>
@@ -300,7 +313,12 @@ export default function RotasPage() {
                 <li key={o.id} className="flex gap-3 rounded-lg border border-border p-3">
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-white">{n + 1}</span>
                   <div className="min-w-0 flex-1 text-sm">
-                    <p><strong>#{o.order_number}</strong> {o.customer_name} · {formatCurrency(o.total)}</p>
+                    <p>
+                      <strong>#{o.order_number}</strong> {o.customer_name} · {formatCurrency(o.total)}
+                      {o.payment_status === 'pago'
+                        ? <span className="ml-1 font-semibold text-green-700">· já pago</span>
+                        : Number(o.sinal_valor) > 0 && <span className="ml-1 font-semibold text-amber-700">· cobrar {formatCurrency(faltaReceber(o))} (sinal pago)</span>}
+                    </p>
                     <p className="text-text-light">
                       {[o.address, o.address_number, o.address_complement].filter(Boolean).join(', ')}{o.neighborhood ? ` · ${o.neighborhood}` : ''}
                       {o.address_reference ? ` · ${o.address_reference}` : ''}

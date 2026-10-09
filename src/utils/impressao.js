@@ -264,8 +264,11 @@ function htmlDaComanda(p) {
       ${p.address_reference ? `<div>Ref: ${esc(p.address_reference)}</div>` : ''}
     </div>` : ''
 
+  // encomenda com sinal: o entregador cobra só o que falta
+  const sinal = pago ? 0 : Number(p.sinal_valor || 0)
+  const aCobrar = Math.max(0, Number(p.total) - sinal)
   const troco = p.payment_method === 'dinheiro' && Number(p.change_for) > 0
-    ? linhaValor('Troco para', formatCurrency(p.change_for)) + linhaValor('Levar de troco', formatCurrency(Number(p.change_for) - Number(p.total)))
+    ? linhaValor('Troco para', formatCurrency(p.change_for)) + linhaValor('Levar de troco', formatCurrency(Number(p.change_for) - aCobrar))
     : ''
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Pedido #${esc(p.order_number)}</title>
@@ -301,9 +304,10 @@ function htmlDaComanda(p) {
   ${Number(p.discount) > 0 ? linhaValor(`Desconto${p.coupon_code ? ` (${p.coupon_code})` : ''}`, `-${formatCurrency(p.discount)}`) : ''}
   ${entrega ? linhaValor('Entrega', formatCurrency(p.delivery_fee)) : ''}
   ${linhaValor('TOTAL', formatCurrency(p.total), 'total')}
+  ${sinal > 0 ? linhaValor('Sinal pago', `-${formatCurrency(sinal)}`) + linhaValor('A COBRAR', formatCurrency(aCobrar), 'total') : ''}
   <hr>
   <div><b>Pagamento:</b> ${esc(ROTULO_PAGAMENTO[p.payment_method] ?? p.payment_method)}</div>
-  <div class="faixa">${pago ? 'JÁ PAGO' : entrega ? 'COBRAR NA ENTREGA' : 'COBRAR NA RETIRADA'}</div>
+  <div class="faixa">${pago ? 'JÁ PAGO' : `COBRAR ${sinal > 0 ? `${esc(formatCurrency(aCobrar))} ` : ''}${entrega ? 'NA ENTREGA' : 'NA RETIRADA'}`}</div>
   ${pago ? '' : troco}
   <div class="rodape">Impresso em ${esc(formatDate(new Date().toISOString()))}</div>
 </body></html>`
