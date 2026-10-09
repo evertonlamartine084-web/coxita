@@ -6,7 +6,7 @@ import { getSettings, peekSettings } from '../../services/settings'
 import { createOrder } from '../../services/orders'
 import { cotarEntrega } from '../../services/entrega'
 import { calcularDescontoAvista, ehAVista } from '../../utils/descontoAvista'
-import { formatCurrency, mascararTelefone } from '../../utils/format'
+import { formatCurrency, mascararTelefone, CANAIS } from '../../utils/format'
 import FlavorPicker from '../product/FlavorPicker'
 import AvulsoPorUnidade from './AvulsoPorUnidade'
 import Modal from '../ui/Modal'
@@ -44,6 +44,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     taxa_entrega: '',
     delivery_km: null,
     payment_method: 'dinheiro',
+    canal: 'whatsapp',
     notes: '',
     agendado: false,
     scheduled_date: '',
@@ -150,6 +151,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
         address_number: form.address_number.trim(),
         notes: [form.notes.trim(), 'Pedido lançado no painel'].filter(Boolean).join(' · '),
         payment_method: form.payment_method,
+        canal: form.canal,
         scheduled_for: form.agendado
           ? new Date(`${form.scheduled_date}T${form.scheduled_time}`).toISOString()
           : null,
@@ -196,6 +198,23 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
                 <option value="entrega">Entrega</option>
               </select>
             </label>
+            <div className="text-sm sm:col-span-2" role="group" aria-label="Origem do pedido">
+              <span className="mb-1 block font-medium">Origem</span>
+              <div className="flex flex-wrap gap-2">
+                {['whatsapp', 'balcao', 'ifood'].map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => mudar('canal', c)}
+                    className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors ${
+                      form.canal === c ? `${CANAIS[c].cor} ring-current` : 'bg-white text-text-light ring-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {CANAIS[c].rotulo}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="text-sm">
               <span className="mb-1 block font-medium">Pagamento</span>
               <select

@@ -346,6 +346,12 @@ export async function marcarPago(orderId) {
   return data
 }
 
+/** Corrige por onde o pedido chegou (site, ifood, whatsapp, balcao). */
+export async function mudarCanal(orderId, canal) {
+  const { error } = await supabase.from('orders').update({ canal }).eq('id', orderId)
+  if (error) throw error
+}
+
 /** Tira da lista um pedido cancelado — regras e devolução de estoque em supabase/excluir-pedido.sql. */
 export async function excluirPedidoCancelado(orderId) {
   const { data, error } = await supabase.rpc('excluir_pedido_cancelado', { p_order_id: orderId })

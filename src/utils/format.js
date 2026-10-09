@@ -66,6 +66,14 @@ export const PAYMENT_STATUS_LABELS = {
 export const aReceber = (o) =>
   o.status === 'entregue' && !['pago', 'estornado'].includes(o.payment_status)
 
+/** Por onde o pedido chegou. O site grava 'site' sozinho; o painel escolhe entre os outros. */
+export const CANAIS = {
+  site: { rotulo: 'Site', etiqueta: 'SITE', cor: 'bg-sky-100 text-sky-800' },
+  whatsapp: { rotulo: 'WhatsApp', etiqueta: 'WHATSAPP', cor: 'bg-green-100 text-green-800' },
+  ifood: { rotulo: 'iFood', etiqueta: 'IFOOD', cor: 'bg-red-100 text-red-700' },
+  balcao: { rotulo: 'Balcão', etiqueta: 'BALCÃO', cor: 'bg-stone-200 text-stone-700' },
+}
+
 export const PAYMENT_LABELS = {
   dinheiro: 'Dinheiro',
   pix: 'Pix',

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrders, marcarPago } from '../../services/orders'
-import { formatCurrency, STATUS_LABELS, STATUS_COLORS, aReceber } from '../../utils/format'
+import { formatCurrency, STATUS_LABELS, STATUS_COLORS, aReceber, CANAIS } from '../../utils/format'
 import toast from 'react-hot-toast'
 import Badge from '../../components/ui/Badge'
 import Loading from '../../components/ui/Loading'
@@ -11,7 +11,7 @@ import AppInstallsCard from '../../components/admin/AppInstallsCard'
  * Painel de números da loja.
  *
  * Um filtro de período só, no topo, vale para tudo abaixo dele: faturamento, gráfico, formas de
- * pagamento e sabores. "Em aberto" e "Próximos agendados" não dependem do período — são o que
+ * pagamento, origem e sabores. "Em aberto" e "Próximos agendados" não dependem do período — são o que
  * ainda falta entregar. "A receber" também não: é o que já foi entregue e o dinheiro ainda não
  * foi confirmado, de qualquer data.
  *
@@ -55,7 +55,7 @@ export default function DashboardPage() {
   if (erro) return <p className="text-sm text-red-600">Não foi possível carregar os pedidos: {erro}</p>
   if (!dados) return <Loading />
 
-  const { atual, anterior, rotuloAnterior, barras, pagamentos, sabores, abertos, agendados, deHoje, primeiraVenda } = dados
+  const { atual, anterior, rotuloAnterior, barras, pagamentos, canais, sabores, abertos, agendados, deHoje, primeiraVenda } = dados
   const faturado = somaTotal(atual)
   const ticket = atual.length ? faturado / atual.length : 0
   const aEntregar = somaTotal(atual.filter(o => ABERTOS.includes(o.status)))
@@ -105,7 +105,15 @@ export default function DashboardPage() {
 
       <GraficoVendas barras={barras} porHora={periodo === 'hoje'} />
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className="grid gap-6 lg:grid-cols-3">
+        <Ranking
+          titulo="De onde vieram"
+          subtitulo="Valor no período, por origem"
+          itens={canais}
+          formatar={v => formatCurrency(v)}
+          extra={item => `${item.pedidos} ${item.pedidos === 1 ? 'pedido' : 'pedidos'}`}
+          vazio="Nenhuma venda no período."
+        />
         <Ranking
           titulo="Como pagaram"
           subtitulo="Valor no período"
@@ -187,7 +195,13 @@ function calcular(pedidos, periodo) {
 
   const porPagamento = {}
   const porSabor = {}
+  const porCanal = {}
   for (const o of atual) {
+    const canal = o.canal || 'site'
+    porCanal[canal] ??= { nome: CANAIS[canal]?.rotulo ?? canal, valor: 0, pedidos: 0 }
+    porCanal[canal].valor += Number(o.total)
+    porCanal[canal].pedidos += 1
+
     const chave = o.payment_method || 'outro'
     porPagamento[chave] ??= { nome: PAGAMENTO[chave] ?? chave, valor: 0, pedidos: 0 }
     porPagamento[chave].valor += Number(o.total)
@@ -211,6 +225,7 @@ function calcular(pedidos, periodo) {
     rotuloAnterior,
     barras,
     pagamentos: Object.values(porPagamento).sort((a, b) => b.valor - a.valor),
+    canais: Object.values(porCanal).sort((a, b) => b.valor - a.valor),
     sabores: Object.entries(porSabor)
       .map(([nome, valor]) => ({ nome, valor }))
       .sort((a, b) => b.valor - a.valor)

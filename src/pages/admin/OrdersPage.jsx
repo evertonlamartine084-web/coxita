@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota, excluirPedidoCancelado, marcarPago } from '../../services/orders'
+import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota, excluirPedidoCancelado, marcarPago, mudarCanal } from '../../services/orders'
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
-import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber } from '../../utils/format'
+import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, CANAIS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -361,6 +361,9 @@ export default function OrdersPage() {
                         {order.scheduled_for && (
                           <span className="ml-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">AGENDADO</span>
                         )}
+                        {CANAIS[order.canal] && (
+                          <span className={`ml-1.5 ${CANAIS[order.canal].cor} text-[10px] font-bold px-1.5 py-0.5 rounded-full`}>{CANAIS[order.canal].etiqueta}</span>
+                        )}
                         {aReceber(order) && (
                           <span className="ml-1.5 bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">A RECEBER</span>
                         )}
@@ -453,6 +456,31 @@ export default function OrdersPage() {
                 </p>
               </div>
             )}
+
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium">Origem:</span>
+              {selectedOrder.canal === 'site' ? (
+                <span className={`${CANAIS.site.cor} rounded-full px-2 py-0.5 text-xs font-bold`}>{CANAIS.site.rotulo}</span>
+              ) : (
+                // pedido do site fica como site; os lançados pelo painel podem ser corrigidos
+                <select
+                  value={selectedOrder.canal}
+                  onChange={async e => {
+                    const canal = e.target.value
+                    try {
+                      await mudarCanal(selectedOrder.id, canal)
+                      setSelectedOrder(prev => ({ ...prev, canal }))
+                      loadOrders()
+                    } catch (err) {
+                      toast.error(err.message || 'Não foi possível mudar a origem.')
+                    }
+                  }}
+                  className="rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                >
+                  {['whatsapp', 'balcao', 'ifood'].map(c => <option key={c} value={c}>{CANAIS[c].rotulo}</option>)}
+                </select>
+              )}
+            </div>
 
             <div className="border-t border-border pt-3">
               <h4 className="font-medium mb-1">Cliente</h4>
