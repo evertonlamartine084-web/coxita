@@ -109,7 +109,14 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
 
   const remover = (idx) => setItens(atual => atual.filter((_, i) => i !== idx))
 
-  const subtotal = itens.reduce((s, i) => s + Number(i.price) * i.quantity, 0)
+  // Pedido do iFood vale pelo preço do cardápio do iFood (products.preco_ifood), sem o desconto
+  // à vista do site: é o que o cliente pagou lá e o que entra no faturamento.
+  const ehIfood = form.canal === 'ifood'
+  const itensDoPedido = useMemo(
+    () => (ehIfood ? itens.map(i => (i.preco_ifood ? { ...i, price: Number(i.preco_ifood), cash_price: null } : i)) : itens),
+    [itens, ehIfood],
+  )
+  const subtotal = itensDoPedido.reduce((s, i) => s + Number(i.price) * i.quantity, 0)
   const taxaEntrega = form.delivery_type === 'entrega' ? Number(String(form.taxa_entrega).replace(',', '.')) || 0 : 0
   const [calculando, setCalculando] = useState(false)
   const calcularEntrega = async () => {
@@ -127,8 +134,8 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     }
   }
   const descontoAvista = useMemo(
-    () => calcularDescontoAvista(itens, form.payment_method, settings, subtotal),
-    [itens, form.payment_method, settings, subtotal],
+    () => (ehIfood ? 0 : calcularDescontoAvista(itensDoPedido, form.payment_method, settings, subtotal)),
+    [itensDoPedido, ehIfood, form.payment_method, settings, subtotal],
   )
   const total = Math.max(0, subtotal - descontoAvista + taxaEntrega)
 
@@ -161,7 +168,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
         discount: descontoAvista,
         discount_avista: descontoAvista,
         total,
-      }, itens)
+      }, itensDoPedido)
       toast.success(`Pedido #${pedido.order_number} criado.`)
       setItens([])
       setForm(f => ({ ...f, customer_name: '', customer_phone: '', notes: '', agendado: false, scheduled_date: '', scheduled_time: '' }))
@@ -272,7 +279,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
               >
                 <option value="">Adicionar produto…</option>
                 {produtos.filter(p => p.active).map(p => (
-                  <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}</option>
+                  <option key={p.id} value={p.id}>{p.name} — {formatCurrency(ehIfood && p.preco_ifood ? p.preco_ifood : p.price)}</option>
                 ))}
               </select>
             </div>
@@ -299,7 +306,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
               <p className="py-3 text-center text-sm text-gray-400">Nenhum item ainda.</p>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {itens.map((it, idx) => (
+                {itensDoPedido.map((it, idx) => (
                   <li key={`${it.id}-${idx}`} className="flex items-center gap-2 py-2 text-sm">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{it.name}</p>

@@ -33,7 +33,7 @@ export async function getFichas() {
     const { data, error } = await supabase
       .from('products')
       .select(`
-        id, name, price, pack_size, active, sort_order,
+        id, name, price, preco_ifood, pack_size, active, sort_order,
         recipe_yield, waste_percent, target_margin,
         categories(name, slug),
         product_recipe_items(id, supply_id, quantity)

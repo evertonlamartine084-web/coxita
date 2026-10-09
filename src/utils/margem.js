@@ -39,6 +39,9 @@ export const PARAMS_PADRAO = {
   fee_credit: 0,
   fee_debit: 0,
   fee_pix: 0,
+  // iFood, plano Entrega: comissão + taxa de transação sobre o valor dos produtos
+  ifood_comissao: 23,
+  ifood_taxa_transacao: 3.2,
 }
 
 function numero(valor, fallback = 0) {
@@ -205,6 +208,22 @@ export function calcularProduto(produto, custos = new Map(), params = PARAMS_PAD
     null,
   )
 
+  // iFood: preço do cardápio de lá, menos comissão, taxa de transação e imposto. Taxa de entrega
+  // e de serviço são do cliente e não entram (relatório de conciliação de 10/2026).
+  const precoIfood = numero(produto?.preco_ifood)
+  const descontosIfood = numero(params?.ifood_comissao, 23) + numero(params?.ifood_taxa_transacao, 3.2) + imposto
+  const ifood = precoIfood > 0
+    ? (() => {
+        const lucro = precoIfood - custoTotal - (precoIfood * descontosIfood) / 100
+        return {
+          preco: precoIfood,
+          recebe: precoIfood * (1 - descontosIfood / 100),
+          lucro,
+          margem: temFicha ? (lucro / precoIfood) * 100 : null,
+        }
+      })()
+    : null
+
   return {
     temFicha,
     custoFicha,
@@ -219,6 +238,7 @@ export function calcularProduto(produto, custos = new Map(), params = PARAMS_PAD
     markup: temFicha && custoTotal > 0 ? (preco / custoTotal - 1) * 100 : null,
     porMeio,
     piorCaso,
+    ifood,
   }
 }
 

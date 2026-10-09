@@ -176,6 +176,7 @@ function TabelaProdutos({ contas, onAbrir }) {
               <th className="text-right px-4 py-3 font-medium">Custo</th>
               <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Sobra no crédito</th>
               <th className="text-right px-4 py-3 font-medium">Margem</th>
+              <th className="text-right px-4 py-3 font-medium" title="Preço do iFood menos 23% de comissão, 3,2% de transação e o imposto">No iFood</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -214,6 +215,20 @@ function TabelaProdutos({ contas, onAbrir }) {
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${faixa.classe}`}>
                       {conta.temFicha ? formatPercent(conta.piorCaso?.margem) : faixa.texto}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {conta.ifood ? (
+                      <>
+                        <span className="block text-xs text-text-light">{formatCurrency(conta.ifood.preco)} no app</span>
+                        {conta.temFicha ? (
+                          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${ROTULO_DA_FAIXA[faixaDaMargem(conta.ifood.margem)].classe}`}>
+                            sobra {formatCurrency(conta.ifood.lucro)} · {formatPercent(conta.ifood.margem)}
+                          </span>
+                        ) : (
+                          <span className="block text-xs">recebe {formatCurrency(conta.ifood.recebe)}</span>
+                        )}
+                      </>
+                    ) : <span className="text-text-light">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
