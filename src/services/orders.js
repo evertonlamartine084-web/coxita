@@ -364,6 +364,13 @@ export async function mudarCanal(orderId, canal) {
   if (error) throw error
 }
 
+/** Refaz sem cobrança o que saiu com problema — ver supabase/reposicao.sql. */
+export async function criarReposicao(orderId, motivo, itens) {
+  const { data, error } = await supabase.rpc('criar_reposicao', { p_original: orderId, p_motivo: motivo, p_itens: itens })
+  if (error) throw error
+  return data
+}
+
 /** Tira da lista um pedido cancelado — regras e devolução de estoque em supabase/excluir-pedido.sql. */
 export async function excluirPedidoCancelado(orderId) {
   const { data, error } = await supabase.rpc('excluir_pedido_cancelado', { p_order_id: orderId })

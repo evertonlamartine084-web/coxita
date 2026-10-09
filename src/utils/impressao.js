@@ -294,6 +294,7 @@ function htmlDaComanda(p) {
   <div class="centro marca">COXELLI</div>
   <div class="centro numero">PEDIDO #${esc(p.order_number)}</div>
   <div class="centro">${esc(formatDate(p.created_at))}</div>
+  ${p.reposicao_de ? `<div class="faixa invertida">REPOSIÇÃO · SEM COBRANÇA</div><div class="obs">Motivo: ${esc(p.reposicao_motivo)}</div>` : ''}
   ${p.scheduled_for ? `<div class="faixa invertida">AGENDADO: ${esc(formatDate(p.scheduled_for))}</div>` : ''}
   <div class="faixa">${entrega ? 'ENTREGA' : 'RETIRADA NA LOJA'}</div>
   <div class="bloco"><b>${esc(p.customer_name)}</b><div>${esc(p.customer_phone)}</div></div>

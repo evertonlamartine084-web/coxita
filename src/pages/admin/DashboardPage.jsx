@@ -55,7 +55,7 @@ export default function DashboardPage() {
   if (erro) return <p className="text-sm text-red-600">Não foi possível carregar os pedidos: {erro}</p>
   if (!dados) return <Loading />
 
-  const { atual, anterior, rotuloAnterior, barras, pagamentos, canais, sabores, abertos, agendados, deHoje, primeiraVenda } = dados
+  const { atual, anterior, rotuloAnterior, barras, pagamentos, canais, reposicoes, sabores, abertos, agendados, deHoje, primeiraVenda } = dados
   const faturado = somaTotal(atual)
   const ticket = atual.length ? faturado / atual.length : 0
   const aEntregar = somaTotal(atual.filter(o => ABERTOS.includes(o.status)))
@@ -103,6 +103,8 @@ export default function DashboardPage() {
         aoReceber={id => setPedidos(lista => lista.map(o => (o.id === id ? { ...o, payment_status: 'pago' } : o)))}
       />
 
+      <Reposicoes pedidos={reposicoes} />
+
       <GraficoVendas barras={barras} porHora={periodo === 'hoje'} />
 
       <section className="grid gap-6 lg:grid-cols-3">
@@ -143,7 +145,8 @@ export default function DashboardPage() {
 }
 
 function calcular(pedidos, periodo) {
-  const validos = pedidos.filter(o => o.status !== 'cancelado')
+  // reposição não é venda: R$ 0 que só inflaria a contagem e derrubaria o ticket médio
+  const validos = pedidos.filter(o => o.status !== 'cancelado' && !o.reposicao_de)
   const agora = new Date()
   const hoje = inicioDoDia(agora)
   const primeiraVenda = validos.length
@@ -170,6 +173,8 @@ function calcular(pedidos, periodo) {
     rotuloAnterior = `nos ${dias} dias anteriores`
   }
   const atual = entre(inicio, new Date(+agora + 1))
+  const reposicoes = pedidos.filter(o => o.reposicao_de && o.status !== 'cancelado'
+    && new Date(o.created_at) >= inicio && new Date(o.created_at) <= agora)
 
   // barras: por hora no "hoje", por dia no resto
   const barras = []
@@ -226,6 +231,7 @@ function calcular(pedidos, periodo) {
     barras,
     pagamentos: Object.values(porPagamento).sort((a, b) => b.valor - a.valor),
     canais: Object.values(porCanal).sort((a, b) => b.valor - a.valor),
+    reposicoes,
     sabores: Object.entries(porSabor)
       .map(([nome, valor]) => ({ nome, valor }))
       .sort((a, b) => b.valor - a.valor)
@@ -463,6 +469,47 @@ function AReceber({ pedidos, aoReceber }) {
           {todos ? 'Mostrar menos' : `Ver todos os ${ordenados.length}`}
         </button>
       )}
+    </section>
+  )
+}
+
+/**
+ * Perdas e reposições do período: pedido refeito sem cobrança porque o original saiu com
+ * problema. O valor é o preço de venda do que foi refeito (reposicao_valor) — o quanto a loja
+ * deixou de ganhar. Os motivos mostram se o problema se repete.
+ */
+function Reposicoes({ pedidos }) {
+  if (!pedidos.length) return null
+  const valor = pedidos.reduce((s, o) => s + Number(o.reposicao_valor || 0), 0)
+  const motivos = {}
+  for (const o of pedidos) {
+    const m = o.reposicao_motivo || 'Sem motivo'
+    motivos[m] = (motivos[m] ?? 0) + 1
+  }
+  return (
+    <section className="rounded-xl border border-red-200 bg-red-50/50 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Perdas e reposições</h2>
+          <p className="text-sm text-text-light">
+            {pedidos.length} {pedidos.length === 1 ? 'pedido refeito' : 'pedidos refeitos'} sem cobrança no período · valor em produtos, a preço de venda
+          </p>
+        </div>
+        <p className="text-3xl font-bold text-red-700 tabular-nums">{formatCurrency(valor)}</p>
+      </div>
+      <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+        {Object.entries(motivos).sort((a, b) => b[1] - a[1]).map(([m, n]) => (
+          <li key={m} className="rounded-full bg-white px-3 py-1 ring-1 ring-red-200">{m} · <strong>{n}×</strong></li>
+        ))}
+      </ul>
+      <ul className="mt-3 divide-y divide-red-100 text-sm">
+        {pedidos.slice(0, 6).map(o => (
+          <li key={o.id} className="flex justify-between gap-3 py-2">
+            <span className="truncate"><strong>#{o.order_number}</strong> {o.customer_name} · {o.reposicao_motivo}</span>
+            <span className="shrink-0 tabular-nums">{formatCurrency(o.reposicao_valor || 0)}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

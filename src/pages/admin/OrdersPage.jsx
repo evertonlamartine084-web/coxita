@@ -12,6 +12,7 @@ import { playOrderAlert } from '../../utils/alertSound'
 import PromoRefri from '../../components/admin/PromoRefri'
 import ZapDoGrupo from '../../components/admin/ZapDoGrupo'
 import SinalDoPedido from '../../components/admin/SinalDoPedido'
+import ReposicaoModal from '../../components/admin/ReposicaoModal'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 import { FaWhatsapp } from 'react-icons/fa'
@@ -48,6 +49,7 @@ export default function OrdersPage() {
   const [estornando, setEstornando] = useState(false)
   const [emitindoNota, setEmitindoNota] = useState(false)
   const [criandoPedido, setCriandoPedido] = useState(false)
+  const [repondo, setRepondo] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('coxita_admin_sound') !== 'off'
   })
@@ -289,6 +291,13 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      <ReposicaoModal
+        pedido={selectedOrder}
+        aberto={repondo}
+        aoFechar={() => setRepondo(false)}
+        aoCriar={() => { setSelectedOrder(null); loadOrders() }}
+      />
+
       <NovoPedidoModal
         aberto={criandoPedido}
         aoFechar={() => setCriandoPedido(false)}
@@ -358,6 +367,9 @@ export default function OrdersPage() {
                         )}
                         {order.scheduled_for && (
                           <span className="ml-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">AGENDADO</span>
+                        )}
+                        {order.reposicao_de && (
+                          <span className="ml-1.5 bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full" title={order.reposicao_motivo ?? ''}>REPOSIÇÃO</span>
                         )}
                         {CANAIS[order.canal] && (
                           <span className={`ml-1.5 ${CANAIS[order.canal].cor} text-[10px] font-bold px-1.5 py-0.5 rounded-full`}>{CANAIS[order.canal].etiqueta}</span>
@@ -652,6 +664,16 @@ export default function OrdersPage() {
                     pedido entregue.
                   </p>
                 )
+              )}
+              {selectedOrder.status !== 'cancelado' && !selectedOrder.reposicao_de && (
+                <button
+                  type="button"
+                  onClick={() => setRepondo(true)}
+                  className="mt-3 mr-2 cursor-pointer rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-50"
+                  title="Refazer sem cobrança o que saiu com problema"
+                >
+                  Fazer reposição
+                </button>
               )}
               {/* Cancelado sai da lista por aqui. O banco recusa se tiver nota ou pagamento
                   online, e devolve ao estoque o que o cancelamento ainda não devolveu. */}

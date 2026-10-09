@@ -147,6 +147,7 @@ export function textoDoPedido(p) {
   const entrega = p.delivery_type === 'entrega'
   const pago = p.payment_status === 'pago'
   const linhas = [`*PEDIDO #${p.order_number}* — ${entrega ? 'ENTREGA' : 'RETIRADA'}`]
+  if (p.reposicao_de) linhas.push(`🔁 *REPOSIÇÃO, SEM COBRANÇA* — motivo: ${p.reposicao_motivo}`)
   if (p.scheduled_for) linhas.push(`⏰ *AGENDADO: ${formatDate(p.scheduled_for)}*`)
   linhas.push('', `👤 ${p.customer_name}`, `📞 ${p.customer_phone}`)
   if (entrega) {
