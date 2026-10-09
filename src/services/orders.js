@@ -331,6 +331,28 @@ export async function estornarPedido(orderId, valorCentavos = null) {
   return data
 }
 
+/**
+ * Marca o pagamento combinado na entrega (Pix na loja, dinheiro, maquininha) como recebido.
+ * Pagamento pelo site se confirma sozinho pela Cielo; este é o que só a loja sabe.
+ */
+export async function marcarPago(orderId) {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ payment_status: 'pago', paid_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+/** Tira da lista um pedido cancelado — regras e devolução de estoque em supabase/excluir-pedido.sql. */
+export async function excluirPedidoCancelado(orderId) {
+  const { data, error } = await supabase.rpc('excluir_pedido_cancelado', { p_order_id: orderId })
+  if (error) throw error
+  return data
+}
+
 /** Vira os centos escolhidos em "Promo Cento + Refri 1L" — ver supabase/promo-cento-refri.sql. */
 export async function aplicarPromoRefri(orderId, itens) {
   const { data, error } = await supabase.rpc('aplicar_promo_refri', {

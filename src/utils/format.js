@@ -13,6 +13,21 @@ export function formatPhone(phone) {
   return phone
 }
 
+/**
+ * Máscara do campo de telefone, aplicada enquanto a pessoa digita: (84) 99999-9999 para
+ * celular e (84) 3333-4444 para fixo. Número de fora começa com "+" e fica como foi digitado.
+ */
+export function mascararTelefone(valor) {
+  const texto = String(valor ?? '')
+  if (texto.trim().startsWith('+')) return texto
+  const d = texto.replace(/\D/g, '').slice(0, 11)
+  if (d.length === 0) return ''
+  if (d.length <= 2) return `(${d}`
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+
 export function formatDate(dateStr) {
   return new Date(dateStr).toLocaleString('pt-BR', {
     day: '2-digit',
@@ -38,6 +53,18 @@ export const STATUS_COLORS = {
   entregue: 'bg-green-100 text-green-800',
   cancelado: 'bg-red-100 text-red-800',
 }
+
+/** Situação do pagamento como a loja fala. "nao_iniciado" num pedido entregue é dinheiro a receber. */
+export const PAYMENT_STATUS_LABELS = {
+  pago: 'Pago',
+  nao_iniciado: 'A receber',
+  aguardando: 'Aguardando pagamento',
+  estornado: 'Estornado',
+}
+
+/** Entregue e ainda sem o dinheiro confirmado: entra no "A receber" do Dashboard. */
+export const aReceber = (o) =>
+  o.status === 'entregue' && !['pago', 'estornado'].includes(o.payment_status)
 
 export const PAYMENT_LABELS = {
   dinheiro: 'Dinheiro',

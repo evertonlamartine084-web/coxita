@@ -22,7 +22,7 @@ import { notifyNewOrder } from '../../services/notifications'
 import { validateCoupon, useCoupon as registerCouponUse } from '../../services/coupons'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, mascararTelefone } from '../../utils/format'
 import { calcularDescontoAvista, ehAVista, rotuloDoDesconto } from '../../utils/descontoAvista'
 import { dataLocal, entregaAbertaEm, erroDeAgendamento, horarioDeEntrega } from '../../utils/funcionamento'
 import toast from 'react-hot-toast'
@@ -263,6 +263,7 @@ export default function CheckoutPage() {
       // entrega é sempre com horário marcado; voltar para retirada volta ao "Agora"
       if (name === 'delivery_type' && value === 'entrega') return { ...f, delivery_type: value, order_type: 'agendado', scheduled_date: '', scheduled_time: '' }
       if (name === 'delivery_type' && value === 'retirada' && f.delivery_type === 'entrega') return { ...f, delivery_type: value, order_type: 'agora', scheduled_date: '', scheduled_time: '' }
+      if (name === 'customer_phone') return { ...f, customer_phone: mascararTelefone(value) }
       return { ...f, [name]: value }
     })
     setErrors(e => ({ ...e, [name]: '' }))
@@ -522,6 +523,9 @@ export default function CheckoutPage() {
               <Input
                 label="Telefone *"
                 name="customer_phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 value={form.customer_phone}
                 onChange={handleChange}
                 error={errors.customer_phone}

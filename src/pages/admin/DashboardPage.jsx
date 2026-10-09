@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getOrders } from '../../services/orders'
-import { formatCurrency, STATUS_LABELS, STATUS_COLORS } from '../../utils/format'
+import { getOrders, marcarPago } from '../../services/orders'
+import { formatCurrency, STATUS_LABELS, STATUS_COLORS, aReceber } from '../../utils/format'
+import toast from 'react-hot-toast'
 import Badge from '../../components/ui/Badge'
 import Loading from '../../components/ui/Loading'
 import AppInstallsCard from '../../components/admin/AppInstallsCard'
@@ -11,7 +12,8 @@ import AppInstallsCard from '../../components/admin/AppInstallsCard'
  *
  * Um filtro de período só, no topo, vale para tudo abaixo dele: faturamento, gráfico, formas de
  * pagamento e sabores. "Em aberto" e "Próximos agendados" não dependem do período — são o que
- * ainda falta entregar.
+ * ainda falta entregar. "A receber" também não: é o que já foi entregue e o dinheiro ainda não
+ * foi confirmado, de qualquer data.
  *
  * Venda é todo pedido que não foi cancelado, pela data em que foi feito (a mesma conta da tela
  * de pedidos). Encomenda agendada conta no dia em que foi fechada, não no da retirada.
@@ -95,6 +97,11 @@ export default function DashboardPage() {
         <Numero largo rotulo="Em aberto" valor={formatCurrency(somaTotal(abertos))}
           nota={`${abertos.length} ${abertos.length === 1 ? 'pedido ainda não entregue' : 'pedidos ainda não entregues'}`} />
       </section>
+
+      <AReceber
+        pedidos={pedidos.filter(aReceber)}
+        aoReceber={id => setPedidos(lista => lista.map(o => (o.id === id ? { ...o, payment_status: 'pago' } : o)))}
+      />
 
       <GraficoVendas barras={barras} porHora={periodo === 'hoje'} />
 
@@ -359,6 +366,78 @@ function Ranking({ titulo, subtitulo, itens, formatar, extra, vazio }) {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Entregue e sem o dinheiro confirmado. Pix na loja, dinheiro e maquininha só a loja sabe se
+ * entraram; o botão "Recebi" fecha cada um. O mais antigo vem primeiro: é o que mais pede cobrança.
+ */
+function AReceber({ pedidos, aoReceber }) {
+  const [salvando, setSalvando] = useState(null)
+  const [todos, setTodos] = useState(false)
+  if (pedidos.length === 0) return null
+
+  const ordenados = [...pedidos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const visiveis = todos ? ordenados : ordenados.slice(0, 8)
+
+  const receber = async (o) => {
+    setSalvando(o.id)
+    try {
+      await marcarPago(o.id)
+      aoReceber(o.id)
+      toast.success(`#${o.order_number} marcado como recebido.`)
+    } catch (e) {
+      toast.error(e.message || 'Não foi possível marcar como pago.')
+    } finally {
+      setSalvando(null)
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-orange-200 bg-orange-50/60 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">A receber</h2>
+          <p className="text-sm text-text-light">
+            {pedidos.length} {pedidos.length === 1 ? 'pedido entregue' : 'pedidos entregues'} sem o pagamento confirmado
+          </p>
+        </div>
+        <p className="text-3xl font-bold text-orange-800 tabular-nums">{formatCurrency(somaTotal(pedidos))}</p>
+      </div>
+      <ul className="mt-3 divide-y divide-orange-200">
+        {visiveis.map(o => (
+          <li key={o.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+            <div className="min-w-0">
+              <p className="truncate">
+                <span className="font-semibold">#{o.order_number}</span>
+                <span className="ml-2 text-text">{o.customer_name}</span>
+              </p>
+              <p className="text-text-light">
+                {new Date(o.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                {' · '}{PAGAMENTO[o.payment_method] ?? o.payment_method}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="font-semibold tabular-nums">{formatCurrency(o.total)}</span>
+              <button
+                type="button"
+                disabled={salvando === o.id}
+                onClick={() => receber(o)}
+                className="cursor-pointer rounded-lg bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                {salvando === o.id ? '…' : 'Recebi'}
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {ordenados.length > 8 && (
+        <button type="button" onClick={() => setTodos(t => !t)} className="mt-2 cursor-pointer text-sm font-semibold text-primary hover:underline">
+          {todos ? 'Mostrar menos' : `Ver todos os ${ordenados.length}`}
+        </button>
       )}
     </section>
   )

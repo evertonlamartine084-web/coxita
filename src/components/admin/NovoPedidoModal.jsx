@@ -6,7 +6,7 @@ import { getSettings, peekSettings } from '../../services/settings'
 import { createOrder } from '../../services/orders'
 import { cotarEntrega } from '../../services/entrega'
 import { calcularDescontoAvista, ehAVista } from '../../utils/descontoAvista'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, mascararTelefone } from '../../utils/format'
 import FlavorPicker from '../product/FlavorPicker'
 import AvulsoPorUnidade from './AvulsoPorUnidade'
 import Modal from '../ui/Modal'
@@ -181,7 +181,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Cliente *" value={form.customer_name} onChange={e => mudar('customer_name', e.target.value)} />
-            <Input label="Telefone" value={form.customer_phone} onChange={e => mudar('customer_phone', e.target.value)} placeholder="(00) 00000-0000" />
+            <Input label="Telefone" value={form.customer_phone} onChange={e => mudar('customer_phone', mascararTelefone(e.target.value))} inputMode="tel" placeholder="(00) 00000-0000" />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

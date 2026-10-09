@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota } from '../../services/orders'
+import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota, excluirPedidoCancelado, marcarPago } from '../../services/orders'
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
-import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS } from '../../utils/format'
+import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -189,6 +189,17 @@ export default function OrdersPage() {
     }
   }
 
+  const confirmarRecebimento = async (orderId) => {
+    try {
+      await marcarPago(orderId)
+      toast.success('Pagamento marcado como recebido.')
+      if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, payment_status: 'pago' }))
+      loadOrders()
+    } catch (err) {
+      toast.error(err.message || 'Não foi possível marcar como pago.')
+    }
+  }
+
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus)
@@ -219,6 +230,16 @@ export default function OrdersPage() {
     // com a automática ligada em Configurações — não depende desta tela seguir aberta
 
     loadOrders()
+
+    // Entregou: pergunta se o dinheiro entrou. Pix na loja e dinheiro ninguém confirma depois,
+    // e sem isso o pedido fica para sempre como "a receber".
+    const entregue = orders.find(o => o.id === orderId)
+    if (newStatus === 'entregue' && entregue && aReceber({ ...entregue, status: 'entregue' })) {
+      const forma = PAYMENT_LABELS[entregue.payment_method] ?? entregue.payment_method
+      if (confirm(`Pedido #${entregue.order_number} entregue.\n\nJá recebeu os ${formatCurrency(entregue.total)} (${forma})?\n\nOK = já recebi · Cancelar = fica em "A receber"`)) {
+        await confirmarRecebimento(orderId)
+      }
+    }
   }
 
   return (
@@ -339,6 +360,9 @@ export default function OrdersPage() {
                         )}
                         {order.scheduled_for && (
                           <span className="ml-1.5 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">AGENDADO</span>
+                        )}
+                        {aReceber(order) && (
+                          <span className="ml-1.5 bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">A RECEBER</span>
                         )}
                         {ehPromocao(order) && (
                           <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">PROMOÇÃO</span>
@@ -547,8 +571,17 @@ export default function OrdersPage() {
               <p className="text-sm"><strong>Pagamento:</strong> {PAYMENT_LABELS[selectedOrder.payment_method]}</p>
               {selectedOrder.payment_status && (
                 <p className="text-sm text-text-light">
-                  Situação: <strong>{selectedOrder.payment_status}</strong>
+                  Situação: <strong>{PAYMENT_STATUS_LABELS[selectedOrder.payment_status] ?? selectedOrder.payment_status}</strong>
                 </p>
+              )}
+              {selectedOrder.status !== 'cancelado' && !['pago', 'estornado'].includes(selectedOrder.payment_status) && (
+                <button
+                  type="button"
+                  onClick={() => confirmarRecebimento(selectedOrder.id)}
+                  className="mt-2 cursor-pointer rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+                >
+                  Recebi {formatCurrency(selectedOrder.total)}
+                </button>
               )}
 
               {/* Estorno só aparece com dinheiro de fato recebido pela Cielo e pedido ainda em
@@ -583,6 +616,27 @@ export default function OrdersPage() {
                     pedido entregue.
                   </p>
                 )
+              )}
+              {/* Cancelado sai da lista por aqui. O banco recusa se tiver nota ou pagamento
+                  online, e devolve ao estoque o que o cancelamento ainda não devolveu. */}
+              {selectedOrder.status === 'cancelado' && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm(`Excluir o pedido #${selectedOrder.order_number} de ${selectedOrder.customer_name}? Ele some da lista e não dá para desfazer.`)) return
+                    try {
+                      await excluirPedidoCancelado(selectedOrder.id)
+                      toast.success(`Pedido #${selectedOrder.order_number} excluído.`)
+                      setSelectedOrder(null)
+                      loadOrders()
+                    } catch (err) {
+                      toast.error(err.message || 'Não foi possível excluir.', { duration: 8000 })
+                    }
+                  }}
+                  className="mt-3 cursor-pointer rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50"
+                >
+                  Excluir pedido
+                </button>
               )}
               {/* Nota fiscal: pedido cancelado não recebe nota, e a emitida só se consulta */}
               {selectedOrder.status !== 'cancelado' && (
