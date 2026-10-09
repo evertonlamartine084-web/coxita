@@ -61,7 +61,9 @@ const CHAVES = ['google_tag_id', 'google_ads_id', 'google_ads_conversao_pedido',
 export function iniciarRastreio() {
   if (ids) return
   const s = peekSettings()
-  if (s?.google_tag_id || s?.google_ads_id) carregar(s)
+  // Só confia no que veio embutido se os dois códigos estão lá: com um só, o outro pode ter
+  // sido colado no painel depois do deploy (foi o caso do GA4, em 08/10/2026)
+  if (s?.google_tag_id && s?.google_ads_id) carregar(s)
   else {
     supabase.from('settings').select('key, value').in('key', CHAVES)
       .then(({ data, error }) => {
