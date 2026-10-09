@@ -5,7 +5,8 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
-import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido } from '../../utils/zapDoGrupo'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap } from '../../utils/zapDoGrupo'
+import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -219,10 +220,22 @@ export default function AdminLayout() {
   useEffect(() => {
     let enviando = false
     const jaRegistrado = new Set()
+    let ultimoSinal = 0
+
+    // Sinal de vida do grupo do Zap, a cada 5 min, só no aparelho com o envio ligado: é por ele
+    // que os outros painéis avisam quando o WhatsApp caiu ou o PC da loja está desligado.
+    const sinalDeVida = async (config) => {
+      if (Date.now() - ultimoSinal < 5 * 60 * 1000) return
+      ultimoSinal = Date.now()
+      let estado
+      try { estado = await estadoDoZap(config) ?? 'sem_instancia' } catch { estado = 'sem_evolution' }
+      registrarImpressao('zap_vivo', null, { estado })
+    }
 
     const enviarPendentes = async () => {
       const config = lerConfigZap()
       if (enviando || !zapPronto(config)) return
+      sinalDeVida(config)
       enviando = true
       try {
         const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -404,6 +417,7 @@ export default function AdminLayout() {
           <span className="ml-auto font-display text-xs font-extrabold uppercase tracking-widest text-festa">Admin</span>
         </header>
         <main className="admin-content flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+          <AvisosDoPainel />
           <Outlet />
         </main>
       </div>
