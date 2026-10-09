@@ -62,9 +62,17 @@ export const PAYMENT_STATUS_LABELS = {
   estornado: 'Estornado',
 }
 
-/** Entregue e ainda sem o dinheiro confirmado: entra no "A receber" do Dashboard. */
+/**
+ * Dinheiro ainda por entrar: entregue sem pagamento confirmado, ou encomenda agendada (que paga
+ * 50% de sinal antes e o resto na entrega). Entra no "A receber" do Dashboard.
+ */
 export const aReceber = (o) =>
-  o.status === 'entregue' && !['pago', 'estornado'].includes(o.payment_status)
+  o.status !== 'cancelado'
+  && !['pago', 'estornado'].includes(o.payment_status)
+  && (o.status === 'entregue' || !!o.scheduled_for)
+
+/** Quanto falta cobrar: o total menos o sinal já recebido. */
+export const faltaReceber = (o) => Math.max(0, Number(o.total) - Number(o.sinal_valor || 0))
 
 /** Por onde o pedido chegou. O site grava 'site' sozinho; o painel escolhe entre os outros. */
 export const CANAIS = {

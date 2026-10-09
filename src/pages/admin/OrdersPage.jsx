@@ -3,7 +3,7 @@ import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markM
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
-import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, CANAIS } from '../../utils/format'
+import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, CANAIS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -11,6 +11,7 @@ import Loading from '../../components/ui/Loading'
 import { playOrderAlert } from '../../utils/alertSound'
 import PromoRefri from '../../components/admin/PromoRefri'
 import ZapDoGrupo from '../../components/admin/ZapDoGrupo'
+import SinalDoPedido from '../../components/admin/SinalDoPedido'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 import { FaWhatsapp } from 'react-icons/fa'
@@ -361,8 +362,11 @@ export default function OrdersPage() {
                         {CANAIS[order.canal] && (
                           <span className={`ml-1.5 ${CANAIS[order.canal].cor} text-[10px] font-bold px-1.5 py-0.5 rounded-full`}>{CANAIS[order.canal].etiqueta}</span>
                         )}
-                        {aReceber(order) && (
+                        {order.status === 'entregue' && aReceber(order) && (
                           <span className="ml-1.5 bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">A RECEBER</span>
+                        )}
+                        {order.status !== 'entregue' && Number(order.sinal_valor) > 0 && order.payment_status !== 'pago' && (
+                          <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">SINAL PAGO</span>
                         )}
                         {ehPromocao(order) && (
                           <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">PROMOÇÃO</span>
@@ -605,8 +609,15 @@ export default function OrdersPage() {
                   onClick={() => confirmarRecebimento(selectedOrder.id)}
                   className="mt-2 cursor-pointer rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
                 >
-                  Recebi {formatCurrency(selectedOrder.total)}
+                  Recebi {formatCurrency(faltaReceber(selectedOrder))}{Number(selectedOrder.sinal_valor) > 0 ? ' (o resto)' : ''}
                 </button>
+              )}
+              {selectedOrder.scheduled_for && (
+                <SinalDoPedido
+                  key={selectedOrder.id}
+                  pedido={selectedOrder}
+                  aoMudar={atualizado => { setSelectedOrder(prev => ({ ...prev, ...atualizado })); loadOrders() }}
+                />
               )}
 
               {/* Estorno só aparece com dinheiro de fato recebido pela Cielo e pedido ainda em

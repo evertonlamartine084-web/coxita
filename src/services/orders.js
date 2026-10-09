@@ -346,6 +346,18 @@ export async function marcarPago(orderId) {
   return data
 }
 
+/** Registra o sinal da encomenda (0 apaga). O resto se cobra na entrega. */
+export async function registrarSinal(orderId, valor) {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ sinal_valor: valor, sinal_em: valor > 0 ? new Date().toISOString() : null })
+    .eq('id', orderId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 /** Corrige por onde o pedido chegou (site, ifood, whatsapp, balcao). */
 export async function mudarCanal(orderId, canal) {
   const { error } = await supabase.from('orders').update({ canal }).eq('id', orderId)
