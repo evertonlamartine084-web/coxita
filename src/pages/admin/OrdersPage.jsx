@@ -189,10 +189,10 @@ export default function OrdersPage() {
     }
   }
 
-  const confirmarRecebimento = async (orderId) => {
+  const confirmarRecebimento = async (orderId, { silencioso = false } = {}) => {
     try {
       await marcarPago(orderId)
-      toast.success('Pagamento marcado como recebido.')
+      if (!silencioso) toast.success('Pagamento marcado como recebido.')
       if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, payment_status: 'pago' }))
       loadOrders()
     } catch (err) {
@@ -231,14 +231,11 @@ export default function OrdersPage() {
 
     loadOrders()
 
-    // Entregou: pergunta se o dinheiro entrou. Pix na loja e dinheiro ninguém confirma depois,
-    // e sem isso o pedido fica para sempre como "a receber".
+    // Entregue já quer dizer pago: a loja só entrega com o pagamento acertado (o agendado paga
+    // 50% antes e o resto na entrega). Pix na loja e dinheiro ninguém confirmaria depois.
     const entregue = orders.find(o => o.id === orderId)
     if (newStatus === 'entregue' && entregue && aReceber({ ...entregue, status: 'entregue' })) {
-      const forma = PAYMENT_LABELS[entregue.payment_method] ?? entregue.payment_method
-      if (confirm(`Pedido #${entregue.order_number} entregue.\n\nJá recebeu os ${formatCurrency(entregue.total)} (${forma})?\n\nOK = já recebi · Cancelar = fica em "A receber"`)) {
-        await confirmarRecebimento(orderId)
-      }
+      await confirmarRecebimento(orderId, { silencioso: true })
     }
   }
 
