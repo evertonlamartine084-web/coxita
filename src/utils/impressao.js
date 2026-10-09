@@ -185,6 +185,8 @@ const PAGOS_ONLINE = ['pix_online', 'cartao']
 /** Se o pedido já está valendo para a cozinha começar. */
 export function prontoParaComanda(pedido) {
   if (pedido.status === 'cancelado') return false
+  // lançado já entregue (reposição, venda registrada depois): a cozinha não tem o que fazer
+  if (pedido.status === 'entregue' && new Date(pedido.updated_at ?? pedido.created_at) - new Date(pedido.created_at) < 60 * 1000) return false
   if (PAGOS_ONLINE.includes(pedido.payment_method)) return pedido.payment_status === 'pago'
   return true
 }
