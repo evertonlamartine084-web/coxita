@@ -181,7 +181,9 @@ Deno.serve(async (req) => {
 
 /** Corpo do pedido de venda. Tudo o que depende do cadastro do Bling é resolvido aqui. */
 async function montarPedidoVenda(supabase: any, pedido: any) {
-  const itens = pedido.order_items ?? []
+  // Item de R$ 0 não vai para a nota: a Sefaz recusa item sem valor. É o refri que acompanha a
+  // promo cento + refri (09/10/2026: a loja fatura a promo inteira como um cento de salgados).
+  const itens = (pedido.order_items ?? []).filter((i: any) => Number(i.total_price) > 0)
   if (itens.length === 0) throw new ErroBling("pedido sem itens")
 
   const semCodigo = itens.filter((i: any) => !i.products?.bling_codigo).map((i: any) => i.product_name)
@@ -211,9 +213,10 @@ async function montarPedidoVenda(supabase: any, pedido: any) {
     dataPrevista: hoje,
     contato: { id: await contatoDoCliente(supabase, pedido) },
     itens: itens.map((i: any) => ({
-      produto: { id: produtos.get(i.products.bling_codigo) },
+      produto: { id: produtos.get(i.products.bling_codigo)!.id },
       codigo: i.products.bling_codigo,
-      descricao: i.product_name,
+      // a nota descreve o produto do cadastro fiscal (Bling); a promo sai como "Cento de Salgados"
+      descricao: produtos.get(i.products.bling_codigo)!.nome || i.product_name,
       unidade: "UN",
       quantidade: Number(i.quantity),
       valor: reais(i.unit_price),
@@ -232,8 +235,8 @@ async function montarPedidoVenda(supabase: any, pedido: any) {
 async function produtosPorCodigo(supabase: any, codigos: string[]) {
   const qs = codigos.map((c) => `codigos[]=${encodeURIComponent(c)}`).join("&")
   const r = await bling(supabase, "GET", `/produtos?${qs}`)
-  const mapa = new Map<string, number>()
-  for (const p of r?.data ?? []) if (p?.codigo) mapa.set(p.codigo, p.id)
+  const mapa = new Map<string, { id: number; nome: string }>()
+  for (const p of r?.data ?? []) if (p?.codigo) mapa.set(p.codigo, { id: p.id, nome: p.nome })
   return mapa
 }
 
