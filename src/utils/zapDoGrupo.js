@@ -133,7 +133,7 @@ export async function gruposDoZap(config) {
 
 export async function mandarNoGrupo(texto, config = lerConfigZap()) {
   await evolution(`/message/sendText/${config.instancia}`, {
-    method: 'POST', config, body: { number: config.grupo, text: texto },
+    method: 'POST', config, body: { number: config.grupo, text: texto, linkPreview: false },
   })
 }
 
@@ -250,6 +250,7 @@ export function mensagemParaCliente(p, evento, { avaliacaoUrl = '' } = {}) {
 
 export async function mandarParaCliente(numero, texto, config = lerConfigZap()) {
   await evolution(`/message/sendText/${config.instancia}`, {
-    method: 'POST', config, body: { number: numero, text: texto },
+    method: 'POST', config, // sem o cartão grande do site em cima da mensagem: o link fica só como texto
+    body: { number: numero, text: texto, linkPreview: false },
   })
 }
