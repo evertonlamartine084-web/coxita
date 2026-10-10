@@ -210,6 +210,14 @@ export default function ZapDoGrupo() {
                 </Button>
               </div>
               {config.ligado && <p className="text-green-700">Ligado: pedidos novos vão para o grupo.</p>}
+              <label className="mt-2 flex items-start gap-2">
+                <input type="checkbox" className="mt-1" checked={config.avisarClientes !== false}
+                  onChange={e => mudar({ avisarClientes: e.target.checked })} />
+                <span>
+                  <strong>Avisar o cliente no WhatsApp</strong> — recebido (pedidos do site), em preparo, saiu para
+                  entrega ou pronto para retirada, e entregue. Pedidos do site e do WhatsApp; iFood fica de fora.
+                </span>
+              </label>
             </section>
           )}
         </div>

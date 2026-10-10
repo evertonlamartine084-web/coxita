@@ -25,6 +25,7 @@ const PADRAO = {
   grupoNome: '',
   ligado: false,
   desde: null, // pedidos anteriores a isto não vão: ligar não despeja o dia inteiro no grupo
+  avisarClientes: true, // mensagens de status para o cliente (recebido, preparo, saiu, entregue)
 }
 
 export function lerConfigZap() {
@@ -174,4 +175,81 @@ export function textoDoPedido(p) {
     linhas.push(`Troco para ${formatCurrency(p.change_for)} (levar ${formatCurrency(Number(p.change_for) - aCobrar)})`)
   }
   return linhas.join('\n')
+}
+
+/*
+ * Mensagens para o CLIENTE (10/10/2026), do mesmo número, pela mesma Evolution. Só o que ajuda
+ * quem comprou — recebido, em preparo, saiu/pronto, entregue —, nada de propaganda: mensagem
+ * para pessoa pesa mais que mensagem para grupo na conta do WhatsApp. O cliente vê o código
+ * curto do pedido (codigo_cliente), nunca o número sequencial.
+ */
+
+/** Telefone do pedido no formato do WhatsApp (55 + DDD + número); null se não der para usar. */
+export function numeroDoCliente(telefone) {
+  const texto = String(telefone ?? '').trim()
+  const digitos = texto.replace(/\D/g, '')
+  if (texto.startsWith('+')) return digitos.length >= 8 ? digitos : null
+  if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`
+  if (digitos.startsWith('55') && (digitos.length === 12 || digitos.length === 13)) return digitos
+  return null
+}
+
+/**
+ * Qual aviso o pedido está devendo ao cliente agora, ou null. Só o do status atual: pedido que
+ * pulou de pendente para entregue recebe só o "entregue", não a história inteira.
+ */
+export function avisoDevido(p) {
+  const feitos = p.zap_cliente ?? {}
+  const devido = (evento) => (feitos[evento] ? null : evento)
+  if (p.status === 'entregue') return devido('entregue')
+  if (p.status === 'saiu_entrega') return devido('saiu')
+  if (p.status === 'em_preparo') return devido('em_preparo')
+  if (p.status === 'pendente' && p.canal === 'site') return devido('recebido')
+  return null
+}
+
+const primeiroNome = (nome) => String(nome ?? '').trim().split(/\s+/)[0] || ''
+
+export function mensagemParaCliente(p, evento, { avaliacaoUrl = '' } = {}) {
+  const nome = primeiroNome(p.customer_name)
+  const codigo = p.codigo_cliente ? `*${p.codigo_cliente}*` : ''
+  const entrega = p.delivery_type === 'entrega'
+  const pago = p.payment_status === 'pago'
+  const aCobrar = Math.max(0, Number(p.total) - Number(p.sinal_valor || 0))
+  switch (evento) {
+    case 'recebido': {
+      const quando = p.scheduled_for
+        ? `${entrega ? 'Entrega' : 'Retirada'} marcada para ${formatDate(p.scheduled_for)}.`
+        : `${entrega ? 'A entrega sai' : 'Pode vir buscar'} assim que ficar pronto — a gente avisa por aqui.`
+      return [
+        `Oi${nome ? `, ${nome}` : ''}! 😊 Recebemos seu pedido na Coxelli (código ${codigo}).`,
+        quando,
+        `Total: ${formatCurrency(p.total)}${pago ? ' — já pago ✅' : ''}`,
+        '',
+        `Acompanhe por aqui: https://coxelli.com.br/acompanhar/${p.public_token}`,
+      ].join('\n')
+    }
+    case 'em_preparo':
+      return `Seu pedido ${codigo} já está sendo preparado 👩‍🍳`
+    case 'saiu':
+      return entrega
+        ? [
+            `Seu pedido ${codigo} saiu para entrega e chega em breve 🛵`,
+            !pago && aCobrar > 0 ? `Valor a pagar na entrega: ${formatCurrency(aCobrar)}` : '',
+          ].filter(Boolean).join('\n')
+        : `Seu pedido ${codigo} está pronto! Já pode vir buscar 🎉`
+    case 'entregue':
+      return [
+        `Obrigado por pedir na Coxelli${nome ? `, ${nome}` : ''}! 💛 Esperamos que tenha gostado.`,
+        avaliacaoUrl ? `Se puder, deixe sua avaliação no Google — leva 10 segundos e ajuda muito: ${avaliacaoUrl}` : '',
+      ].filter(Boolean).join('\n')
+    default:
+      return null
+  }
+}
+
+export async function mandarParaCliente(numero, texto, config = lerConfigZap()) {
+  await evolution(`/message/sendText/${config.instancia}`, {
+    method: 'POST', config, body: { number: numero, text: texto },
+  })
 }

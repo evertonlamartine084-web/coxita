@@ -5,7 +5,7 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
-import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap } from '../../utils/zapDoGrupo'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
@@ -232,6 +232,43 @@ export default function AdminLayout() {
       registrarImpressao('zap_vivo', null, { estado })
     }
 
+    // Status do pedido para o cliente, no WhatsApp dele. Só pedido do site e do WhatsApp (o iFood
+    // avisa sozinho), mexido nas últimas 2 h: ligar isto não sai mandando mensagem de pedido velho.
+    let avisoDeLinkDeAvaliacao = null
+    const avisarClientes = async (config) => {
+      const duasHoras = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, order_number, codigo_cliente, public_token, customer_name, customer_phone, status, canal, delivery_type, scheduled_for, total, sinal_valor, payment_status, payment_method, zap_cliente')
+        .in('canal', ['site', 'whatsapp'])
+        .is('reposicao_de', null)
+        .neq('status', 'cancelado')
+        .gte('updated_at', duasHoras)
+      if (error) throw error
+      if (avisoDeLinkDeAvaliacao === null) {
+        const { data: s } = await supabase.from('settings').select('value').eq('key', 'google_avaliacao_url').maybeSingle()
+        avisoDeLinkDeAvaliacao = s?.value ?? ''
+      }
+      for (const p of data ?? []) {
+        const evento = avisoDevido(p)
+        // "recebido" só com o pedido valendo: Pix/cartão do site, só depois de pago
+        if (!evento || (evento === 'recebido' && !prontoParaComanda(p))) continue
+        const marcar = (valor) => supabase.from('orders')
+          .update({ zap_cliente: { ...(p.zap_cliente ?? {}), [evento]: valor } }).eq('id', p.id)
+        const numero = numeroDoCliente(p.customer_phone)
+        if (!numero) { await marcar('sem_numero'); continue }
+        try {
+          await mandarParaCliente(numero, mensagemParaCliente(p, evento, { avaliacaoUrl: avisoDeLinkDeAvaliacao }), config)
+          await marcar(new Date().toISOString())
+          registrarImpressao('zap_cliente', p.order_number, { evento })
+        } catch (e) {
+          // número que não tem WhatsApp (400) não adianta tentar de novo; o resto tenta na próxima volta
+          if (e.status === 400) await marcar('erro')
+          registrarImpressao('zap_cliente_falhou', p.order_number, { evento, erro: e.message })
+        }
+      }
+    }
+
     const enviarPendentes = async () => {
       const config = lerConfigZap()
       if (enviando || !zapPronto(config)) return
@@ -265,6 +302,8 @@ export default function AdminLayout() {
           if (navigator.locks) await navigator.locks.request('coxelli-zap', enviar)
           else await enviar()
         }
+
+        if (config.avisarClientes !== false) await avisarClientes(config)
       } catch (e) {
         console.warn('Envio ao grupo do WhatsApp falhou:', e)
       } finally {
