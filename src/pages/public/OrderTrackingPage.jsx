@@ -45,6 +45,8 @@ export default function OrderTrackingPage() {
   const [notFound, setNotFound] = useState(false)
   const [notifEnabled, setNotifEnabled] = useState(false)
   const [review, setReview] = useState(null)
+  const [linkGoogle, setLinkGoogle] = useState('')
+  const [zapDaLoja, setZapDaLoja] = useState('')
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [submittingReview, setSubmittingReview] = useState(false)
@@ -133,6 +135,8 @@ export default function OrderTrackingPage() {
   useEffect(() => {
     getSettings().then(s => {
       if (s.estimated_delivery) setEstimatedDelivery(s.estimated_delivery)
+      if (s.google_avaliacao_url) setLinkGoogle(s.google_avaliacao_url)
+      if (s.whatsapp) setZapDaLoja(s.whatsapp.replace(/\D/g, ''))
     }).catch(error => console.warn('Não foi possível carregar o prazo estimado:', error))
   }, [])
 
@@ -190,6 +194,14 @@ export default function OrderTrackingPage() {
     }, 30000)
     return () => clearInterval(interval)
   }, [order, fetchOrder])
+
+  // Link da mensagem de pós-venda (…/acompanhar/<token>#avaliar): desce direto para as estrelas
+  const rolouParaAvaliar = useRef(false)
+  useEffect(() => {
+    if (rolouParaAvaliar.current || window.location.hash !== '#avaliar' || order?.status !== 'entregue') return
+    rolouParaAvaliar.current = true
+    setTimeout(() => document.getElementById('avaliar')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)
+  }, [order])
 
   const handleSubmitReview = async () => {
     if (rating === 0) {
@@ -643,7 +655,7 @@ export default function OrderTrackingPage() {
 
           {/* Review section - only when delivered */}
           {order && order.status === 'entregue' && (
-            <div className="bg-surface card-organic border border-border/60 p-5 shadow-sm mt-5">
+            <div id="avaliar" className="bg-surface card-organic border border-border/60 p-5 shadow-sm mt-5 scroll-mt-24">
               {review ? (
                 <div className="text-center">
                   <h3 className="font-display font-bold text-text mb-2">Sua avaliação</h3>
@@ -660,6 +672,28 @@ export default function OrderTrackingPage() {
                     <p className="text-text-light text-sm italic">"{review.comment}"</p>
                   )}
                   <p className="text-accent text-xs font-semibold mt-2">Obrigado pelo feedback!</p>
+                  {/* Pós-venda: quem gostou é convidado ao Google; quem não gostou ouve da loja */}
+                  {review.rating >= 4 && linkGoogle && (
+                    <div className="mt-4 rounded-xl bg-cream p-4">
+                      <p className="text-sm text-text">Que bom que você gostou! 💛 Pode deixar essa nota também no Google? Ajuda muito quem está procurando salgado em Natal.</p>
+                      <a href={linkGoogle} target="_blank" rel="noreferrer"
+                        className="mt-3 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white no-underline hover:bg-primary-dark">
+                        Avaliar no Google ⭐
+                      </a>
+                    </div>
+                  )}
+                  {review.rating <= 3 && (
+                    <div className="mt-4 rounded-xl bg-cream p-4 text-sm text-text">
+                      <p>Sentimos muito que não foi como esperado. A gente quer resolver: conta pra gente o que aconteceu?</p>
+                      {zapDaLoja && (
+                        <a href={`https://wa.me/55${zapDaLoja}?text=${encodeURIComponent(`Oi! Sobre o meu pedido ${order.codigo_cliente ?? `#${order.order_number}`}: `)}`}
+                          target="_blank" rel="noreferrer" data-origem="avaliacao-baixa"
+                          className="mt-3 inline-block rounded-xl bg-green-600 px-5 py-2.5 text-sm font-bold text-white no-underline hover:bg-green-700">
+                          Falar com a Coxelli no WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div>

@@ -7,7 +7,7 @@ import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
 import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
-import { mensagemDeCarrinho, noHorarioDoFluxo } from '../../utils/crm'
+import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -236,6 +236,7 @@ export default function AdminLayout() {
     // Status do pedido para o cliente, no WhatsApp dele. Só pedido do site e do WhatsApp (o iFood
     // avisa sozinho), mexido nas últimas 2 h: ligar isto não sai mandando mensagem de pedido velho.
     let avisoDeLinkDeAvaliacao = null
+    let linkLidoEm = 0
     const avisarClientes = async (config) => {
       const duasHoras = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
       const { data, error } = await supabase
@@ -246,9 +247,16 @@ export default function AdminLayout() {
         .neq('status', 'cancelado')
         .gte('updated_at', duasHoras)
       if (error) throw error
-      if (avisoDeLinkDeAvaliacao === null) {
-        const { data: s } = await supabase.from('settings').select('value').eq('key', 'google_avaliacao_url').maybeSingle()
-        avisoDeLinkDeAvaliacao = s?.value ?? ''
+      // relido a cada 10 min: ligar/desligar o pós-venda no hub muda isto sem recarregar o painel
+      if (avisoDeLinkDeAvaliacao === null || Date.now() - linkLidoEm > 10 * 60 * 1000) {
+        linkLidoEm = Date.now()
+        const [{ data: s }, { data: pv }] = await Promise.all([
+          supabase.from('settings').select('value').eq('key', 'google_avaliacao_url').maybeSingle(),
+          supabase.from('crm_fluxos').select('ativo, config').eq('id', 'pos_venda').maybeSingle(),
+        ])
+        // com o pós-venda pedindo a nota, o Google fica só para quem deu 4 ou 5 (página do pedido)
+        const posVendaPede = pv?.ativo && pv.config?.avaliacao?.ativo
+        avisoDeLinkDeAvaliacao = posVendaPede ? '' : (s?.value ?? '')
       }
       for (const p of data ?? []) {
         const evento = avisoDevido(p)
@@ -270,13 +278,50 @@ export default function AdminLayout() {
       }
     }
 
+    // Pós-venda: cada envio é registrado em crm_envios ANTES de mandar (o índice único por
+    // etapa + pedido impede mandar duas vezes); se a Evolution falhar, o registro sai e tenta de novo.
+    const enviarPosVenda = async (cfg, config) => {
+      const { data: devidos, error } = await supabase.rpc('crm_pos_venda_devidos')
+      if (error) throw error
+      for (const item of devidos ?? []) {
+        const alerta = item.etapa === 'alerta'
+        // o alerta vai para o grupo da loja a qualquer hora; mensagem ao cliente, só no horário
+        if (!alerta && !noHorarioDoFluxo(cfg)) continue
+        const { data: reg, error: erroReg } = await supabase.from('crm_envios').insert({
+          fluxo: 'pos_venda', etapa: item.etapa, status: 'enviando',
+          order_id: alerta ? null : item.order_id, review_id: alerta ? item.review_id : null,
+          telefone_digitos: (item.telefone || '').replace(/\D/g, '').slice(-11),
+        }).select('id').single()
+        if (erroReg) continue // outra aba já pegou
+        const marcar = (campos) => supabase.from('crm_envios').update(campos).eq('id', reg.id)
+        try {
+          if (alerta) {
+            await mandarNoGrupo(alertaDeNotaBaixa(item), config)
+          } else {
+            const numero = numeroDoCliente(item.telefone)
+            if (!numero) { await marcar({ status: 'erro', motivo: 'telefone inválido' }); continue }
+            await mandarParaCliente(numero, mensagemDePosVenda(item, cfg[item.etapa] ?? {}), config)
+          }
+          await marcar({ status: 'enviado', enviado_em: new Date().toISOString() })
+          registrarImpressao('crm_pos_venda', item.order_number, { etapa: item.etapa })
+        } catch (e) {
+          if (e.status === 400) await marcar({ status: 'erro', motivo: 'número sem WhatsApp' })
+          else await supabase.from('crm_envios').delete().eq('id', reg.id)
+          registrarImpressao('crm_pos_venda_falhou', item.order_number, { etapa: item.etapa, erro: e.message })
+        }
+      }
+    }
+
     // CRM (hub → CRM): carrinho abandonado. O banco diz quem está devendo mensagem; aqui o
     // carrinho é "pego" (aberto → avisado) antes de mandar, para duas abas não mandarem em dobro.
     let ultimoCrm = 0
     const fluxosDoCrm = async (config) => {
       if (Date.now() - ultimoCrm < 2 * 60 * 1000) return
       ultimoCrm = Date.now()
-      const { data: fluxo } = await supabase.from('crm_fluxos').select('ativo, config').eq('id', 'carrinho_abandonado').maybeSingle()
+      const { data: fluxos } = await supabase.from('crm_fluxos').select('id, ativo, config')
+      const posVenda = fluxos?.find(f => f.id === 'pos_venda')
+      if (posVenda?.ativo) await enviarPosVenda(posVenda.config, config)
+      const fluxo = fluxos?.find(f => f.id === 'carrinho_abandonado')
       if (!fluxo?.ativo || !noHorarioDoFluxo(fluxo.config)) return
       const { data: devidos, error } = await supabase.rpc('crm_carrinhos_devidos')
       if (error) throw error

@@ -5,6 +5,7 @@ import { FaWhatsapp } from 'react-icons/fa'
 import { supabase } from '../../services/supabase'
 import Loading from '../../components/ui/Loading'
 import { Bloco, Cartao } from '../../components/hub/HubUi'
+import FluxoPosVenda from '../../components/hub/FluxoPosVenda'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { linkZap } from '../../utils/hub'
 import { VARIAVEIS_CARRINHO, mensagemDeCarrinho, STATUS_CARRINHO } from '../../utils/crm'
@@ -27,7 +28,6 @@ const EXEMPLO = {
 
 const PROXIMOS = [
   { nome: 'Cliente sumido', explica: 'Quem comprou 2+ vezes e está há 30 dias sem pedir recebe um “sentimos sua falta”, com cupom.' },
-  { nome: 'Pós-venda', explica: 'No dia seguinte à entrega, pergunta como foi e pede a avaliação no Google.' },
   { nome: 'Festa de novo', explica: 'Quem comprou cento para festa é lembrado perto da mesma data, um ano depois.' },
 ]
 
@@ -37,6 +37,7 @@ export default function HubCrm() {
   const [rascunho, setRascunho] = useState(null)
   const [carrinhos, setCarrinhos] = useState(null)
   const [salvando, setSalvando] = useState(false)
+  const [aba, setAba] = useState('carrinho')
 
   const carregar = useCallback(async () => {
     // põe os status em dia (comprou sozinho / recuperado) antes de ler
@@ -71,6 +72,23 @@ export default function HubCrm() {
     }
   }, [carrinhos])
 
+  const seletor = (
+    <div className="flex flex-wrap gap-2">
+      {[['carrinho', '🛒 Carrinho abandonado'], ['pos_venda', '💛 Pós-venda']].map(([k, rotulo]) => (
+        <button key={k} type="button" onClick={() => setAba(k)}
+          className={`cursor-pointer rounded-xl px-4 py-2 text-sm font-bold ring-1 ${
+            aba === k ? 'bg-primary text-white ring-primary' : 'bg-white text-text ring-border hover:bg-cream'
+          }`}>
+          {rotulo}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (aba === 'pos_venda') {
+    return <div className="space-y-5">{seletor}<FluxoPosVenda periodo={periodo} /></div>
+  }
+
   if (!fluxo || !rascunho || !numeros) return <Loading />
 
   const salvar = async (mudancas = {}) => {
@@ -94,6 +112,7 @@ export default function HubCrm() {
 
   return (
     <div className="space-y-5">
+      {seletor}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Cartao titulo="Carrinhos guardados" valor={numeros.capturados} detalhe={`${numeros.sozinhos} compraram sem mensagem`} />
         <Cartao titulo="Mensagens enviadas" valor={numeros.avisados} />

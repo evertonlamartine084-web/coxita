@@ -48,3 +48,33 @@ export const STATUS_CARRINHO = {
   ignorado: { rotulo: 'Não enviado', cor: 'bg-stone-100 text-stone-500' },
   erro: { rotulo: 'Falhou', cor: 'bg-red-100 text-red-700' },
 }
+
+/** Pós-venda: o link de cada etapa. A nota é dada na página do pedido; a recompra vai ao cardápio. */
+export function mensagemDePosVenda(item, etapaConfig) {
+  const primeiro = (item.nome || '').trim().split(/\s+/)[0] || ''
+  const nome = primeiro ? primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase() : 'tudo bem'
+  const link = item.etapa === 'avaliacao'
+    ? `https://coxelli.com.br/acompanhar/${item.public_token}#avaliar`
+    : 'https://coxelli.com.br/cardapio'
+  return (etapaConfig.mensagem || '')
+    .replaceAll('{nome}', nome)
+    .replaceAll('{link}', link)
+    .replaceAll('{cupom}', etapaConfig.cupom || '')
+    .trim()
+}
+
+/** Aviso no grupo da loja quando a nota é baixa: alguém liga para o cliente. */
+export function alertaDeNotaBaixa(item) {
+  return [
+    `⚠️ *Nota ${item.rating} de 5* no pedido #${item.order_number} — ${item.nome}`,
+    item.comentario ? `“${item.comentario}”` : 'Sem comentário.',
+    `Telefone: ${item.telefone}`,
+    'Vale ligar para entender o que aconteceu e resolver.',
+  ].join('\n')
+}
+
+export const VARIAVEIS_POS_VENDA = [
+  { chave: '{nome}', explica: 'primeiro nome' },
+  { chave: '{link}', explica: 'página da nota (etapa 1) ou cardápio (etapa 3)' },
+  { chave: '{cupom}', explica: 'código do cupom (se tiver)' },
+]
