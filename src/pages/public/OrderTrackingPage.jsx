@@ -5,7 +5,7 @@ import { consultarPedido, consultarPedidoPorToken, getOrderMessagesPorToken, sen
 import { guardarToken, tokenDoPedido } from '../../utils/pedidosLocais'
 import { getSettings } from '../../services/settings'
 import { createReview, getReviewByOrderId } from '../../services/reviews'
-import { formatCurrency, formatDate, PAYMENT_LABELS, STATUS_LABELS } from '../../utils/format'
+import { formatCurrency, formatDate, PAYMENT_LABELS, rotuloDoStatus } from '../../utils/format'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import ShareButtons from '../../components/share/ShareButtons'
@@ -20,6 +20,12 @@ const STEPS = [
   { key: 'saiu_entrega', label: 'Saiu para entrega', icon: HiTruck, description: 'Seu pedido está a caminho!' },
   { key: 'entregue', label: 'Entregue', icon: HiCheck, description: 'Pedido entregue. Bom apetite!' },
 ]
+
+// Retirada: o pedido não sai para entrega, fica pronto no balcão
+const STEPS_RETIRADA = STEPS.map(s =>
+  s.key === 'saiu_entrega' ? { ...s, label: 'Pronto para retirar', icon: HiCheck, description: 'Seu pedido está pronto. Pode vir buscar!' }
+    : s.key === 'entregue' ? { ...s, label: 'Retirado', description: 'Pedido retirado. Bom apetite!' }
+      : s)
 
 function getStepIndex(status) {
   if (status === 'cancelado') return -1
@@ -154,7 +160,7 @@ export default function OrderTrackingPage() {
         : await consultarPedidoPorToken(tokenDoPedido(num) ?? '')
       // Notify on status change
       if (prevStatusRef.current && prevStatusRef.current !== data.status) {
-        const label = STATUS_LABELS[data.status] || data.status
+        const label = rotuloDoStatus(data.status, data.delivery_type)
         sendNotification(`Pedido #${data.codigo_cliente ?? data.order_number}`, `Status atualizado: ${label}`)
       }
       prevStatusRef.current = data.status
@@ -252,6 +258,7 @@ export default function OrderTrackingPage() {
   }
 
   const currentStep = order ? getStepIndex(order.status) : -1
+  const etapas = order?.delivery_type === 'retirada' ? STEPS_RETIRADA : STEPS
 
   if (loading) return <Loading />
 
@@ -430,7 +437,7 @@ export default function OrderTrackingPage() {
                   <h2 className="font-display text-xl font-extrabold uppercase text-brown mb-6">Status do pedido</h2>
 
                   <div className="relative">
-                    {STEPS.map((step, i) => {
+                    {etapas.map((step, i) => {
                       const isCompleted = i <= currentStep
                       const isCurrent = i === currentStep
                       const Icon = step.icon
@@ -438,7 +445,7 @@ export default function OrderTrackingPage() {
                       return (
                         <div key={step.key} className="flex gap-4 relative">
                           {/* Line */}
-                          {i < STEPS.length - 1 && (
+                          {i < etapas.length - 1 && (
                             <div
                               className={`absolute left-[19px] top-[40px] w-0.5 h-[calc(100%-20px)] transition-colors duration-500 ${
                                 i < currentStep ? 'bg-accent' : 'bg-border'
@@ -464,7 +471,7 @@ export default function OrderTrackingPage() {
                           </div>
 
                           {/* Text */}
-                          <div className={`pb-8 ${i === STEPS.length - 1 ? 'pb-0' : ''}`}>
+                          <div className={`pb-8 ${i === etapas.length - 1 ? 'pb-0' : ''}`}>
                             <p
                               className={`font-display font-bold text-sm transition-colors ${
                                 isCompleted ? 'text-text' : 'text-text-light'

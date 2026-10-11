@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrders, marcarPago } from '../../services/orders'
-import { formatCurrency, STATUS_LABELS, STATUS_COLORS, aReceber, faltaReceber, CANAIS } from '../../utils/format'
+import { formatCurrency, STATUS_COLORS, rotuloDoStatus, aReceber, faltaReceber, CANAIS } from '../../utils/format'
 import toast from 'react-hot-toast'
 import Badge from '../../components/ui/Badge'
 import Loading from '../../components/ui/Loading'
@@ -540,7 +540,7 @@ function ListaPedidos({ titulo, pedidos, vazio, mostrarAgenda }) {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="font-semibold tabular-nums">{formatCurrency(o.total)}</span>
-                <Badge className={STATUS_COLORS[o.status]}>{STATUS_LABELS[o.status]}</Badge>
+                <Badge className={STATUS_COLORS[o.status]}>{rotuloDoStatus(o.status, o.delivery_type)}</Badge>
               </div>
             </li>
           ))}

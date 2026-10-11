@@ -46,6 +46,15 @@ export const STATUS_LABELS = {
   cancelado: 'Cancelado',
 }
 
+/** Na retirada não tem entrega: "saiu" é o pedido pronto no balcão e "entregue" é retirado. */
+export function rotuloDoStatus(status, tipoDeEntrega) {
+  if (tipoDeEntrega === 'retirada') {
+    if (status === 'saiu_entrega') return 'Pronto'
+    if (status === 'entregue') return 'Retirado'
+  }
+  return STATUS_LABELS[status] ?? status
+}
+
 export const STATUS_COLORS = {
   pendente: 'bg-yellow-100 text-yellow-800',
   em_preparo: 'bg-blue-100 text-blue-800',

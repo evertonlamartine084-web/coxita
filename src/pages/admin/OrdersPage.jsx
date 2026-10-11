@@ -3,7 +3,7 @@ import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markM
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
-import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, CANAIS } from '../../utils/format'
+import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, CANAIS } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -322,7 +322,7 @@ export default function OrdersPage() {
               filter === s ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-text'
             }`}
           >
-            {STATUS_LABELS[s]}
+            {s === 'saiu_entrega' ? 'Saiu / Pronto' : s === 'entregue' ? 'Entregue / Retirado' : STATUS_LABELS[s]}
           </button>
         ))}
         <button
@@ -411,7 +411,7 @@ export default function OrdersPage() {
                           className={`text-xs font-semibold rounded-full px-2 py-1 border-0 cursor-pointer ${STATUS_COLORS[order.status]}`}
                         >
                           {STATUSES.map(s => (
-                            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                            <option key={s} value={s}>{rotuloDoStatus(s, order.delivery_type)}</option>
                           ))}
                         </select>
                       </td>
@@ -447,7 +447,7 @@ export default function OrdersPage() {
         {selectedOrder && (
           <div className="space-y-4">
             <div>
-              <Badge className={STATUS_COLORS[selectedOrder.status]}>{STATUS_LABELS[selectedOrder.status]}</Badge>
+              <Badge className={STATUS_COLORS[selectedOrder.status]}>{rotuloDoStatus(selectedOrder.status, selectedOrder.delivery_type)}</Badge>
               <span className="text-text-light text-sm ml-2">{formatDate(selectedOrder.created_at)}</span>
               <button
                 type="button"
