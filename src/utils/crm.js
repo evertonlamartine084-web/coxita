@@ -49,13 +49,16 @@ export const STATUS_CARRINHO = {
   erro: { rotulo: 'Falhou', cor: 'bg-red-100 text-red-700' },
 }
 
-/** Pós-venda: o link de cada etapa. A nota é dada na página do pedido; a recompra vai ao cardápio. */
-export function mensagemDePosVenda(item, etapaConfig) {
+/**
+ * Pós-venda: o link de cada etapa. A avaliação vai direto para o Google, para todo mundo (o Google
+ * não permite pedir avaliação só para quem gostou); sem o link do Google, cai na página do pedido.
+ * A recompra vai ao cardápio.
+ */
+export function mensagemDePosVenda(item, etapaConfig, linkGoogle = '') {
   const primeiro = (item.nome || '').trim().split(/\s+/)[0] || ''
   const nome = primeiro ? primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase() : 'tudo bem'
-  const link = item.etapa === 'avaliacao'
-    ? `https://coxelli.com.br/acompanhar/${item.public_token}#avaliar`
-    : 'https://coxelli.com.br/cardapio'
+  const link = item.etapa !== 'avaliacao' ? 'https://coxelli.com.br/cardapio'
+    : linkGoogle || `https://coxelli.com.br/acompanhar/${item.public_token}#avaliar`
   return (etapaConfig.mensagem || '')
     .replaceAll('{nome}', nome)
     .replaceAll('{link}', link)
@@ -75,6 +78,6 @@ export function alertaDeNotaBaixa(item) {
 
 export const VARIAVEIS_POS_VENDA = [
   { chave: '{nome}', explica: 'primeiro nome' },
-  { chave: '{link}', explica: 'página da nota (etapa 1) ou cardápio (etapa 3)' },
+  { chave: '{link}', explica: 'avaliação no Google (etapa 1) ou cardápio (etapa 3)' },
   { chave: '{cupom}', explica: 'código do cupom (se tiver)' },
 ]

@@ -672,10 +672,11 @@ export default function OrderTrackingPage() {
                     <p className="text-text-light text-sm italic">"{review.comment}"</p>
                   )}
                   <p className="text-accent text-xs font-semibold mt-2">Obrigado pelo feedback!</p>
-                  {/* Pós-venda: quem gostou é convidado ao Google; quem não gostou ouve da loja */}
-                  {review.rating >= 4 && linkGoogle && (
+                  {/* Convite ao Google para qualquer nota (o Google não permite pedir só para quem
+                      gostou); quem não gostou também ganha o WhatsApp da loja */}
+                  {linkGoogle && (
                     <div className="mt-4 rounded-xl bg-cream p-4">
-                      <p className="text-sm text-text">Que bom que você gostou! 💛 Pode deixar essa nota também no Google? Ajuda muito quem está procurando salgado em Natal.</p>
+                      <p className="text-sm text-text">Pode deixar sua avaliação também no Google? Ajuda muito quem está procurando salgado em Natal. 💛</p>
                       <a href={linkGoogle} target="_blank" rel="noreferrer"
                         className="mt-3 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white no-underline hover:bg-primary-dark">
                         Avaliar no Google ⭐

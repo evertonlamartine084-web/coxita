@@ -1,5 +1,5 @@
 -- CRM, fluxo 2: pós-venda (hub → CRM). Três etapas, cada uma liga e desliga sozinha:
---   avaliacao — X horas depois de entregue, pede a nota pelo link do pedido (/acompanhar/<token>)
+--   avaliacao — X horas depois de entregue, manda o link de avaliação do Google (todo mundo)
 --   alerta    — nota 1 a 3 vira aviso no grupo da loja, para alguém ligar para o cliente
 --   recompra  — quem comprou uma vez só recebe, X dias depois, um convite para voltar
 -- Como no carrinho abandonado, o banco decide quem está devendo (crm_pos_venda_devidos) e o
@@ -60,7 +60,7 @@ insert into crm_fluxos (id, nome, ativo, config) values (
     'avaliacao', jsonb_build_object(
       'ativo', true,
       'horas_apos', 20,
-      'mensagem', E'Oi, {nome}! Aqui é da Coxelli 🧡\n\nO que você achou dos salgados? Sua opinião ajuda muito a gente a melhorar. Leva 10 segundos:\n{link}'
+      'mensagem', E'Oi, {nome}! Aqui é da Coxelli 🧡\n\nO que você achou dos salgados? Se puder, deixa sua avaliação no Google. Leva 10 segundos e ajuda muito a gente:\n{link}'
     ),
     'alerta', jsonb_build_object('ativo', true),
     'recompra', jsonb_build_object(

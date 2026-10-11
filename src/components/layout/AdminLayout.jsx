@@ -283,6 +283,8 @@ export default function AdminLayout() {
     const enviarPosVenda = async (cfg, config) => {
       const { data: devidos, error } = await supabase.rpc('crm_pos_venda_devidos')
       if (error) throw error
+      if (!devidos?.length) return
+      const { data: g } = await supabase.from('settings').select('value').eq('key', 'google_avaliacao_url').maybeSingle()
       for (const item of devidos ?? []) {
         const alerta = item.etapa === 'alerta'
         // o alerta vai para o grupo da loja a qualquer hora; mensagem ao cliente, só no horário
@@ -300,7 +302,7 @@ export default function AdminLayout() {
           } else {
             const numero = numeroDoCliente(item.telefone)
             if (!numero) { await marcar({ status: 'erro', motivo: 'telefone inválido' }); continue }
-            await mandarParaCliente(numero, mensagemDePosVenda(item, cfg[item.etapa] ?? {}), config)
+            await mandarParaCliente(numero, mensagemDePosVenda(item, cfg[item.etapa] ?? {}, g?.value || ''), config)
           }
           await marcar({ status: 'enviado', enviado_em: new Date().toISOString() })
           registrarImpressao('crm_pos_venda', item.order_number, { etapa: item.etapa })

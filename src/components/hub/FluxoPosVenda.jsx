@@ -5,7 +5,7 @@ import { supabase } from '../../services/supabase'
 import { updateSetting } from '../../services/settings'
 import Loading from '../ui/Loading'
 import { Bloco, Cartao, Ranking } from './HubUi'
-import { formatCurrency, formatPercent } from '../../utils/format'
+import { formatCurrency } from '../../utils/format'
 import { VARIAVEIS_POS_VENDA, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
 
 /**
@@ -17,14 +17,14 @@ import { VARIAVEIS_POS_VENDA, mensagemDePosVenda, alertaDeNotaBaixa } from '../.
 const ETAPAS = [
   {
     chave: 'avaliacao',
-    titulo: '1. Pedir a nota',
-    explica: 'Depois da entrega, pede a avaliação pelo link do pedido. Uma vez por pessoa a cada 30 dias; não vai para quem já avaliou nem para pedido que teve reposição.',
+    titulo: '1. Pedir avaliação no Google',
+    explica: 'Depois da entrega, manda o link de avaliação do Google para todo mundo. Uma vez por pessoa a cada 30 dias; não vai para pedido que teve reposição.',
     tempo: { campo: 'horas_apos', rotulo: 'Horas depois da entrega', min: 1, max: 72 },
   },
   {
     chave: 'alerta',
     titulo: '2. Nota baixa vira alerta',
-    explica: 'Nota de 1 a 3 manda um aviso no grupo da loja com o telefone, para alguém ligar. Nota 4 ou 5: a própria página convida a pessoa a avaliar no Google.',
+    explica: 'Quem avaliar com 1 a 3 estrelas na página do pedido no site gera um aviso no grupo da loja com o telefone, para alguém ligar.',
   },
   {
     chave: 'recompra',
@@ -97,14 +97,13 @@ export default function FluxoPosVenda({ periodo }) {
 
   const mudarEtapa = (etapa, campo, valor) => setRascunho(r => ({ ...r, [etapa]: { ...r[etapa], [campo]: valor } }))
   const alterado = JSON.stringify(rascunho) !== JSON.stringify(fluxo.config)
-  const taxaNota = resumo.pedidos_de_nota ? (resumo.avaliaram / resumo.pedidos_de_nota) * 100 : null
   const notas = [5, 4, 3, 2, 1].map(n => ({ nome: `${n} ★`, valor: Number(resumo.notas?.[n] ?? 0), texto: `${resumo.notas?.[n] ?? 0}` }))
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Cartao titulo="Pedidos de nota" valor={resumo.pedidos_de_nota} detalhe={taxaNota !== null ? `${formatPercent(taxaNota, 0)} avaliaram` : null} />
-        <Cartao titulo="Nota média" valor={resumo.nota_media ? `${String(resumo.nota_media).replace('.', ',')} ★` : '—'} detalhe={`${avaliacoes.length} avaliações no período`} destaque />
+        <Cartao titulo="Pedidos de avaliação" valor={resumo.pedidos_de_nota} detalhe="as notas ficam no Google" />
+        <Cartao titulo="Nota média no site" valor={resumo.nota_media ? `${String(resumo.nota_media).replace('.', ',')} ★` : '—'} detalhe={`${avaliacoes.length} avaliações pela página do pedido`} destaque />
         <Cartao titulo="Alertas de nota baixa" valor={resumo.alertas} />
         <Cartao titulo="Voltaram a comprar" valor={`${resumo.voltaram} de ${resumo.convites}`} detalhe={resumo.valor_voltou > 0 ? formatCurrency(resumo.valor_voltou) : 'convites de 2ª compra'} />
       </div>
@@ -135,7 +134,7 @@ export default function FluxoPosVenda({ periodo }) {
               className="w-16 rounded-lg border border-border px-2 py-1.5" />
           </label>
           <label className="min-w-[240px] flex-1">
-            <span className="mb-1 block text-xs text-text-light">Link para avaliar no Google (aparece para quem dá 4 ou 5)</span>
+            <span className="mb-1 block text-xs text-text-light">Link para avaliar no Google (vai na mensagem da etapa 1)</span>
             <span className="flex gap-2">
               <input value={linkGoogle} onChange={e => setLinkGoogle(e.target.value)} placeholder="https://g.page/r/…/review"
                 className="min-w-0 flex-1 rounded-lg border border-border px-2 py-1.5" />
@@ -147,7 +146,7 @@ export default function FluxoPosVenda({ periodo }) {
         </div>
         {!linkGoogle && (
           <p className="mb-4 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 ring-1 ring-amber-200">
-            Sem o link do Google, quem dá nota alta não é convidado a avaliar lá. Ele fica no Perfil da Empresa → “Pedir avaliações”.
+            Sem o link do Google, a mensagem manda para a página do pedido no site. O link fica no Perfil da Empresa → “Pedir avaliações”.
           </p>
         )}
 
@@ -198,7 +197,7 @@ export default function FluxoPosVenda({ periodo }) {
                     </div>
                     <div className="rounded-2xl bg-[#e5ddd5] p-3">
                       <div className="ml-auto max-w-[92%] whitespace-pre-wrap rounded-xl rounded-tr-none bg-[#dcf8c6] px-3 py-2 text-sm shadow-sm">
-                        {mensagemDePosVenda({ ...EXEMPLO, etapa: et.chave }, cfg)}
+                        {mensagemDePosVenda({ ...EXEMPLO, etapa: et.chave }, cfg, linkGoogle)}
                       </div>
                     </div>
                   </div>
