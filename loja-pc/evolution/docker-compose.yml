@@ -34,12 +34,14 @@ services:
       DATABASE_CONNECTION_CLIENT_NAME: coxelli
       # só o necessário para a conexão sobreviver a reinício; mensagens e contatos não são guardados
       DATABASE_SAVE_DATA_INSTANCE: "true"
-      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      # contatos e conversas ficam no Postgres do PC da loja: o painel lê daqui o resumo
+      # (número, nome, dias com conversa) para ligar pedido sem telefone ao cliente (hub → CRM)
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
       DATABASE_SAVE_MESSAGE_UPDATE: "false"
-      DATABASE_SAVE_DATA_CONTACTS: "false"
-      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
       DATABASE_SAVE_DATA_LABELS: "false"
-      DATABASE_SAVE_DATA_HISTORIC: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "true"
       CACHE_REDIS_ENABLED: "false"
       CACHE_LOCAL_ENABLED: "true"
       RABBITMQ_ENABLED: "false"

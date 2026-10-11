@@ -5,7 +5,7 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
-import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente } from '../../utils/zapDoGrupo'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
@@ -317,9 +317,28 @@ export default function AdminLayout() {
     // CRM (hub → CRM): carrinho abandonado. O banco diz quem está devendo mensagem; aqui o
     // carrinho é "pego" (aberto → avisado) antes de mandar, para duas abas não mandarem em dobro.
     let ultimoCrm = 0
+    // Contatos do Zap para o hub (achar o telefone de pedido sem número): quando o hub pede, ou
+    // uma vez por dia. Só o resumo (número, nome, dias com conversa) sobe para o banco.
+    const sincronizarContatos = async (config) => {
+      const { data: s } = await supabase.from('settings').select('key, value').in('key', ['zap_sincronizar_pedido', 'zap_sincronizado_em'])
+      const valor = (k) => s?.find(x => x.key === k)?.value || ''
+      const feito = valor('zap_sincronizado_em')
+      const pedido = valor('zap_sincronizar_pedido')
+      const umDia = !feito || Date.now() - new Date(feito) > 24 * 60 * 60 * 1000
+      if (!umDia && !(pedido && pedido > feito)) return
+      const linhas = await resumoDasConversas(config)
+      for (let i = 0; i < linhas.length; i += 200) {
+        const { error } = await supabase.from('zap_contatos').upsert(linhas.slice(i, i + 200))
+        if (error) throw error
+      }
+      await updateSetting('zap_sincronizado_em', new Date().toISOString())
+      registrarImpressao('zap_contatos', null, { contatos: linhas.length })
+    }
+
     const fluxosDoCrm = async (config) => {
       if (Date.now() - ultimoCrm < 2 * 60 * 1000) return
       ultimoCrm = Date.now()
+      await sincronizarContatos(config).catch(e => registrarImpressao('zap_contatos_falhou', null, { erro: e.message }))
       const { data: fluxos } = await supabase.from('crm_fluxos').select('id, ativo, config')
       const posVenda = fluxos?.find(f => f.id === 'pos_venda')
       if (posVenda?.ativo) await enviarPosVenda(posVenda.config, config)

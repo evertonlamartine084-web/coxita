@@ -256,3 +256,79 @@ export async function mandarParaCliente(numero, texto, config = lerConfigZap()) 
     body: { number: numero, text: texto, linkPreview: false },
   })
 }
+
+/**
+ * Número de telefone de um JID do WhatsApp. Conversa nova pode vir com o identificador escondido
+ * (…@lid); aí o número está no campo "Alt"/"Pn" que a Evolution manda junto. Grupo, status e
+ * canal não são contato.
+ */
+function numeroDoJid(...jids) {
+  for (const jid of jids) {
+    if (typeof jid !== 'string') continue
+    if (/@s\.whatsapp\.net$/.test(jid) || /@c\.us$/.test(jid)) {
+      const n = jid.split('@')[0].split(':')[0].replace(/\D/g, '')
+      if (n.length >= 10) return n
+    }
+  }
+  return null
+}
+
+const diaLocal = (ms) => {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * Resumo das conversas do Zap da loja: por número, o nome (salvo ou do perfil) e quantas
+ * mensagens houve em cada dia. É o que o hub usa para achar o telefone de pedido lançado só com o
+ * nome. Nenhum texto de mensagem entra no resumo.
+ */
+export async function resumoDasConversas(config = lerConfigZap()) {
+  const porNumero = new Map()
+  const pegar = (numero) => {
+    if (!porNumero.has(numero)) porNumero.set(numero, { numero, nome: null, nome_perfil: null, dias: {}, primeira: null, ultima: null, msgs: 0 })
+    return porNumero.get(numero)
+  }
+
+  const contatos = await evolution(`/chat/findContacts/${config.instancia}`, { method: 'POST', config, body: { where: {} } })
+  for (const c of Array.isArray(contatos) ? contatos : []) {
+    const numero = numeroDoJid(c.remoteJid, c.remoteJidAlt, c.jid, c.id)
+    if (!numero) continue
+    const r = pegar(numero)
+    r.nome = c.name || c.verifiedName || r.nome
+    r.nome_perfil = c.pushName || r.nome_perfil
+  }
+
+  for (let pagina = 1, total = 1; pagina <= total && pagina <= 200; pagina++) {
+    const resp = await evolution(`/chat/findMessages/${config.instancia}`, {
+      method: 'POST', config, body: { where: {}, page: pagina, offset: 500 },
+    })
+    const bloco = resp?.messages ?? resp
+    total = Number(bloco?.pages) || 1
+    for (const m of bloco?.records ?? []) {
+      const k = m.key ?? {}
+      const numero = numeroDoJid(k.remoteJid, k.remoteJidAlt, k.senderPn, m.remoteJidAlt, k.participantAlt)
+      if (!numero) continue
+      const ms = Number(m.messageTimestamp) * (String(m.messageTimestamp).length > 11 ? 1 : 1000)
+      if (!Number.isFinite(ms) || ms <= 0) continue
+      const r = pegar(numero)
+      const dia = diaLocal(ms)
+      r.dias[dia] = (r.dias[dia] ?? 0) + 1
+      r.msgs += 1
+      if (!r.primeira || ms < r.primeira) r.primeira = ms
+      if (!r.ultima || ms > r.ultima) r.ultima = ms
+      if (!k.fromMe && m.pushName) r.nome_perfil = m.pushName
+    }
+  }
+
+  return [...porNumero.values()].map(r => ({
+    numero: r.numero,
+    nome: r.nome,
+    nome_perfil: r.nome_perfil,
+    dias: r.dias,
+    msgs: r.msgs,
+    primeira_msg: r.primeira ? new Date(r.primeira).toISOString() : null,
+    ultima_msg: r.ultima ? new Date(r.ultima).toISOString() : null,
+    atualizado_em: new Date().toISOString(),
+  }))
+}
