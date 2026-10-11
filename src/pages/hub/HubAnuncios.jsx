@@ -20,7 +20,13 @@ export default function HubAnuncios() {
   const gasto = soma('advertiserAdCost')
   const cliques = soma('advertiserAdClicks')
   const conversoes = soma('keyEvents')
-  const porDia = new Map(ga.anunciosPorDia.map(d => [normalizarData(d.date), d]))
+  const porDia = new Map()
+  for (const d of ga.anunciosPorDia) {
+    const dia = porDia.get(normalizarData(d.date)) ?? { advertiserAdCost: 0, advertiserAdClicks: 0 }
+    dia.advertiserAdCost += d.advertiserAdCost
+    dia.advertiserAdClicks += d.advertiserAdClicks
+    porDia.set(normalizarData(d.date), dia)
+  }
   const grafico = diasDoPeriodo(periodo).map(data => ({
     data, barra: porDia.get(data)?.advertiserAdCost ?? 0, linha: porDia.get(data)?.advertiserAdClicks ?? 0,
   }))

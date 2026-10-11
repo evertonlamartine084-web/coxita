@@ -96,7 +96,11 @@ async function analytics(token: string, periodo: { inicio: string; fim: string; 
       metrics: ["advertiserAdCost", "advertiserAdClicks", "advertiserAdImpressions", "sessions", "keyEvents"],
       ordem: "advertiserAdCost",
     },
-    anunciosPorDia: { dimensions: ["date"], metrics: ["advertiserAdCost", "advertiserAdClicks", "advertiserAdImpressions"] },
+    // o GA4 só aceita custo do Ads junto com a campanha: o front soma as campanhas de cada dia
+    anunciosPorDia: {
+      dimensions: ["date", "sessionGoogleAdsCampaignName"],
+      metrics: ["advertiserAdCost", "advertiserAdClicks", "advertiserAdImpressions"],
+    },
     horas: { dimensions: ["hour"], metrics: ["sessions"] },
   }
 

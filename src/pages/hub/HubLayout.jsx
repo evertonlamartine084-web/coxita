@@ -35,6 +35,12 @@ export default function HubLayout() {
   const periodo = useMemo(() => calcularPeriodo(periodoKey), [periodoKey])
 
   useEffect(() => {
+    const antes = document.title
+    document.title = 'Hub · Coxelli'
+    return () => { document.title = antes }
+  }, [])
+
+  useEffect(() => {
     getOrders().then(setPedidos).catch(e => setErroPedidos(e.message))
   }, [])
 

@@ -106,8 +106,8 @@ function montarDestaques({ vendas, clientes, ga, sc }) {
     out.push({ icone: '🧺', texto: `${ev('add_to_cart')} pessoas puseram algo no carrinho e ${compraram} finalizaram a compra no site. Quem desiste no meio é oportunidade.` })
   }
 
-  const top = sc?.consultas?.[0]
-  if (top) out.push({ icone: '🔎', texto: `A pesquisa que mais mostrou a Coxelli no Google foi “${top.chave}” (${top.aparicoes} aparições, posição ${top.posicao.toFixed(1).replace('.', ',')}).` })
+  const top = [...(sc?.consultas ?? [])].sort((x, y) => y.aparicoes - x.aparicoes)[0]
+  if (top?.aparicoes > 1) out.push({ icone: '🔎', texto: `A pesquisa que mais mostrou a Coxelli no Google foi “${top.chave}” (${top.aparicoes} aparições, posição ${top.posicao.toFixed(1).replace('.', ',')}).` })
 
   if (clientes?.sumidos?.length) {
     out.push({ icone: '💬', texto: `${clientes.sumidos.length} clientes que já compraram mais de uma vez estão há mais de 30 dias sem pedir. A lista está em Clientes.` })
@@ -115,7 +115,7 @@ function montarDestaques({ vendas, clientes, ga, sc }) {
 
   if (vendas.reposicoes.length) {
     const custo = vendas.reposicoes.reduce((s, o) => s + Number(o.reposicao_valor || 0), 0)
-    out.push({ icone: '⚠️', texto: `${vendas.reposicoes.length} reposição(ões) no período${custo ? `, valendo ${formatCurrency(custo)}` : ''}.` })
+    out.push({ icone: '⚠️', texto: `${vendas.reposicoes.length} ${vendas.reposicoes.length === 1 ? 'reposição' : 'reposições'} no período${custo ? `, valendo ${formatCurrency(custo)}` : ''}.` })
   }
   return out
 }
