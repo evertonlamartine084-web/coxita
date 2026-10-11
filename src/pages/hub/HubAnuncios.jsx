@@ -57,7 +57,7 @@ export default function HubAnuncios() {
             <GraficoDias dados={grafico} nomeBarra="Gasto" nomeLinha="Cliques" formatarBarra={moeda} formatarLinha={(v) => `${v} cliques`} />
           </Bloco>
 
-          <Bloco titulo="Campanhas">
+          <Bloco titulo="Campanhas" subtitulo="Conversões aqui são as que o Analytics ligou à campanha. O próprio Google Ads costuma contar mais (ele também conta quem viu o anúncio e voltou depois).">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>

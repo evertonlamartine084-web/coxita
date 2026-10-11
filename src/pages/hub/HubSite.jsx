@@ -18,6 +18,16 @@ export default function HubSite() {
     data, barra: porDia.get(data)?.sessions ?? 0, linha: porDia.get(data)?.activeUsers ?? 0,
   }))
 
+  // cada pedido tem a própria página de confirmação e de acompanhar: junta numa linha só
+  const juntar = (lista, chave, metrica) => {
+    const m = new Map()
+    for (const x of lista) {
+      const nome = (x[chave] || '(sem página)').replace(/^\/(pedido-confirmado|pagamento-falhou|acompanhar)\/.+/, '/$1/…')
+      m.set(nome, (m.get(nome) ?? 0) + x[metrica])
+    }
+    return [...m].map(([nome, valor]) => ({ nome, valor })).sort((x, y) => y.valor - x.valor)
+  }
+
   const ev = (nome, p = 0) => ga.funil.find(f => f.eventName === nome && (f.periodo ?? 0) === p)?.totalUsers ?? 0
   const totalCanais = ga.canais.reduce((s, c) => s + c.sessions, 0) || 1
 
@@ -64,11 +74,11 @@ export default function HubSite() {
         </Bloco>
 
         <Bloco titulo="Página de entrada" subtitulo="Onde a visita começou.">
-          <Ranking itens={ga.entrada.map(p => ({ nome: p.landingPage || '(sem página)', valor: p.sessions }))} cor="bg-accent/15" />
+          <Ranking itens={juntar(ga.entrada, 'landingPage', 'sessions')} cor="bg-accent/15" />
         </Bloco>
 
         <Bloco titulo="Páginas mais vistas">
-          <Ranking itens={ga.paginas.map(p => ({ nome: p.pagePath, valor: p.screenPageViews, extra: `${p.activeUsers} pessoas` }))} cor="bg-accent/15" />
+          <Ranking itens={juntar(ga.paginas, 'pagePath', 'screenPageViews')} formatar={(v) => `${v} vistas`} cor="bg-accent/15" />
         </Bloco>
 
         <Bloco titulo="Celular ou computador">
