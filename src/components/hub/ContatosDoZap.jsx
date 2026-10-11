@@ -19,7 +19,9 @@ const NOMES_GENERICOS = /^(compras anteriores|ifood|cliente|balc[aã]o)/i
 
 const normalizar = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').trim()
 const primeiro = (s) => normalizar(s).split(/\s+/)[0] || ''
-const telValido = (t) => /^[1-9][1-9]9?[2-9]\d{7}$/.test((t || '').replace(/\D/g, '').slice(-11))
+// número de fora ("+41 …", como grava formatarNumero) também conta como telefone preenchido
+const telValido = (t) => /^\+(?!55)\d{8,}$/.test((t || '').replace(/[^\d+]/g, ''))
+  || /^[1-9][1-9]9?[2-9]\d{7}$/.test((t || '').replace(/\D/g, '').slice(-11))
 
 const diaIso = (d) => {
   const x = new Date(d)
