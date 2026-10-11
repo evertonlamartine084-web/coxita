@@ -241,8 +241,7 @@ export function mensagemParaCliente(p, evento, { avaliacaoUrl = '' } = {}) {
           ].filter(Boolean).join('\n')
         : `Seu pedido ${codigo} está pronto! Já pode vir buscar 🎉`
     case 'entregue':
-      // o pedido de nota (e o convite ao Google, para quem gostou) é do pós-venda do CRM; aqui
-      // só vai o link do Google quando o pós-venda não está pedindo a nota
+      // o link do Google vai sempre aqui; o pós-venda do CRM pula quem já recebeu esta mensagem
       return [
         `Obrigado por pedir na Coxelli${nome ? `, ${nome}` : ''}! 💛 Esperamos que tenha gostado.`,
         avaliacaoUrl ? `Se puder, deixe sua avaliação no Google — leva 10 segundos e ajuda muito: ${avaliacaoUrl}` : '',

@@ -241,27 +241,24 @@ export default function AdminLayout() {
       const duasHoras = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, codigo_cliente, public_token, customer_name, customer_phone, status, canal, delivery_type, scheduled_for, total, sinal_valor, payment_status, payment_method, zap_cliente')
+        .select('id, order_number, codigo_cliente, public_token, customer_name, customer_phone, status, entregue_em, canal, delivery_type, scheduled_for, total, sinal_valor, payment_status, payment_method, zap_cliente')
         .in('canal', ['site', 'whatsapp'])
         .is('reposicao_de', null)
         .neq('status', 'cancelado')
         .gte('updated_at', duasHoras)
       if (error) throw error
-      // relido a cada 10 min: ligar/desligar o pós-venda no hub muda isto sem recarregar o painel
+      // relido a cada 10 min: trocar o link no hub muda isto sem recarregar o painel
       if (avisoDeLinkDeAvaliacao === null || Date.now() - linkLidoEm > 10 * 60 * 1000) {
         linkLidoEm = Date.now()
-        const [{ data: s }, { data: pv }] = await Promise.all([
-          supabase.from('settings').select('value').eq('key', 'google_avaliacao_url').maybeSingle(),
-          supabase.from('crm_fluxos').select('ativo, config').eq('id', 'pos_venda').maybeSingle(),
-        ])
-        // com o pós-venda pedindo a nota, o Google fica só para quem deu 4 ou 5 (página do pedido)
-        const posVendaPede = pv?.ativo && pv.config?.avaliacao?.ativo
-        avisoDeLinkDeAvaliacao = posVendaPede ? '' : (s?.value ?? '')
+        const { data: s } = await supabase.from('settings').select('value').eq('key', 'google_avaliacao_url').maybeSingle()
+        avisoDeLinkDeAvaliacao = s?.value ?? ''
       }
       for (const p of data ?? []) {
         const evento = avisoDevido(p)
         // "recebido" só com o pedido valendo: Pix/cartão do site, só depois de pago
         if (!evento || (evento === 'recebido' && !prontoParaComanda(p))) continue
+        // pedido entregue há horas (ex.: telefone posto depois, no hub) não ganha "obrigado" fora de hora
+        if (evento === 'entregue' && p.entregue_em && Date.now() - new Date(p.entregue_em) > 3 * 60 * 60 * 1000) continue
         const marcar = (valor) => supabase.from('orders')
           .update({ zap_cliente: { ...(p.zap_cliente ?? {}), [evento]: valor } }).eq('id', p.id)
         const numero = numeroDoCliente(p.customer_phone)

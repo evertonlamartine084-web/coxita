@@ -106,6 +106,8 @@ begin
         and o.entregue_em < now() - make_interval(hours => coalesce((v_cfg->'avaliacao'->>'horas_apos')::int, 20))
         and o.entregue_em > now() - interval '3 days'
         and not exists (select 1 from reviews r where r.order_id = o.id)
+        -- a mensagem de "entregue" do painel já levou o link do Google: não pede de novo
+        and coalesce(o.zap_cliente->>'entregue', '') !~ '^\d{4}-'
         and not exists (select 1 from crm_envios e where e.etapa = 'avaliacao' and e.order_id = o.id)
         and not exists (
           select 1 from crm_envios e
