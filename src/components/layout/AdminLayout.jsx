@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell, HiChartBar } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -409,6 +409,13 @@ export default function AdminLayout() {
           })}
         </nav>
         <div className="shrink-0 p-4 border-t border-white/15 bg-brown">
+          <Link
+            to="/hub"
+            className="mb-2 flex items-center gap-3 px-3 py-2.5 w-full border-2 border-secondary/60 text-secondary no-underline hover:bg-secondary hover:text-brown font-semibold transition-colors"
+          >
+            <HiChartBar size={20} />
+            <span>Hub de números</span>
+          </Link>
           {appDoPainel.podeInstalar && (
             <button
               onClick={appDoPainel.instalar}

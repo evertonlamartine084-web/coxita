@@ -34,6 +34,13 @@ export const importarPagina = {
   categorias: () => import('../pages/admin/CategoriesPage'),
   configuracoes: () => import('../pages/admin/SettingsPage'),
   avaliacoes: () => import('../pages/admin/ReviewsPage'),
+  hub: () => import('../pages/hub/HubLayout'),
+  hubResumo: () => import('../pages/hub/HubResumo'),
+  hubVendas: () => import('../pages/hub/HubVendas'),
+  hubClientes: () => import('../pages/hub/HubClientes'),
+  hubSite: () => import('../pages/hub/HubSite'),
+  hubBusca: () => import('../pages/hub/HubBusca'),
+  hubAnuncios: () => import('../pages/hub/HubAnuncios'),
   cupons: () => import('../pages/admin/CouponsPage'),
 }
 

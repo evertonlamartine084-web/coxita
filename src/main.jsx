@@ -13,8 +13,8 @@ for (const [chave, dados] of Object.entries(window.__COXELLI__ ?? {})) {
   semear(chave, dados)
 }
 
-// Tag do Google só no site da loja: o painel não é visita de cliente
-if (!window.location.pathname.startsWith('/admin')) iniciarRastreio()
+// Tag do Google só no site da loja: o painel e o hub não são visita de cliente
+if (!/^\/(admin|hub)(\/|$)/.test(window.location.pathname)) iniciarRastreio()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

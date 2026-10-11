@@ -73,6 +73,7 @@ const SEGUNDOS_PARA_VOLTAR = 3600
 function passaDireto(pathname) {
   if (pathname === PAGINA) return true
   if (pathname === '/admin' || pathname.startsWith('/admin/')) return true
+  if (pathname === '/hub' || pathname.startsWith('/hub/')) return true
 
   // Arquivo com extensao e asset (js, css, png, webmanifest...). HTML fica de
   // fora de proposito: /index.html serve o app inteiro e o SPA navegaria o site

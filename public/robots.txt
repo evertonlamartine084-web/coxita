@@ -6,6 +6,7 @@ Allow: /
 # Nada aqui interessa a buscador, e indexar checkout ou pedido de cliente é vazamento
 # de página particular nos resultados de busca.
 Disallow: /admin
+Disallow: /hub
 Disallow: /checkout
 Disallow: /carrinho
 Disallow: /pedido-confirmado

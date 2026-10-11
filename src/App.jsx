@@ -112,14 +112,21 @@ const EstoquePage = lazyWithRetry(importarPagina.estoque)
 const RotasPage = lazyWithRetry(importarPagina.rotas)
 const CategoriesPage = lazyWithRetry(importarPagina.categorias)
 const SettingsPage = lazyWithRetry(importarPagina.configuracoes)
+const HubLayout = lazyWithRetry(importarPagina.hub)
+const HubResumo = lazyWithRetry(importarPagina.hubResumo)
+const HubVendas = lazyWithRetry(importarPagina.hubVendas)
+const HubClientes = lazyWithRetry(importarPagina.hubClientes)
+const HubSite = lazyWithRetry(importarPagina.hubSite)
+const HubBusca = lazyWithRetry(importarPagina.hubBusca)
+const HubAnuncios = lazyWithRetry(importarPagina.hubAnuncios)
 const ReviewsPage = lazyWithRetry(importarPagina.avaliacoes)
 const CouponsPage = lazyWithRetry(importarPagina.cupons)
 
-/** Uma visita por troca de rota (o site é SPA). O painel fica de fora. */
+/** Uma visita por troca de rota (o site é SPA). O painel e o hub ficam de fora. */
 function RastreioDeRotas() {
   const { pathname } = useLocation()
   useEffect(() => {
-    if (pathname.startsWith('/admin')) return
+    if (pathname.startsWith('/admin') || pathname.startsWith('/hub')) return
     // espera o título da página nova (o <Seo> troca no efeito dela)
     const t = setTimeout(() => paginaVista(pathname), 0)
     return () => clearTimeout(t)
@@ -203,6 +210,23 @@ export default function App() {
             <Route path="cupons" element={<CouponsPage />} />
             <Route path="avaliacoes" element={<ReviewsPage />} />
             <Route path="configuracoes" element={<SettingsPage />} />
+          </Route>
+
+          {/* Hub: números do negócio (vendas + Google), mesmo login do painel */}
+          <Route
+            path="/hub"
+            element={
+              <ProtectedRoute>
+                <HubLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<HubResumo />} />
+            <Route path="vendas" element={<HubVendas />} />
+            <Route path="clientes" element={<HubClientes />} />
+            <Route path="site" element={<HubSite />} />
+            <Route path="busca" element={<HubBusca />} />
+            <Route path="anuncios" element={<HubAnuncios />} />
           </Route>
         </Routes>
       </Suspense>
