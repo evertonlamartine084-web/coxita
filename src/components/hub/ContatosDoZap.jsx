@@ -51,7 +51,9 @@ function pontuar(pedido, contato) {
   if (contato.dias?.[diaIso(feito)]) conversa = 3
   else if ([1, 2, 3].some(k => contato.dias?.[diaIso(+feito - k * DIA)])) conversa = 2
   else if (pedido.scheduled_for && contato.dias?.[diaIso(pedido.scheduled_for)]) conversa = 1
-  return { total: nome + conversa, nome, conversa }
+  // etiqueta "Pedido finalizado" no WhatsApp Business: a loja marcou que essa pessoa comprou
+  const comprou = (contato.etiquetas ?? []).some(e => /pedido finalizado/i.test(e))
+  return { total: nome + conversa + (comprou && (nome || conversa) ? 2 : 0), nome, conversa, comprou }
 }
 
 export default function ContatosDoZap() {
@@ -188,10 +190,12 @@ export default function ContatosDoZap() {
                   </div>
                   {lista.length ? (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {lista.map(({ c, nome, conversa }) => (
+                      {lista.map(({ c, nome, conversa, comprou }) => (
                         <div key={c.numero} className="flex items-center gap-2 rounded-xl bg-cream px-3 py-2 text-xs">
                           <div>
-                            <p className="font-semibold">{c.nome || c.nome_perfil || 'sem nome'} {c.nome && c.nome_perfil && c.nome !== c.nome_perfil && <span className="font-normal text-text-light">({c.nome_perfil})</span>}</p>
+                            <p className="font-semibold">
+                              {comprou && <span className="mr-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">PEDIDO FINALIZADO</span>}
+                              {c.nome || c.nome_perfil || 'sem nome'} {c.nome && c.nome_perfil && c.nome !== c.nome_perfil && <span className="font-normal text-text-light">({c.nome_perfil})</span>}</p>
                             <p className="text-text-light">
                               {formatarNumero(c.numero)} · {nome === 3 ? 'mesmo nome' : nome ? 'nome parecido' : 'nome diferente'} ·{' '}
                               {conversa === 3 ? 'conversou no dia' : conversa === 2 ? 'conversou dias antes' : conversa ? 'conversou no dia da entrega' : 'sem conversa perto'}

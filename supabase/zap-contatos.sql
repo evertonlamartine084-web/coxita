@@ -20,3 +20,6 @@ create policy zap_contatos_painel on zap_contatos for all using (auth.role() = '
 -- Pedido do hub para o painel da loja sincronizar agora (o painel olha a cada 2 min)
 insert into settings (key, value) values ('zap_sincronizar_pedido', ''), ('zap_sincronizado_em', '')
 on conflict (key) do nothing;
+
+-- Etiquetas do WhatsApp Business da conversa ("Pedido finalizado" = comprou)
+alter table zap_contatos add column if not exists etiquetas text[] not null default '{}';

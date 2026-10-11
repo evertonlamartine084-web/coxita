@@ -288,7 +288,7 @@ const diaLocal = (ms) => {
 export async function resumoDasConversas(config = lerConfigZap()) {
   const porNumero = new Map()
   const pegar = (numero) => {
-    if (!porNumero.has(numero)) porNumero.set(numero, { numero, nome: null, nome_perfil: null, dias: {}, primeira: null, ultima: null, msgs: 0 })
+    if (!porNumero.has(numero)) porNumero.set(numero, { numero, nome: null, nome_perfil: null, dias: {}, primeira: null, ultima: null, msgs: 0, etiquetas: new Set() })
     return porNumero.get(numero)
   }
 
@@ -300,6 +300,22 @@ export async function resumoDasConversas(config = lerConfigZap()) {
     r.nome = c.name || c.verifiedName || r.nome
     r.nome_perfil = c.pushName || r.nome_perfil
   }
+
+  // Etiquetas do WhatsApp Business ("Pedido finalizado"): nome de cada uma e as conversas marcadas
+  const nomesDasEtiquetas = new Map()
+  try {
+    const etiquetas = await evolution(`/label/findLabels/${config.instancia}`, { config })
+    for (const e of Array.isArray(etiquetas) ? etiquetas : []) nomesDasEtiquetas.set(String(e.labelId ?? e.id), e.name)
+  } catch { /* sem etiquetas: segue sem elas */ }
+  try {
+    const conversas = await evolution(`/chat/findChats/${config.instancia}`, { method: 'POST', config, body: {} })
+    for (const c of Array.isArray(conversas) ? conversas : []) {
+      const numero = numeroDoJid(c.remoteJid, c.remoteJidAlt, c.lastMessage?.key?.remoteJidAlt, c.lastMessage?.key?.senderPn)
+      const ids = Array.isArray(c.labels) ? c.labels : []
+      if (!numero || !ids.length) continue
+      for (const id of ids) pegar(numero).etiquetas.add(nomesDasEtiquetas.get(String(id)) ?? String(id))
+    }
+  } catch { /* sem conversas: segue com contatos e mensagens */ }
 
   for (let pagina = 1, total = 1; pagina <= total && pagina <= 200; pagina++) {
     const resp = await evolution(`/chat/findMessages/${config.instancia}`, {
@@ -329,6 +345,7 @@ export async function resumoDasConversas(config = lerConfigZap()) {
     nome_perfil: r.nome_perfil,
     dias: r.dias,
     msgs: r.msgs,
+    etiquetas: [...r.etiquetas],
     primeira_msg: r.primeira ? new Date(r.primeira).toISOString() : null,
     ultima_msg: r.ultima ? new Date(r.ultima).toISOString() : null,
     atualizado_em: new Date().toISOString(),
