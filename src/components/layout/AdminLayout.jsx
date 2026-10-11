@@ -7,6 +7,7 @@ import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
 import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
+import { mensagemDeCarrinho, noHorarioDoFluxo } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -269,6 +270,36 @@ export default function AdminLayout() {
       }
     }
 
+    // CRM (hub → CRM): carrinho abandonado. O banco diz quem está devendo mensagem; aqui o
+    // carrinho é "pego" (aberto → avisado) antes de mandar, para duas abas não mandarem em dobro.
+    let ultimoCrm = 0
+    const fluxosDoCrm = async (config) => {
+      if (Date.now() - ultimoCrm < 2 * 60 * 1000) return
+      ultimoCrm = Date.now()
+      const { data: fluxo } = await supabase.from('crm_fluxos').select('ativo, config').eq('id', 'carrinho_abandonado').maybeSingle()
+      if (!fluxo?.ativo || !noHorarioDoFluxo(fluxo.config)) return
+      const { data: devidos, error } = await supabase.rpc('crm_carrinhos_devidos')
+      if (error) throw error
+      for (const c of devidos ?? []) {
+        const { data: pego } = await supabase.from('carrinhos')
+          .update({ status: 'avisado', avisado_em: new Date().toISOString() })
+          .eq('id', c.id).eq('status', 'aberto').select('id')
+        if (!pego?.length) continue
+        const falhou = (motivo) => supabase.from('carrinhos').update({ status: 'erro', motivo }).eq('id', c.id)
+        const numero = numeroDoCliente(c.telefone)
+        if (!numero) { await falhou('telefone inválido'); continue }
+        try {
+          await mandarParaCliente(numero, mensagemDeCarrinho(c, fluxo.config), config)
+          registrarImpressao('crm_carrinho', null, { carrinho: c.id })
+        } catch (e) {
+          // número sem WhatsApp (400) não adianta repetir; Evolution fora do ar volta para a fila
+          if (e.status === 400) await falhou('número sem WhatsApp')
+          else await supabase.from('carrinhos').update({ status: 'aberto', avisado_em: null }).eq('id', c.id)
+          registrarImpressao('crm_carrinho_falhou', null, { carrinho: c.id, erro: e.message })
+        }
+      }
+    }
+
     const enviarPendentes = async () => {
       const config = lerConfigZap()
       if (enviando || !zapPronto(config)) return
@@ -304,6 +335,7 @@ export default function AdminLayout() {
         }
 
         if (config.avisarClientes !== false) await avisarClientes(config)
+        await fluxosDoCrm(config)
       } catch (e) {
         console.warn('Envio ao grupo do WhatsApp falhou:', e)
       } finally {

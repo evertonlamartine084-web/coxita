@@ -19,6 +19,7 @@ const ABAS = [
   { to: '/hub/site', label: 'Site' },
   { to: '/hub/busca', label: 'Google Busca' },
   { to: '/hub/anuncios', label: 'Anúncios' },
+  { to: '/hub/crm', label: 'CRM' },
 ]
 
 const CHAVE_PERIODO = 'coxelli_hub_periodo'

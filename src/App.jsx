@@ -119,6 +119,7 @@ const HubClientes = lazyWithRetry(importarPagina.hubClientes)
 const HubSite = lazyWithRetry(importarPagina.hubSite)
 const HubBusca = lazyWithRetry(importarPagina.hubBusca)
 const HubAnuncios = lazyWithRetry(importarPagina.hubAnuncios)
+const HubCrm = lazyWithRetry(importarPagina.hubCrm)
 const ReviewsPage = lazyWithRetry(importarPagina.avaliacoes)
 const CouponsPage = lazyWithRetry(importarPagina.cupons)
 
@@ -227,6 +228,7 @@ export default function App() {
             <Route path="site" element={<HubSite />} />
             <Route path="busca" element={<HubBusca />} />
             <Route path="anuncios" element={<HubAnuncios />} />
+            <Route path="crm" element={<HubCrm />} />
           </Route>
         </Routes>
       </Suspense>

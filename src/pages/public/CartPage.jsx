@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { itensParaRecuperar } from '../../services/carrinhos'
 import { HiArrowRight, HiArrowLeft } from 'react-icons/hi'
 import { useCartStore } from '../../store/cartStore'
 import { getSettings, peekSettings } from '../../services/settings'
@@ -17,19 +19,33 @@ export default function CartPage() {
   // que ja carregou settings, e piscar o aviso de desconto seria pior que nao
   // mostrar.
   const [settings, setSettings] = useState(() => peekSettings() ?? {})
+  const [busca, setBusca] = useSearchParams()
+  const recuperar = busca.get('recuperar')
 
   useEffect(() => {
     let cancelado = false
     getSettings()
       .then(dados => { if (!cancelado) setSettings(dados) })
       .catch(() => {})
+    // Link da mensagem de carrinho abandonado (/carrinho?recuperar=<id>): devolve os itens que a
+    // pessoa tinha montado. Tira o parâmetro da URL para um F5 não refazer.
+    const restaurar = recuperar
+      ? itensParaRecuperar(recuperar)
+        .then(itens => {
+          if (cancelado || !itens.length) return
+          useCartStore.setState({ items: itens })
+          toast.success('Seu carrinho voltou! Confira e finalize o pedido.')
+        })
+        .catch(() => {})
+        .finally(() => setBusca({}, { replace: true }))
+      : Promise.resolve()
     // O carrinho pode ter sido montado antes de a cozinha mexer na tabela:
     // aqui ele volta a valer o preco do banco, antes de virar pedido.
-    Promise.all([getProducts(), getPrecoPorSabor()])
+    Promise.all([getProducts(), getPrecoPorSabor(), restaurar])
       .then(([produtos, precos]) => { if (!cancelado) sincronizarComCatalogo(produtos, precos) })
       .catch(() => {})
     return () => { cancelado = true }
-  }, [sincronizarComCatalogo])
+  }, [sincronizarComCatalogo, recuperar, setBusca])
 
   const descontoAvista = calcularDescontoAvista(items, 'pix', settings, getSubtotal())
 

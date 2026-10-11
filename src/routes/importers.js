@@ -41,6 +41,7 @@ export const importarPagina = {
   hubSite: () => import('../pages/hub/HubSite'),
   hubBusca: () => import('../pages/hub/HubBusca'),
   hubAnuncios: () => import('../pages/hub/HubAnuncios'),
+  hubCrm: () => import('../pages/hub/HubCrm'),
   cupons: () => import('../pages/admin/CouponsPage'),
 }
 

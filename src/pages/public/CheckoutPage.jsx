@@ -7,6 +7,7 @@ import { comecouCheckout, fezPedido } from '../../services/rastreio'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
+import { salvarCarrinho, esquecerCarrinho } from '../../services/carrinhos'
 import { getSettings } from '../../services/settings'
 import { cotarEntrega } from '../../services/entrega'
 import { getProducts } from '../../services/products'
@@ -185,6 +186,19 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, navigate, setDeliveryFee, sincronizarComCatalogo])
 
+  // Carrinho abandonado: com o telefone completo, o carrinho fica guardado (2 s depois da
+  // última mudança). Se o pedido não fechar, a loja chama no WhatsApp (CRM do hub).
+  useEffect(() => {
+    if (finalizando.current || !items.length) return
+    if (form.customer_phone.replace(/\D/g, '').length < 10) return
+    const t = setTimeout(() => {
+      salvarCarrinho({ nome: form.customer_name.trim(), telefone: form.customer_phone.trim(), items, subtotal: getSubtotal() })
+    }, 2000)
+    return () => clearTimeout(t)
+    // getSubtotal muda junto com items
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.customer_name, form.customer_phone, items])
+
   const handleCepBlur = async () => {
     const cep = form.address_cep.replace(/\D/g, '')
     if (cep.length !== 8) return
@@ -320,6 +334,7 @@ export default function CheckoutPage() {
 
   const concluir = (order) => {
     finalizando.current = true
+    esquecerCarrinho()
     clearCart()
     navigate(`/pedido-confirmado/${order.order_number}`)
   }
@@ -357,6 +372,8 @@ export default function CheckoutPage() {
       }
 
       const order = await createOrder(orderData, items)
+      // Pix/cartão on-line: o carrinho fica ligado ao pedido até o pagamento fechar
+      salvarCarrinho({ nome: orderData.customer_name, telefone: orderData.customer_phone, items, subtotal: getSubtotal(), pedidoId: order.id })
 
       notifyNewOrder(order, items)
       fezPedido(order, items)
@@ -531,6 +548,9 @@ export default function CheckoutPage() {
                 error={errors.customer_phone}
                 placeholder="(00) 00000-0000"
               />
+              <p className="-mt-3 text-xs text-text-light">
+                Se o pedido não for concluído, a Coxelli pode te chamar no WhatsApp para ajudar.
+              </p>
               {/* Opcional de propósito: cada campo obrigatório a mais derruba conversão, e quem
                   não informar recebe nota como consumidor não identificado. */}
               <Input
