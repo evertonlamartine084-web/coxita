@@ -68,7 +68,7 @@ export function marcarZapEnviado(id) {
   } catch { /* sem armazenamento */ }
 }
 
-async function evolution(caminho, { method = 'GET', body, config = lerConfigZap() } = {}) {
+async function evolution(caminho, { method = 'GET', body, config = lerConfigZap(), limiteMs = 60000 } = {}) {
   const url = `${config.url.replace(/\/+$/, '')}${caminho}`
   let resp
   try {
@@ -76,6 +76,8 @@ async function evolution(caminho, { method = 'GET', body, config = lerConfigZap(
       method,
       headers: { apikey: config.apikey, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
+      // sem limite, uma chamada pendurada travava o laço do painel (pedido parava de ir ao grupo)
+      signal: AbortSignal.timeout(limiteMs),
     })
   } catch {
     throw new Error('Não achei a Evolution neste computador. Ela está ligada? O Chrome pode ter bloqueado o acesso à rede local.')

@@ -319,26 +319,34 @@ export default function AdminLayout() {
     let ultimoCrm = 0
     // Contatos do Zap para o hub (achar o telefone de pedido sem número): quando o hub pede, ou
     // uma vez por dia. Só o resumo (número, nome, dias com conversa) sobe para o banco.
+    let sincronizando = false
     const sincronizarContatos = async (config) => {
+      if (sincronizando) return
       const { data: s } = await supabase.from('settings').select('key, value').in('key', ['zap_sincronizar_pedido', 'zap_sincronizado_em'])
       const valor = (k) => s?.find(x => x.key === k)?.value || ''
       const feito = valor('zap_sincronizado_em')
       const pedido = valor('zap_sincronizar_pedido')
       const umDia = !feito || Date.now() - new Date(feito) > 24 * 60 * 60 * 1000
       if (!umDia && !(pedido && pedido > feito)) return
-      const linhas = await resumoDasConversas(config)
-      for (let i = 0; i < linhas.length; i += 200) {
-        const { error } = await supabase.from('zap_contatos').upsert(linhas.slice(i, i + 200))
-        if (error) throw error
+      sincronizando = true
+      try {
+        const linhas = await resumoDasConversas(config)
+        for (let i = 0; i < linhas.length; i += 200) {
+          const { error } = await supabase.from('zap_contatos').upsert(linhas.slice(i, i + 200))
+          if (error) throw error
+        }
+        await updateSetting('zap_sincronizado_em', new Date().toISOString())
+        registrarImpressao('zap_contatos', null, { contatos: linhas.length })
+      } finally {
+        sincronizando = false
       }
-      await updateSetting('zap_sincronizado_em', new Date().toISOString())
-      registrarImpressao('zap_contatos', null, { contatos: linhas.length })
     }
 
     const fluxosDoCrm = async (config) => {
       if (Date.now() - ultimoCrm < 2 * 60 * 1000) return
       ultimoCrm = Date.now()
-      await sincronizarContatos(config).catch(e => registrarImpressao('zap_contatos_falhou', null, { erro: e.message }))
+      // em paralelo: ler o histórico leva minutos e não pode segurar pedido indo para o grupo
+      sincronizarContatos(config).catch(e => registrarImpressao('zap_contatos_falhou', null, { erro: e.message }))
       const { data: fluxos } = await supabase.from('crm_fluxos').select('id, ativo, config')
       const posVenda = fluxos?.find(f => f.id === 'pos_venda')
       if (posVenda?.ativo) await enviarPosVenda(posVenda.config, config)
