@@ -26,8 +26,9 @@ language sql
 security definer
 set search_path = public
 as $$
+  -- agrupa pelos dígitos: "(84) 99640-6908" (painel) e "84996406908" (site) são a mesma pessoa
   select
-    o.customer_phone as telefone,
+    right(regexp_replace(o.customer_phone, '\D', '', 'g'), 11) as telefone,
     -- o nome mais recente: se a pessoa corrigiu a grafia, vale a última versão
     (array_agg(o.customer_name order by o.created_at desc))[1] as nome,
     count(*) as pedidos,
@@ -43,8 +44,8 @@ as $$
     (array_agg(o.address order by o.created_at desc) filter (where o.address is not null))[1] as endereco,
     (array_agg(o.neighborhood order by o.created_at desc) filter (where o.neighborhood is not null))[1] as bairro
   from orders o
-  where o.customer_phone is not null and o.customer_phone <> ''
-  group by o.customer_phone
+  where regexp_replace(coalesce(o.customer_phone, ''), '\D', '', 'g') <> ''
+  group by right(regexp_replace(o.customer_phone, '\D', '', 'g'), 11)
   order by max(o.created_at) desc;
 $$;
 
