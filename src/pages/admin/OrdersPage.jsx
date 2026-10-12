@@ -201,6 +201,12 @@ export default function OrdersPage() {
     }
   }
 
+  // O selo da lista marca como pago sem abrir o pedido; a confirmacao evita o clique sem querer.
+  const receberDaLista = (pedido) => {
+    if (!confirm(`Marcar o pedido #${pedido.order_number} como pago (${formatCurrency(faltaReceber(pedido))})?`)) return
+    confirmarRecebimento(pedido.id)
+  }
+
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus)
@@ -372,12 +378,6 @@ export default function OrdersPage() {
                         {CANAIS[order.canal] && (
                           <span className={`ml-1.5 ${CANAIS[order.canal].cor} text-[10px] font-bold px-1.5 py-0.5 rounded-full`}>{CANAIS[order.canal].etiqueta}</span>
                         )}
-                        {order.status === 'entregue' && aReceber(order) && (
-                          <span className="ml-1.5 bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">A RECEBER</span>
-                        )}
-                        {order.status !== 'entregue' && Number(order.sinal_valor) > 0 && order.payment_status !== 'pago' && (
-                          <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">SINAL PAGO</span>
-                        )}
                         {ehPromocao(order) && (
                           <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">PROMOÇÃO</span>
                         )}
@@ -401,7 +401,10 @@ export default function OrdersPage() {
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell capitalize">{order.delivery_type}</td>
                       <td className="px-4 py-3 hidden md:table-cell">{PAYMENT_LABELS[order.payment_method]}</td>
-                      <td className="px-4 py-3 font-medium">{formatCurrency(order.total)}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {formatCurrency(order.total)}
+                        <SeloPagamento pedido={order} aoReceber={receberDaLista} />
+                      </td>
                       <td className="px-4 py-3">
                         <select
                           value={order.status}
@@ -816,5 +819,29 @@ export default function OrdersPage() {
         )}
       </Modal>
     </div>
+  )
+}
+
+// Pago ou nao, na propria lista: pedido do Zap e do balcao entra sem pagamento e e pago depois,
+// e antes so dava para saber abrindo o pedido. Clicar no selo vermelho marca como pago.
+function SeloPagamento({ pedido, aoReceber }) {
+  if (pedido.status === 'cancelado') return null
+  const base = 'mt-1 block w-fit text-[10px] font-bold px-1.5 py-0.5 rounded-full'
+  if (pedido.payment_status === 'pago') {
+    return <span className={`${base} bg-green-100 text-green-800`}>✓ PAGO</span>
+  }
+  if (pedido.payment_status === 'estornado') {
+    return <span className={`${base} bg-gray-100 text-gray-600`}>ESTORNADO</span>
+  }
+  const sinal = Number(pedido.sinal_valor) > 0
+  return (
+    <button
+      type="button"
+      onClick={() => aoReceber(pedido)}
+      title="Clique quando receber"
+      className={`${base} cursor-pointer ${sinal ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+    >
+      {sinal ? `SINAL PAGO · FALTA ${formatCurrency(faltaReceber(pedido))}` : pedido.status === 'entregue' ? 'A RECEBER' : 'NÃO PAGO'}
+    </button>
   )
 }
