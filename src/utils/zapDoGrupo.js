@@ -279,13 +279,25 @@ const diaLocal = (ms) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** Número do vCard: o waid quando vem, senão os dígitos do primeiro TEL. */
+function numeroDoVcard(vcard) {
+  const waid = /waid=(\d{10,15})/.exec(vcard || '')
+  if (waid) return waid[1]
+  const tel = /^TEL[^:\n]*:([^\n]+)$/m.exec(vcard || '')
+  let n = (tel?.[1] || '').replace(/\D/g, '')
+  if (n.length === 10 || n.length === 11) n = `55${n}`
+  return n.length >= 12 ? n : null
+}
+
 /**
  * Resumo das conversas do Zap da loja: por número, o nome (salvo ou do perfil) e quantas
  * mensagens houve em cada dia. É o que o hub usa para achar o telefone de pedido lançado só com o
- * nome. Nenhum texto de mensagem entra no resumo.
+ * nome. Nenhum texto de mensagem entra no resumo; dos cartões de contato (a equipe manda o contato
+ * de quem pediu), só o nome e o número do cartão, quem mandou e quando.
  */
 export async function resumoDasConversas(config = lerConfigZap()) {
   const porNumero = new Map()
+  const cartoes = []
   const pegar = (numero) => {
     if (!porNumero.has(numero)) porNumero.set(numero, { numero, nome: null, nome_perfil: null, dias: {}, primeira: null, ultima: null, msgs: 0, etiquetas: new Set() })
     return porNumero.get(numero)
@@ -335,10 +347,26 @@ export async function resumoDasConversas(config = lerConfigZap()) {
       if (!r.primeira || ms < r.primeira) r.primeira = ms
       if (!r.ultima || ms > r.ultima) r.ultima = ms
       if (!k.fromMe && m.pushName) r.nome_perfil = m.pushName
+
+      const msg = m.message ?? {}
+      const lista = msg.contactMessage ? [msg.contactMessage] : (msg.contactsArrayMessage?.contacts ?? [])
+      lista.forEach((c, i) => {
+        const doCartao = numeroDoVcard(c.vcard)
+        if (!doCartao) return
+        cartoes.push({
+          id: `${k.id || m.id}:${i}`,
+          numero: doCartao,
+          nome: c.displayName || /^FN:(.+)$/m.exec(c.vcard || '')?.[1]?.trim() || null,
+          enviado_por: k.fromMe ? null : numero,
+          enviado_por_nome: k.fromMe ? null : (m.pushName || null),
+          enviado_em: new Date(ms).toISOString(),
+          atualizado_em: new Date().toISOString(),
+        })
+      })
     }
   }
 
-  return [...porNumero.values()].map(r => ({
+  const resumo = [...porNumero.values()].map(r => ({
     numero: r.numero,
     nome: r.nome,
     nome_perfil: r.nome_perfil,
@@ -349,4 +377,5 @@ export async function resumoDasConversas(config = lerConfigZap()) {
     ultima_msg: r.ultima ? new Date(r.ultima).toISOString() : null,
     atualizado_em: new Date().toISOString(),
   }))
+  return { contatos: resumo, cartoes }
 }

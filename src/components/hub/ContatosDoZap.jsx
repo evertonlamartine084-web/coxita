@@ -70,6 +70,83 @@ function numeroDigitado(texto) {
   return /^55[1-9][1-9]9?[2-9]\d{7}$/.test(d) ? d : null
 }
 
+/**
+ * Pedido sem telefone que combina com um cartão de contato: primeiro nome igual vale 3 (aparece no
+ * nome, 1); cartão mandado no dia do pedido vale 3, até 3 dias depois 2, até 7 dias depois 1.
+ */
+function pontuarCartao(pedido, cartao) {
+  const p1 = primeiro(pedido.customer_name)
+  const n = normalizar(cartao.nome)
+  let nome = 0
+  if (p1 && n.split(/\s+/)[0] === p1) nome = 3
+  else if (p1.length >= 3 && n.includes(p1)) nome = 1
+  const dias = Math.floor((new Date(diaIso(cartao.enviado_em)) - new Date(diaIso(pedido.created_at))) / DIA)
+  const dia = dias === 0 ? 3 : dias > 0 && dias <= 3 ? 2 : dias >= -1 && dias <= 7 ? 1 : 0
+  return { total: nome + dia, nome, dias }
+}
+
+function CartaoDoZap({ cartao, pedidos, semTelefone, gravando, onLigar, onDescartar }) {
+  const [outro, setOutro] = useState('')
+  const dig = cartao.numero.slice(-11)
+  const ja = pedidos.filter(o => (o.customer_phone || '').replace(/\D/g, '').slice(-11) === dig)
+  const sugestoes = semTelefone
+    .map(o => ({ o, ...pontuarCartao(o, cartao) }))
+    .filter(x => x.nome > 0 && x.total >= 3)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3)
+  return (
+    <li className="py-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 text-sm">
+        <span className="font-semibold">{cartao.nome || 'sem nome'}</span>
+        <span>{formatarNumero(cartao.numero)}</span>
+        <span className="text-xs text-text-light">
+          mandado {cartao.enviado_por_nome ? `por ${cartao.enviado_por_nome}` : 'pela loja'} em{' '}
+          {new Date(cartao.enviado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+      {ja.length > 0 && (
+        <p className="mt-1 text-xs text-green-700">
+          ✓ Já está {ja.length > 1 ? 'nos pedidos' : 'no pedido'} {ja.map(o => `#${o.order_number} ${o.customer_name}`).join(', ')}
+        </p>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {sugestoes.map(({ o, dias }) => (
+          <button key={o.id} type="button" disabled={gravando === o.id} onClick={() => onLigar(o, { numero: cartao.numero })}
+            className="cursor-pointer rounded-xl bg-cream px-3 py-2 text-left text-xs hover:bg-green-50 disabled:opacity-60">
+            <span className="font-semibold">É o #{o.order_number} {o.customer_name}</span>
+            <span className="block text-text-light">
+              {new Date(o.created_at).toLocaleDateString('pt-BR')} · {formatCurrency(o.total)} · {o.canal} ·{' '}
+              {dias === 0 ? 'pedido no mesmo dia' : dias > 0 ? `pedido ${dias} dia${dias > 1 ? 's' : ''} antes` : 'pedido depois do cartão'}
+            </span>
+          </button>
+        ))}
+        {semTelefone.length > 0 && (
+          <span className="flex items-center gap-1">
+            <select value={outro} onChange={e => setOutro(e.target.value)} aria-label="Outro pedido sem telefone"
+              className="max-w-56 rounded-lg border border-border px-2 py-1.5 text-xs">
+              <option value="">{sugestoes.length ? 'Outro pedido…' : 'Escolher o pedido…'}</option>
+              {semTelefone.map(o => (
+                <option key={o.id} value={o.id}>#{o.order_number} {o.customer_name} · {new Date(o.created_at).toLocaleDateString('pt-BR')}</option>
+              ))}
+            </select>
+            {outro && (
+              <button type="button" disabled={gravando === outro}
+                onClick={() => { onLigar(semTelefone.find(o => o.id === outro), { numero: cartao.numero }); setOutro('') }}
+                className="cursor-pointer rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60">
+                Ligar
+              </button>
+            )}
+          </span>
+        )}
+        <button type="button" onClick={() => onDescartar(cartao)}
+          className="cursor-pointer px-1 text-xs text-text-light hover:text-red-600">
+          {ja.length ? 'Ok, esconder' : 'Não é de pedido'}
+        </button>
+      </div>
+    </li>
+  )
+}
+
 function NumeroAMao({ pedido, gravando, onGravar }) {
   const [texto, setTexto] = useState('')
   const enviar = (e) => {
@@ -93,21 +170,24 @@ function NumeroAMao({ pedido, gravando, onGravar }) {
 
 export default function ContatosDoZap() {
   const [contatos, setContatos] = useState(null)
+  const [cartoes, setCartoes] = useState([])
   const [pedidos, setPedidos] = useState(null)
   const [sinc, setSinc] = useState({ pedido: '', feito: '' })
   const [descartados, setDescartados] = useState(() => new Set())
   const [gravando, setGravando] = useState(null)
 
   const carregar = useCallback(async () => {
-    const [c, p, s] = await Promise.all([
+    const [c, p, s, k] = await Promise.all([
       supabase.from('zap_contatos').select('*'),
       supabase.from('orders').select('id, order_number, customer_name, customer_phone, canal, created_at, scheduled_for, total, status')
         .neq('status', 'cancelado').order('created_at', { ascending: false }),
       supabase.from('settings').select('key, value').in('key', ['zap_sincronizar_pedido', 'zap_sincronizado_em']),
+      supabase.from('zap_cartoes').select('*').eq('descartado', false).order('enviado_em', { ascending: false }),
     ])
     const erro = c.error || p.error || s.error
     if (erro) { toast.error(erro.message); return }
     setContatos(c.data ?? [])
+    setCartoes(k.data ?? [])
     setPedidos(p.data ?? [])
     const v = (k) => s.data?.find(x => x.key === k)?.value || ''
     setSinc({ pedido: v('zap_sincronizar_pedido'), feito: v('zap_sincronizado_em') })
@@ -168,6 +248,12 @@ export default function ContatosDoZap() {
     }
   }
 
+  const descartarCartao = async (cartao) => {
+    const { error } = await supabase.from('zap_cartoes').update({ descartado: true }).eq('id', cartao.id)
+    if (error) { toast.error(error.message); return }
+    setCartoes(lista => lista.filter(c => c.id !== cartao.id))
+  }
+
   const certeiros = semTelefone
     .map(o => ({ o, s: sugestoes.get(o.id) ?? [] }))
     .filter(({ s }) => s.length && s[0].nome === 3 && s[0].conversa >= 2 && (s.length === 1 || s[1].total < s[0].total))
@@ -185,6 +271,20 @@ export default function ContatosDoZap() {
         <Cartao titulo="Com sugestão" valor={semTelefone.filter(o => sugestoes.get(o.id)?.length).length} />
         <Cartao titulo="Certeiros" valor={certeiros.length} detalhe="nome + conversa no dia" />
       </div>
+
+      {cartoes.length > 0 && (
+        <Bloco
+          titulo="🪪 Contatos mandados no Zap da loja"
+          subtitulo="Cada cartão de contato que chegou no Zap da Coxelli. Confira um por um: toque no pedido certo para gravar o número nele, ou esconda o cartão que não é de pedido."
+        >
+          <ul className="divide-y divide-border">
+            {cartoes.map(c => (
+              <CartaoDoZap key={c.id} cartao={c} pedidos={pedidos} semTelefone={semTelefone}
+                gravando={gravando} onLigar={ligar} onDescartar={descartarCartao} />
+            ))}
+          </ul>
+        </Bloco>
+      )}
 
       <Bloco
         titulo="📇 Ligar pedidos aos contatos do Zap"

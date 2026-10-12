@@ -327,13 +327,18 @@ export default function AdminLayout() {
       if (!umDia && !(pedido && pedido > feito)) return
       sincronizando = true
       try {
-        const linhas = await resumoDasConversas(config)
+        const { contatos: linhas, cartoes } = await resumoDasConversas(config)
         for (let i = 0; i < linhas.length; i += 200) {
           const { error } = await supabase.from('zap_contatos').upsert(linhas.slice(i, i + 200))
           if (error) throw error
         }
+        // sem mexer em "descartado": o hub marca, a sincronização só acrescenta
+        for (let i = 0; i < cartoes.length; i += 200) {
+          const { error } = await supabase.from('zap_cartoes').upsert(cartoes.slice(i, i + 200))
+          if (error) throw error
+        }
         await updateSetting('zap_sincronizado_em', new Date().toISOString())
-        registrarImpressao('zap_contatos', null, { contatos: linhas.length })
+        registrarImpressao('zap_contatos', null, { contatos: linhas.length, cartoes: cartoes.length })
       } finally {
         sincronizando = false
       }
