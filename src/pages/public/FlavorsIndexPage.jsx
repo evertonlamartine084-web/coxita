@@ -27,7 +27,7 @@ const GRUPOS = [
 const PERGUNTAS = [
   {
     pergunta: 'Quais salgados a Coxelli faz?',
-    resposta: 'Coxinha de frango, coxinha com catupiry, baiãozinho de camarão, kibe, risole de carne e de frango, enroladinho de salsicha, bolinha de queijo, croquete de carne e empada de frango. Nos pastéis: frango, carne, sertanejo, pizza e queijo com presunto.',
+    resposta: 'Coxinha de frango, travesseiro sertanejo (carne de sol com queijo coalho), bolinha de queijo, bolinha de carne, croquete de calabresa, croquete de queijo e presunto, bombinha de pizza e enroladinho de salsicha. De doce, churros e coxinha de Nutella.',
   },
   {
     pergunta: 'Dá para misturar sabores no mesmo pacote?',

@@ -162,7 +162,7 @@ export default function BairroPage() {
               <span className="underline-hand">O que chega em {bairro.nome}</span>
             </h2>
             <p className="text-text-light text-lg leading-relaxed mb-8 max-w-2xl">
-              O cardápio é o mesmo em toda {CIDADE}: 15 sabores, montados de 25 em 25 unidades.
+              O cardápio é o mesmo em toda {CIDADE}: {sabores.filter(s => s.group_slug === 'salgados').length} sabores de salgado, montados de 25 em 25 unidades.
             </p>
 
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 list-none p-0 m-0">
@@ -195,7 +195,7 @@ export default function BairroPage() {
               to="/salgados"
               className="inline-flex items-center gap-1.5 mt-6 font-display font-extrabold uppercase text-sm tracking-[0.08em] text-primary no-underline hover:text-brown"
             >
-              Ver os 15 sabores
+              Ver todos os sabores
               <HiArrowRight size={14} />
             </Link>
           </section>

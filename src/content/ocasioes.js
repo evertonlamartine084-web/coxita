@@ -34,10 +34,10 @@ export const OCASIOES = {
     ],
     dicas: [
       ['Monte com 3 ou 4 sabores', 'Bandeja de um sabor só cansa. Com três, cada convidado acha o dele — e sobra menos, porque ninguém come dez unidades do mesmo recheio.'],
-      ['Misture seco e cremoso', 'Kibe e enroladinho ao lado de coxinha com catupiry e bolinha de queijo. A variação de textura é o que faz a pessoa pegar o segundo.'],
+      ['Misture seco e cremoso', 'Enroladinho e bolinha de carne ao lado de bolinha de queijo e croquete de queijo e presunto. A variação de textura é o que faz a pessoa pegar o segundo.'],
       ['Encomende com 2 dias', 'Dá para fazer em cima da hora, mas com dois dias de antecedência a gente garante o sabor que você quer na quantidade que você quer.'],
     ],
-    sabores: ['coxinha-de-frango', 'coxinha-de-frango-com-catupiry', 'risole-de-carne', 'bolinha-de-queijo'],
+    sabores: ['coxinha-de-frango', 'travesseiro-sertanejo', 'bolinha-de-queijo', 'croquete-de-calabresa'],
     faq: [
       {
         pergunta: 'Quantos salgados por pessoa em uma festa?',
@@ -77,10 +77,10 @@ export const OCASIOES = {
     ],
     dicas: [
       ['Festa infantil: menos sabores, mais do mesmo', 'Criança não experimenta. Enroladinho de salsicha, coxinha de frango e bolinha de queijo cobrem quase toda a mesa.'],
-      ['Adulto na mesma festa? Separe um sabor', 'Um quarto do cento em risole de carne ou kibe resolve os pais, que não vão disputar enroladinho com as crianças.'],
+      ['Adulto na mesma festa? Separe um sabor', 'Um quarto do cento em travesseiro sertanejo ou croquete de calabresa resolve os pais, que não vão disputar enroladinho com as crianças.'],
       ['Conte a primeira hora', 'Metade do que você pedir sai na primeira hora. Se a festa for de quatro horas, esse é o pico a cobrir.'],
     ],
-    sabores: ['enroladinho-de-salsicha', 'coxinha-de-frango', 'bolinha-de-queijo', 'pastel-de-pizza'],
+    sabores: ['enroladinho-de-salsicha', 'coxinha-de-frango', 'bolinha-de-queijo', 'bombinha-de-pizza'],
     faq: [
       {
         pergunta: 'Quantos salgados para uma festa de aniversário de 30 pessoas?',
@@ -107,15 +107,15 @@ export const OCASIOES = {
     faixa: [4, 8],
     texto: [
       'Em casamento, o salgado quase nunca é a comida principal — ele cobre a recepção, aquele intervalo entre a chegada dos convidados e o jantar. Por isso a conta é mais baixa: de 4 a 6 por pessoa dá conta, contra os 8 de uma festa comum.',
-      'O que muda é a escolha dos sabores. Recepção pede salgado que continue apresentável depois de meia hora em bandeja, e que não suje a mão de quem está de roupa boa. Os empanados e assados se comportam melhor nisso que os muito cremosos.',
+      'O que muda é a escolha dos sabores. Recepção pede salgado que continue apresentável depois de meia hora em bandeja, e que não suje a mão de quem está de roupa boa. Os de recheio firme, como croquete e bolinha de carne, se comportam melhor nisso que os de queijo derretido.',
       'Atendemos casamentos em toda Natal, do Tirol a Ponta Negra — os espaços de evento da cidade inteira estão dentro da área de entrega.',
     ],
     dicas: [
       ['Conte só a recepção', 'Se tem jantar servido, 4 a 6 por pessoa bastam. Sem jantar, suba para 8 e trate como festa.'],
-      ['Prefira os que aguentam mesa', 'Risole, croquete, kibe e empada continuam bons depois de meia hora. Bolinha de queijo quer ser servida quente.'],
-      ['Um sabor que fale daqui', 'Em casamento com convidado de fora, o pastel sertanejo e o baiãozinho de camarão viram assunto. Comida também apresenta a cidade.'],
+      ['Prefira os que aguentam mesa', 'Croquete de calabresa, bolinha de carne e coxinha continuam bons depois de meia hora. Bolinha de queijo quer ser servida quente.'],
+      ['Um sabor que fale daqui', 'Em casamento com convidado de fora, o travesseiro sertanejo, de carne de sol com queijo coalho, vira assunto. Comida também apresenta a cidade.'],
     ],
-    sabores: ['risole-de-frango', 'croquete-de-carne', 'empada-de-frango', 'pastel-sertanejo'],
+    sabores: ['travesseiro-sertanejo', 'croquete-de-calabresa', 'bolinha-de-carne', 'coxinha-de-frango'],
     faq: [
       {
         pergunta: 'Quantos salgados por pessoa em casamento?',
@@ -131,7 +131,7 @@ export const OCASIOES = {
       },
       {
         pergunta: 'Quais salgados aguentam melhor a bandeja?',
-        resposta: 'Os empanados — risole e croquete — e a empada, que é assada. Eles mantêm textura por mais tempo que os de queijo derretido.',
+        resposta: 'Os de recheio firme — croquete de calabresa, bolinha de carne e coxinha. Eles mantêm textura por mais tempo que os de queijo derretido.',
       },
     ],
   },
@@ -151,10 +151,10 @@ export const OCASIOES = {
     ],
     dicas: [
       ['Coffee break: 4 a 5 por pessoa', 'Confraternização com bebida e sem jantar: 8, como festa.'],
-      ['Inclua a empada', 'É assada, não é frita e não suja a mão. Em reunião, é o que mais sai.'],
+      ['Prefira os que não escorrem', 'Coxinha, bolinha de carne e croquete de calabresa se comem em duas mordidas e não sujam a mão. Em reunião, isso conta.'],
       ['Nota fiscal e horário fechado', 'Emitimos nota. Combine o horário da entrega no pedido e a fritura é programada para ele.'],
     ],
-    sabores: ['empada-de-frango', 'risole-de-frango', 'kibe', 'croquete-de-carne'],
+    sabores: ['coxinha-de-frango', 'bolinha-de-carne', 'croquete-de-calabresa', 'enroladinho-de-salsicha'],
     faq: [
       {
         pergunta: 'Vocês emitem nota fiscal para empresa?',

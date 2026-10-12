@@ -38,7 +38,7 @@ export function metaHome() {
     caminho: '/',
     titulo: 'Salgados em Natal/RN, feitos na hora',
     h1: 'Salgado de festa. Recheio de verdade.',
-    descricao: 'Coxelli Salgados, na Pajuçara, em Natal/RN. Monte seu cento de salgados, misture os sabores e receba pronto pra servir: coxinha, risole, pastelzinho e mais.',
+    descricao: 'Coxelli Salgados, na Pajuçara, em Natal/RN. Monte seu cento de salgados, misture os sabores e receba pronto pra servir: coxinha, travesseiro sertanejo, bolinha de queijo e mais.',
   }
 }
 
@@ -56,7 +56,7 @@ export function metaIndiceDeSabores() {
     caminho: '/salgados',
     titulo: 'Salgados em Natal/RN — todos os sabores',
     h1: 'Todos os sabores, um por um',
-    descricao: 'Os 15 sabores de salgado da Coxelli, na Pajuçara, em Natal/RN: coxinha, risole, kibe, baiãozinho de camarão, pastel sertanejo e mais. Feitos na hora.',
+    descricao: 'Os sabores de salgado da Coxelli, na Pajuçara, em Natal/RN: coxinha de frango, travesseiro sertanejo, bolinha de queijo, croquete de calabresa e mais. Feitos na hora.',
   }
 }
 
@@ -98,7 +98,7 @@ export function metaIndiceDeBairros() {
     caminho: '/salgados-em-natal',
     titulo: `Salgados em ${CIDADE}/${UF} — entrega nos 36 bairros`,
     h1: `Salgados em ${CIDADE}, nos 36 bairros`,
-    descricao: `Cento de salgados feito na hora, entregue em toda ${CIDADE}/${UF}. Coxinha, risole, kibe, pastel e mais. A loja fica na ${BAIRRO_DA_LOJA}, Zona Norte.`,
+    descricao: `Cento de salgados feito na hora, entregue em toda ${CIDADE}/${UF}. Coxinha, travesseiro sertanejo, croquete e mais. A loja fica na ${BAIRRO_DA_LOJA}, Zona Norte.`,
   }
 }
 
@@ -109,7 +109,7 @@ export function metaBairro(bairro) {
     titulo: `Salgados em ${bairro.nome}, ${CIDADE}/${UF}`,
     h1: `Salgados em ${bairro.nome}`,
     descricao: daCasa
-      ? `Salgaderia em ${bairro.nome}, ${CIDADE}/${UF} — é aqui que a Coxelli fica. Cento de salgados feito na hora: coxinha, risole, pastel e mais.`
+      ? `Salgaderia em ${bairro.nome}, ${CIDADE}/${UF} — é aqui que a Coxelli fica. Cento de salgados feito na hora: coxinha, bolinha de queijo, croquete e mais.`
       : `Entrega de salgados em ${bairro.nome}, ${CIDADE}/${UF}. Cento, meio cento ou 25 unidades, fritos na hora e levados até a ${bairro.zona}.`,
   }
 }

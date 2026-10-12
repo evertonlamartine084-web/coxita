@@ -83,7 +83,7 @@ export default function HomePage() {
 
   return (
     <>
-        <Seo titulo="Salgados em Natal/RN, feitos na hora" descricao="Coxelli Salgados, na Pajuçara, em Natal/RN. Monte seu cento de salgados, misture os sabores e receba pronto pra servir: coxinha, risole, pastelzinho e mais." caminho="/" />
+        <Seo titulo="Salgados em Natal/RN, feitos na hora" descricao="Coxelli Salgados, na Pajuçara, em Natal/RN. Monte seu cento de salgados, misture os sabores e receba pronto pra servir: coxinha, travesseiro sertanejo, bolinha de queijo e mais." caminho="/" />
       <div className="overflow-hidden">
         {/* ============ BANNER PROMO ============ */}
         {bannerActive && (

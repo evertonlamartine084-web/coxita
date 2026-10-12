@@ -32,7 +32,7 @@ export const CONTEUDO_SABORES = {
       'Frango desfiado no dia, refogado com cebola, alho e cheiro verde. Nada de frango processado ou desfiado na véspera — a diferença aparece no primeiro pedaço, e é por isso que ela continua sendo a mais pedida do cardápio.',
       'A massa é fina de propósito. Coxinha de massa grossa enche antes de a pessoa sentir o recheio, e quem come salgado de festa come mais de um. A nossa frita em minutos e chega crocante por fora, ainda quente por dentro.',
     ],
-    combina: 'Num cento misto, ela costuma dividir espaço com risole de carne e bolinha de queijo — três texturas diferentes na mesma bandeja.',
+    combina: 'Num cento misto, ela costuma dividir espaço com travesseiro sertanejo e bolinha de queijo — três texturas diferentes na mesma bandeja.',
     faq: [
       {
         pergunta: 'A coxinha vem frita ou congelada?',
@@ -41,95 +41,6 @@ export const CONTEUDO_SABORES = {
       {
         pergunta: 'Posso pedir um cento só de coxinha de frango?',
         resposta: 'Pode. O cento aceita de um a quatro sabores — se você quiser as 100 unidades de coxinha de frango, é só colocar tudo nela na hora de montar.',
-      },
-    ],
-  },
-
-  'coxinha-de-frango-com-catupiry': {
-    tituloSeo: 'Coxinha com catupiry em Natal/RN',
-    descricao: 'Coxinha de frango com catupiry em Natal/RN. Frango desfiado no dia e catupiry cremoso de verdade. Cento, meio cento ou 25 unidades.',
-    chamada: 'A clássica, com o recheio que derrete.',
-    texto: [
-      'Mesmo frango da tradicional, desfiado e temperado no dia, com uma camada de catupiry que derrete no calor da fritura. O queijo entra em quantidade que aparece — não é um fio no meio da massa para poder escrever "com catupiry" no cardápio.',
-      'É o sabor que some primeiro da bandeja em festa de criança, e o mais pedido quando o cliente está escolhendo dois sabores em vez de quatro.',
-    ],
-    combina: 'Vai bem ao lado de sabores mais secos, como kibe e enroladinho de salsicha, que equilibram o cremoso.',
-    faq: [
-      {
-        pergunta: 'Qual a diferença para a coxinha de frango tradicional?',
-        resposta: 'O recheio de frango é o mesmo. A do catupiry leva uma camada de queijo cremoso junto, o que deixa o salgado mais úmido por dentro.',
-      },
-    ],
-  },
-
-  'baiaozinho-de-camarao': {
-    tituloSeo: 'Baiãozinho de camarão em Natal/RN',
-    descricao: 'Baiãozinho de camarão em Natal/RN: baião de dois com camarão dentro do salgado. Receita da casa, camarão selecionado. Peça o seu cento.',
-    chamada: 'Baião de dois que virou salgado.',
-    texto: [
-      'Esse é da casa. Baião de dois — feijão verde, arroz, queijo coalho — com camarão selecionado, tudo dentro de um salgado. Não é receita de catálogo de fornecedor; foi ajustada aqui até o ponto em que o camarão aparece sem o feijão desmanchar.',
-      'É o sabor que surpreende quem não é de Natal, e o que os daqui pedem justamente por reconhecer. Em cento misto para visita de fora, costuma ser o primeiro a acabar.',
-    ],
-    combina: 'Num cento para receber gente de fora, vale montar com coxinha de frango e pastel sertanejo — o trio que mais conta de onde a gente é.',
-    faq: [
-      {
-        pergunta: 'O baiãozinho leva camarão inteiro?',
-        resposta: 'Leva camarão em pedaços, misturado ao baião de dois. É o formato que distribui o camarão por todas as unidades em vez de concentrar em algumas.',
-      },
-      {
-        pergunta: 'Serve para quem tem alergia a frutos do mar?',
-        resposta: 'Não. Esse leva camarão. Se alguém da festa tem alergia, avise no pedido que a gente separa as bandejas.',
-      },
-    ],
-  },
-
-  kibe: {
-    tituloSeo: 'Kibe frito em Natal/RN',
-    descricao: 'Kibe frito em Natal/RN: carne moída, trigo para quibe e hortelã na medida. Feito na hora, no cento, meio cento ou 25 unidades.',
-    chamada: 'Carne, trigo e hortelã na medida.',
-    texto: [
-      'Carne moída com trigo para quibe, cebola e hortelã. A hortelã entra na quantidade que perfuma sem dominar — kibe com hortelã demais vira chá, e é um erro comum em salgado feito em escala.',
-      'Frito até a casca ficar escura e firme. É o salgado mais seco da bandeja, o que faz dele o par natural dos recheios cremosos.',
-    ],
-    combina: 'Equilibra bem com coxinha de catupiry e bolinha de queijo no mesmo cento.',
-    faq: [
-      {
-        pergunta: 'O kibe é frito ou assado?',
-        resposta: 'Frito. É o formato que mantém a casca firme até a hora de servir.',
-      },
-    ],
-  },
-
-  'risole-de-carne': {
-    tituloSeo: 'Risole de carne em Natal/RN',
-    descricao: 'Risole de carne em Natal/RN: carne moída temperada, massa empanada e crocante. Monte seu cento a partir de 25 unidades.',
-    chamada: 'Empanado, crocante, recheio que não some.',
-    texto: [
-      'Carne moída refogada com tomate, cebola e temperos, dentro de uma massa empanada que dá o crocante característico do risole. A carne é temperada na panela, não no recheio pronto — molho de carne bem feito é o que separa risole de salgado de padaria.',
-      'É o formato que aguenta melhor a mesa: continua bom mesmo depois de meia hora servido, coisa que nem todo salgado faz.',
-    ],
-    combina: 'Divide bem o cento com coxinha de frango e croquete de carne, para quem prefere bandeja sem sabor de queijo.',
-    faq: [
-      {
-        pergunta: 'Qual a diferença entre risole e pastel?',
-        resposta: 'O risole é empanado e frito, com massa mais macia por dentro. O pastel tem massa fina e sequinha, que estala. São texturas diferentes.',
-      },
-    ],
-  },
-
-  'risole-de-frango': {
-    tituloSeo: 'Risole de frango em Natal/RN',
-    descricao: 'Risole de frango cremoso em Natal/RN. Frango desfiado em molho branco, massa empanada e crocante. Cento, meio cento ou 25 unidades.',
-    chamada: 'Frango cremoso dentro do empanado.',
-    texto: [
-      'Frango desfiado em molho branco, o que dá o cremoso sem precisar de queijo. Dentro da massa empanada, o contraste funciona: casca crocante, recheio macio.',
-      'É a escolha de quem quer algo cremoso mas não come catupiry, e a opção mais segura em festa com criança pequena — sem pimenta, sem tempero forte.',
-    ],
-    combina: 'Bom par para kibe e enroladinho de salsicha, que são os secos da bandeja.',
-    faq: [
-      {
-        pergunta: 'O risole de frango leva queijo?',
-        resposta: 'Não. O cremoso vem do molho branco, não de queijo. Serve para quem evita catupiry.',
       },
     ],
   },
@@ -164,40 +75,6 @@ export const CONTEUDO_SABORES = {
       {
         pergunta: 'A bolinha de queijo continua boa depois de esfriar?',
         resposta: 'Fica boa, mas o melhor dela é quente, com o queijo puxando. Se puder, sirva essa bandeja mais perto da hora.',
-      },
-    ],
-  },
-
-  'croquete-de-carne': {
-    tituloSeo: 'Croquete de carne em Natal/RN',
-    descricao: 'Croquete de carne em Natal/RN: carne desfiada e empanada, casca firme. Feito na hora, a partir de 25 unidades.',
-    chamada: 'Carne desfiada, casca firme.',
-    texto: [
-      'Carne desfiada e temperada, moldada e empanada. Diferente do risole, aqui a carne é desfiada em vez de moída — a textura é mais encorpada, e o salgado sustenta melhor.',
-      'É o mais "de comer" da bandeja: em reunião longa ou evento que atravessa o horário do almoço, é o que segura melhor.',
-    ],
-    combina: 'Bom para bandeja de evento adulto, junto com kibe e risole de carne.',
-    faq: [
-      {
-        pergunta: 'Qual a diferença entre croquete e risole de carne?',
-        resposta: 'A carne. No croquete ela é desfiada e mais encorpada; no risole é moída, em molho. A massa do risole também é mais macia.',
-      },
-    ],
-  },
-
-  'empada-de-frango': {
-    tituloSeo: 'Empada de frango em Natal/RN',
-    descricao: 'Empada de frango em Natal/RN: massa amanteigada que desmancha, recheio de frango cremoso. Assada, não frita. A partir de 25 unidades.',
-    chamada: 'Massa amanteigada, assada e não frita.',
-    texto: [
-      'Massa amanteigada que desmancha na boca, com frango cremoso dentro. É o único assado da lista — o que faz dela a alternativa para quem quer algo mais leve na bandeja, ou para quem não come frito.',
-      'Por ser assada, aguenta bem a mesa e não perde textura como os fritos perdem.',
-    ],
-    combina: 'Entra bem em bandeja de reunião de trabalho e café da tarde, onde nem todo mundo quer frito.',
-    faq: [
-      {
-        pergunta: 'A empada é assada mesmo?',
-        resposta: 'É. Vai ao forno, não à fritura. É a opção da bandeja para quem está evitando frito.',
       },
     ],
   },
