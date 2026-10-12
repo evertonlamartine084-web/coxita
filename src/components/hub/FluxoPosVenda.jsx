@@ -109,7 +109,7 @@ export default function FluxoPosVenda({ periodo }) {
       </div>
 
       <Bloco
-        titulo="💛 Funil de pós-venda"
+        titulo="🧡 Funil de pós-venda"
         subtitulo="Mensagens ao cliente só no horário abaixo. O alerta de nota baixa vai para o grupo a qualquer hora."
         acao={
           <button type="button" disabled={salvando} onClick={() => salvar({ ativo: !fluxo.ativo })}

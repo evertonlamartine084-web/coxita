@@ -243,7 +243,7 @@ export function mensagemParaCliente(p, evento, { avaliacaoUrl = '' } = {}) {
     case 'entregue':
       // o link do Google vai sempre aqui; o pós-venda do CRM pula quem já recebeu esta mensagem
       return [
-        `Obrigado por pedir na Coxelli${nome ? `, ${nome}` : ''}! 💛 Esperamos que tenha gostado.`,
+        `Obrigado por pedir na Coxelli${nome ? `, ${nome}` : ''}! 🧡 Esperamos que tenha gostado.`,
         avaliacaoUrl ? `Se puder, deixe sua avaliação no Google — leva 10 segundos e ajuda muito: ${avaliacaoUrl}` : '',
       ].filter(Boolean).join('\n')
     default:

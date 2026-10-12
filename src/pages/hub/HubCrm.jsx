@@ -75,7 +75,7 @@ export default function HubCrm() {
 
   const seletor = (
     <div className="flex flex-wrap gap-2">
-      {[['carrinho', '🛒 Carrinho abandonado'], ['pos_venda', '💛 Pós-venda'], ['contatos', '📇 Contatos do Zap']].map(([k, rotulo]) => (
+      {[['carrinho', '🛒 Carrinho abandonado'], ['pos_venda', '🧡 Pós-venda'], ['contatos', '📇 Contatos do Zap']].map(([k, rotulo]) => (
         <button key={k} type="button" onClick={() => setAba(k)}
           className={`cursor-pointer rounded-xl px-4 py-2 text-sm font-bold ring-1 ${
             aba === k ? 'bg-primary text-white ring-primary' : 'bg-white text-text ring-border hover:bg-cream'
