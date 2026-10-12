@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAllProducts, createProduct, updateProduct, deleteProduct, uploadProductImage } from '../../services/products'
 import { getAllCategories } from '../../services/categories'
-import { getFlavors } from '../../services/flavors'
+import { getAllFlavors, updateFlavor } from '../../services/flavors'
 import { getGradePorSabor, salvarPrecoDoSabor } from '../../services/precoPorSabor'
 import { formatCurrency } from '../../utils/format'
 import { catalogText } from '../../utils/catalogText'
@@ -9,7 +9,11 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import Loading from '../../components/ui/Loading'
+import Interruptor from '../../components/ui/Interruptor'
 import toast from 'react-hot-toast'
+
+// Nome de cada grupo de sabores na secao "Sabores".
+const NOMES_DOS_GRUPOS = { salgados: 'Salgados', doces: 'Doces', pasteis: 'Pastéis' }
 
 const emptyProduct = {
   name: '', description: '', price: '', cash_price: '', category_id: '', active: true, featured: false, image_url: '',
@@ -34,10 +38,12 @@ export default function ProductsPage() {
   const [form, setForm] = useState(emptyProduct)
   const [imageFile, setImageFile] = useState(null)
   const [saving, setSaving] = useState(false)
+  // Id do produto ou sabor cuja chave esta salvando.
+  const [trocando, setTrocando] = useState(null)
 
   const load = () => {
     setLoading(true)
-    Promise.all([getAllProducts(), getAllCategories(), getFlavors(), getGradePorSabor()])
+    Promise.all([getAllProducts(), getAllCategories(), getAllFlavors(), getGradePorSabor()])
       .then(([p, c, f, g]) => { setProducts(p); setCategories(c); setSabores(f); setGrade(g) })
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -124,13 +130,33 @@ export default function ProductsPage() {
     }
   }
 
+  // Troca so a linha mexida, sem recarregar a tela: recarregar piscava o
+  // "carregando" e jogava a lista para o topo a cada clique.
   const alternarAtivo = async (produto) => {
+    setTrocando(produto.id)
     try {
       await updateProduct(produto.id, { active: !produto.active })
-      toast.success(produto.active ? 'Produto desativado.' : 'Produto ativado.')
-      load()
+      setProducts(atual => atual.map(p => p.id === produto.id ? { ...p, active: !produto.active } : p))
+      toast.success(produto.active ? `${produto.name} saiu do cardápio.` : `${produto.name} voltou ao cardápio.`)
     } catch {
       toast.error('Não consegui mudar o status.')
+    } finally {
+      setTrocando(null)
+    }
+  }
+
+  // Sabor desligado some da escolha do cliente em todo pacote do grupo dele.
+  const alternarSabor = async (sabor) => {
+    setTrocando(sabor.id)
+    try {
+      await updateFlavor(sabor.id, { active: !sabor.active })
+      setSabores(atual => atual.map(sb => sb.id === sabor.id ? { ...sb, active: !sabor.active } : sb))
+      const nome = catalogText(sabor.name)
+      toast.success(sabor.active ? `${nome} saiu do cardápio.` : `${nome} voltou ao cardápio.`)
+    } catch {
+      toast.error('Não consegui mudar o sabor.')
+    } finally {
+      setTrocando(null)
     }
   }
 
@@ -223,6 +249,17 @@ export default function ProductsPage() {
       }),
     }))
   })
+
+  // Secao de sabores: na aba "Todos" aparecem todos os grupos; na aba de uma
+  // categoria, so o grupo que os pacotes dela usam (Salgados -> coxinha, kibe...).
+  const gruposVisiveis = aba === 'inativos' ? []
+    : aba === 'todos' ? [...new Set(sabores.map(sb => sb.group_slug))]
+    : [...new Set(visiveis.map(p => p.flavor_group).filter(Boolean))]
+  const gruposDeSabores = gruposVisiveis.map(g => ({
+    slug: g,
+    nome: NOMES_DOS_GRUPOS[g] ?? g,
+    sabores: sabores.filter(sb => sb.group_slug === g),
+  }))
 
   const abrirFamilia = (f, saborFoco = null) => {
     setFamilia({ ...f, saborFoco })
@@ -334,6 +371,35 @@ export default function ProductsPage() {
         ))}
       </div>
 
+      {gruposDeSabores.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+          <p className="font-semibold text-gray-900">Sabores</p>
+          <p className="text-xs text-gray-500 mb-3">Sabor desligado some da escolha do cliente no site e no painel.</p>
+          <div className="space-y-4">
+            {gruposDeSabores.map(g => (
+              <div key={g.slug}>
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-1">
+                  {g.nome} · {g.sabores.filter(sb => sb.active).length} de {g.sabores.length} no cardápio
+                </p>
+                <div className="grid gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {g.sabores.map(sb => (
+                    <div key={sb.id} className="flex items-center justify-between gap-3 py-1.5 border-t border-gray-100">
+                      <span className={`text-sm ${sb.active ? 'text-gray-900' : 'text-gray-400'}`}>{catalogText(sb.name)}</span>
+                      <Interruptor
+                        ligado={sb.active}
+                        disabled={trocando === sb.id}
+                        onClick={() => alternarSabor(sb)}
+                        label={`${catalogText(sb.name)} no cardápio`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {cards.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 mb-6">
           {cards.map(f => (
@@ -364,12 +430,12 @@ export default function ProductsPage() {
                         {t.semPrecoProprio && <span className="text-amber-600 text-xs ml-1">(preço do pacote)</span>}
                       </td>
                       <td className="py-1.5 text-right">
-                        <button
+                        <Interruptor
+                          ligado={t.active}
+                          disabled={trocando === t.id}
                           onClick={() => alternarAtivo(t)}
-                          className="text-gray-400 hover:text-gray-900 text-xs whitespace-nowrap"
-                        >
-                          {t.active ? 'tirar do ar' : 'pôr no ar'}
-                        </button>
+                          label={`${t.name} no cardápio`}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -422,14 +488,14 @@ export default function ProductsPage() {
                       {p.cash_price ? formatCurrency(p.cash_price) : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-3 justify-end">
-                        <button onClick={() => openEdit(p)} className="text-primary hover:underline text-sm">Editar</button>
-                        <button
+                      <div className="flex gap-3 justify-end items-center">
+                        <Interruptor
+                          ligado={p.active}
+                          disabled={trocando === p.id}
                           onClick={() => alternarAtivo(p)}
-                          className="text-gray-500 hover:underline text-sm whitespace-nowrap"
-                        >
-                          {p.active ? 'Tirar do ar' : 'Pôr no ar'}
-                        </button>
+                          label={`${p.name} no cardápio`}
+                        />
+                        <button onClick={() => openEdit(p)} className="text-primary hover:underline text-sm">Editar</button>
                         <button onClick={() => handleDelete(p.id)} className="text-danger hover:underline text-sm">Excluir</button>
                       </div>
                     </td>
