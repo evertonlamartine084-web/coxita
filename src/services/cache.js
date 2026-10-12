@@ -36,7 +36,7 @@ export function cached(chave, buscar, ttl = TTL_PADRAO) {
       // Descarta so a promessa que falhou. Dados antigos, se existirem,
       // continuam servindo ate expirarem.
       const atual = entradas.get(chave)
-      if (atual?.gravadoEm === undefined) entradas.delete(chave)
+      if (atual?.gravadoEm === undefined && !atual?.semente) entradas.delete(chave)
       else delete atual.emVoo
       throw erro
     })
@@ -52,21 +52,22 @@ export function cached(chave, buscar, ttl = TTL_PADRAO) {
  */
 export function peek(chave, ttl = TTL_PADRAO) {
   const entrada = entradas.get(chave)
-  return fresca(entrada, ttl) ? entrada.dados : undefined
+  return fresca(entrada, ttl) || entrada?.semente ? entrada.dados : undefined
 }
 
 /**
  * Planta dados no cache sem ir a rede.
  *
  * Usado no boot com o que o build embutiu no HTML: o primeiro render ja sai com
- * cardapio na mao, em vez de "Carregando...". `gravadoEm` e o instante do boot,
- * nao o do build -- os dados valem o TTL normal e o fetch de verdade, que roda
- * logo em seguida, corrige qualquer preco que tenha mudado desde o deploy.
+ * cardapio na mao, em vez de "Carregando...". A semente so serve ao `peek`:
+ * nunca conta como fresca, entao o primeiro `cached` vai ao banco. Antes ela
+ * valia o TTL inteiro, e o checkout usava por 5 min a configuracao do momento
+ * do deploy (entrega desligada no build continuava desligada no site).
  */
 export function semear(chave, dados) {
   if (dados === undefined || dados === null) return
   if (entradas.has(chave)) return
-  entradas.set(chave, { dados, gravadoEm: Date.now() })
+  entradas.set(chave, { dados, semente: true })
 }
 
 /** Invalida toda chave que comeca com o prefixo. Chamar apos escrever. */
