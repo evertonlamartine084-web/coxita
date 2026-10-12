@@ -45,6 +45,8 @@ as $$
     (array_agg(o.neighborhood order by o.created_at desc) filter (where o.neighborhood is not null))[1] as bairro
   from orders o
   where regexp_replace(coalesce(o.customer_phone, ''), '\D', '', 'g') <> ''
+    -- reposição (pedido refeito sem cobrança) é a mesma compra, não um pedido a mais
+    and o.reposicao_de is null
   group by right(regexp_replace(o.customer_phone, '\D', '', 'g'), 11)
   order by max(o.created_at) desc;
 $$;
