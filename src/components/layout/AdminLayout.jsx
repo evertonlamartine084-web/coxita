@@ -12,6 +12,7 @@ import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
 import { useAppDoPainel } from '../../hooks/useAppDoPainel'
+import { aCada } from '../../utils/aCada'
 
 const navItems = [
   // com a barra: o app do painel tem escopo /admin/, e /admin sem barra fica FORA dele — o
@@ -94,8 +95,7 @@ export default function AdminLayout() {
     }
 
     checkNewOrders()
-    const interval = setInterval(checkNewOrders, 15000)
-    return () => clearInterval(interval)
+    return aCada(checkNewOrders, 15000)
   }, [])
 
   // Alarme dos agendados: toca 1 h antes do horário marcado. O alarme de pedido novo só toca
@@ -212,8 +212,7 @@ export default function AdminLayout() {
     }
 
     imprimirPendentes()
-    const interval = setInterval(imprimirPendentes, 15000)
-    return () => clearInterval(interval)
+    return aCada(imprimirPendentes, 15000)
   }, [])
 
   // Pedido novo no grupo do WhatsApp, pela Evolution do PC da loja (utils/zapDoGrupo). Mesma
@@ -420,8 +419,7 @@ export default function AdminLayout() {
     }
 
     enviarPendentes()
-    const interval = setInterval(enviarPendentes, 15000)
-    return () => clearInterval(interval)
+    return aCada(enviarPendentes, 15000)
   }, [])
 
   // O computador da impressora fica com o painel aberto por dias: sem isto, ele segue rodando a

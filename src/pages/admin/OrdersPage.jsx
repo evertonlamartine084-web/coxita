@@ -16,6 +16,7 @@ import ReposicaoModal from '../../components/admin/ReposicaoModal'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 import { FaWhatsapp } from 'react-icons/fa'
+import { aCada } from '../../utils/aCada'
 
 /** Link da conversa com o cliente. Telefone vem em vários formatos (lançado à mão no painel). */
 function linkWhatsApp(telefone) {
@@ -93,11 +94,8 @@ export default function OrdersPage() {
 
   useEffect(() => { loadOrders(true) }, [loadOrders])
 
-  // Auto-reload every 15 seconds (silent, no loading spinner)
-  useEffect(() => {
-    const interval = setInterval(() => loadOrders(false), 15000)
-    return () => clearInterval(interval)
-  }, [loadOrders])
+  // Recarrega a cada 15 s sem o "carregando", e na hora em que a janela volta para a tela
+  useEffect(() => aCada(() => loadOrders(false), 15000), [loadOrders])
 
   // Load chat messages when order is selected
   useEffect(() => {
