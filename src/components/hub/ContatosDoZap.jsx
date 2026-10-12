@@ -58,6 +58,39 @@ function pontuar(pedido, contato) {
   return { total: nome + conversa + (comprou && (nome || conversa) ? 2 : 0), nome, conversa, comprou }
 }
 
+/** Número digitado à mão: "84 99999-1234" ou "(84) 99999-1234" → "5584999991234"; inválido → null. */
+function numeroDigitado(texto) {
+  const t = (texto || '').trim()
+  if (t.startsWith('+')) {
+    const d = t.replace(/\D/g, '')
+    return d.length >= 8 ? d : null
+  }
+  let d = t.replace(/\D/g, '').replace(/^0+/, '')
+  if (d.length === 10 || d.length === 11) d = `55${d}`
+  return /^55[1-9][1-9]9?[2-9]\d{7}$/.test(d) ? d : null
+}
+
+function NumeroAMao({ pedido, gravando, onGravar }) {
+  const [texto, setTexto] = useState('')
+  const enviar = (e) => {
+    e.preventDefault()
+    const numero = numeroDigitado(texto)
+    if (!numero) { toast.error('Número incompleto. Digite com DDD, ex.: 84 99999-1234'); return }
+    onGravar(pedido, { numero })
+  }
+  return (
+    <form onSubmit={enviar} className="mt-2 flex flex-wrap items-center gap-2">
+      <input type="tel" inputMode="tel" value={texto} onChange={e => setTexto(e.target.value)}
+        placeholder="Digitar o número: 84 99999-1234" aria-label={`Telefone do pedido #${pedido.order_number}`}
+        className="w-56 rounded-lg border border-border px-3 py-1.5 text-sm" />
+      <button type="submit" disabled={gravando || !texto.trim()}
+        className="cursor-pointer rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-dark disabled:opacity-60">
+        Salvar
+      </button>
+    </form>
+  )
+}
+
 export default function ContatosDoZap() {
   const [contatos, setContatos] = useState(null)
   const [pedidos, setPedidos] = useState(null)
@@ -155,7 +188,7 @@ export default function ContatosDoZap() {
 
       <Bloco
         titulo="📇 Ligar pedidos aos contatos do Zap"
-        subtitulo="Para cada pedido sem telefone, os contatos do WhatsApp da loja com o mesmo nome e conversa perto do dia do pedido. Confira e clique no certo."
+        subtitulo="Para cada pedido sem telefone, os contatos do WhatsApp da loja com o mesmo nome e conversa perto do dia do pedido. Confira e clique no certo, ou digite o número à mão."
         acao={
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={pedirSincronizacao} disabled={esperando}
@@ -171,12 +204,13 @@ export default function ContatosDoZap() {
           </div>
         }
       >
-        {!contatos.length ? (
-          <p className="text-sm text-text-light">
-            Nenhum contato ainda. Os contatos chegam quando o painel do PC da loja sincroniza com a Evolution (precisa estar com o
-            armazenamento de conversas ligado).
+        {!contatos.length && (
+          <p className="mb-2 text-sm text-text-light">
+            Nenhum contato do Zap ainda, então não há sugestões: digite o número em cada pedido. Os contatos chegam quando o painel
+            do PC da loja sincroniza com a Evolution (precisa estar com o armazenamento de conversas ligado).
           </p>
-        ) : semTelefone.length === 0 ? (
+        )}
+        {semTelefone.length === 0 ? (
           <p className="text-sm text-text-light">Todos os pedidos têm telefone. 🎉</p>
         ) : (
           <ul className="divide-y divide-border">
@@ -212,9 +246,10 @@ export default function ContatosDoZap() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="mt-1 text-xs text-text-light">Nenhum contato provável. Dá para pôr o telefone à mão no pedido.</p>
+                  ) : contatos.length > 0 && (
+                    <p className="mt-1 text-xs text-text-light">Nenhum contato provável no Zap.</p>
                   )}
+                  <NumeroAMao pedido={o} gravando={gravando === o.id} onGravar={ligar} />
                 </li>
               )
             })}
