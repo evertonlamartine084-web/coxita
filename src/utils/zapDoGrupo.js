@@ -84,12 +84,61 @@ async function evolution(caminho, { method = 'GET', body, config = lerConfigZap(
   }
   const dados = await resp.json().catch(() => null)
   if (!resp.ok) {
-    const msg = dados?.response?.message ?? dados?.message ?? dados?.error
-    const erro = new Error(`Evolution respondeu ${resp.status}${msg ? `: ${[msg].flat().join(', ')}` : ''}`)
+    const msgs = [dados?.response?.message ?? dados?.message ?? dados?.error].flat().filter(Boolean)
+    const texto = msgs.map(m => (typeof m === 'string' ? m : JSON.stringify(m))).join(', ')
+    const erro = new Error(`Evolution respondeu ${resp.status}${texto ? `: ${texto}` : ''}`)
     erro.status = resp.status
+    // Numero sem WhatsApp: a Evolution responde 400 com [{ exists: false, number }]
+    erro.semWhatsApp = msgs.some(m => m && typeof m === 'object' && m.exists === false)
     throw erro
   }
   return dados
+}
+
+/*
+ * Ritmo de gente, nao de robo: duas mensagens nunca saem coladas. Entre um envio e o
+ * seguinte ha de 5 a 15 s, sorteados, e cada mensagem mostra "digitando..." por 1,5 a 3,5 s
+ * antes de sair. Rajada de mensagens no mesmo segundo e um dos sinais que o WhatsApp usa
+ * para banir numero ligado por conexao nao oficial. A primeira de uma leva sai sem espera.
+ */
+let ultimoEnvio = 0
+const sorteio = (min, max) => min + Math.random() * (max - min)
+
+async function enviarTexto(numero, texto, config) {
+  const espera = ultimoEnvio + sorteio(5000, 15000) - Date.now()
+  if (espera > 0) await new Promise(r => setTimeout(r, espera))
+  try {
+    await evolution(`/message/sendText/${config.instancia}`, {
+      method: 'POST', config,
+      // linkPreview false: sem o cartao grande do site em cima da mensagem, o link fica so como texto
+      body: { number: numero, text: texto, linkPreview: false, delay: Math.round(sorteio(1500, 3500)) },
+    })
+  } finally {
+    ultimoEnvio = Date.now()
+  }
+}
+
+/*
+ * Numero que o WhatsApp disse nao existir nao recebe mais tentativa nenhuma, em fluxo nenhum
+ * (status do pedido, avaliacao, carrinho). Insistir em numero inexistente tambem pesa contra
+ * a conta. Fica no aparelho que manda, como o resto da configuracao do Zap.
+ */
+const CHAVE_SEM_WHATSAPP = 'coxelli_zap_sem_whatsapp'
+
+export function numerosSemWhatsApp() {
+  try {
+    return JSON.parse(localStorage.getItem(CHAVE_SEM_WHATSAPP) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function marcarSemWhatsApp(numero) {
+  const lista = numerosSemWhatsApp()
+  if (lista.includes(numero)) return
+  try {
+    localStorage.setItem(CHAVE_SEM_WHATSAPP, JSON.stringify([...lista, numero].slice(-500)))
+  } catch { /* sem armazenamento */ }
 }
 
 /** 'open' = conectado; 'close' / 'connecting' = falta ler o QR; null = instância ainda não criada. */
@@ -134,9 +183,7 @@ export async function gruposDoZap(config) {
 }
 
 export async function mandarNoGrupo(texto, config = lerConfigZap()) {
-  await evolution(`/message/sendText/${config.instancia}`, {
-    method: 'POST', config, body: { number: config.grupo, text: texto, linkPreview: false },
-  })
+  await enviarTexto(config.grupo, texto, config)
 }
 
 const ROTULO_PAGAMENTO = {
@@ -252,10 +299,19 @@ export function mensagemParaCliente(p, evento, { avaliacaoUrl = '' } = {}) {
 }
 
 export async function mandarParaCliente(numero, texto, config = lerConfigZap()) {
-  await evolution(`/message/sendText/${config.instancia}`, {
-    method: 'POST', config, // sem o cartão grande do site em cima da mensagem: o link fica só como texto
-    body: { number: numero, text: texto, linkPreview: false },
-  })
+  if (numerosSemWhatsApp().includes(numero)) {
+    // Mesmo formato do erro da Evolution: quem chama ja marca o envio como 'erro' e segue.
+    const erro = new Error('Número sem WhatsApp (já deu erro antes); não tento de novo')
+    erro.status = 400
+    erro.semWhatsApp = true
+    throw erro
+  }
+  try {
+    await enviarTexto(numero, texto, config)
+  } catch (e) {
+    if (e.semWhatsApp) marcarSemWhatsApp(numero)
+    throw e
+  }
 }
 
 /**
