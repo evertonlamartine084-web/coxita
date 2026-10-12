@@ -5,8 +5,17 @@ import { formatCurrency } from '../../utils/format'
 import Loading from '../../components/ui/Loading'
 
 /** (11) 98765-4321 — o banco guarda só os dígitos. */
-function formatarTelefone(t) {
+// número de fora fica como foi digitado ("+41 …"); os do Brasil podem vir com ou sem máscara
+const ehDeFora = (t) => /^\s*\+/.test(t || '') && !/^\s*\+\s*55/.test(t || '')
+
+function linkDoWhatsapp(t) {
   const n = (t || '').replace(/\D/g, '')
+  return `https://wa.me/${ehDeFora(t) ? n : `55${n.slice(-11)}`}`
+}
+
+function formatarTelefone(t) {
+  if (ehDeFora(t)) return t
+  const n = (t || '').replace(/\D/g, '').slice(-11)
   if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`
   if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`
   return t
@@ -176,7 +185,7 @@ export default function CustomersPage() {
                     <td className="p-3 text-gray-600">{c.bairro || '—'}</td>
                     <td className="p-3">
                       <a
-                        href={`https://wa.me/55${(c.telefone || '').replace(/\D/g, '')}`}
+                        href={linkDoWhatsapp(c.telefone)}
                         target="_blank"
                         rel="noreferrer"
                         title="Abrir conversa no WhatsApp"

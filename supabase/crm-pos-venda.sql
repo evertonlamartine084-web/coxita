@@ -17,7 +17,10 @@ update orders set entregue_em = coalesce(
 -- Telefone que dá para chamar: DDD válido e 8 ou 9 dígitos, sem número de mentira (0000…, 9999…)
 create or replace function crm_telefone_valido(p text) returns boolean
 language sql immutable as $$
-  select crm_digitos(p) ~ '^[1-9][1-9]9?[2-9][0-9]{7}$' and crm_digitos(p) !~ '^(.)\1+$'
+  select (crm_digitos(p) ~ '^[1-9][1-9]9?[2-9][0-9]{7}$' and crm_digitos(p) !~ '^(.)\1+$')
+    -- número de fora, gravado com "+" e DDI (ex.: "+41799184031")
+    or (coalesce(p, '') ~ '^\s*\+' and coalesce(p, '') !~ '^\s*\+\s*55'
+        and length(regexp_replace(p, '\D', '', 'g')) between 8 and 15)
 $$;
 
 create or replace function marcar_entregue_em() returns trigger

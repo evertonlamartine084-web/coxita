@@ -28,7 +28,8 @@ set search_path = public
 as $$
   -- agrupa pelos dígitos: "(84) 99640-6908" (painel) e "84996406908" (site) são a mesma pessoa
   select
-    right(regexp_replace(o.customer_phone, '\D', '', 'g'), 11) as telefone,
+    -- o telefone como foi gravado por último: "+41 …" de fora não pode virar número do Brasil
+    (array_agg(o.customer_phone order by o.created_at desc))[1] as telefone,
     -- o nome mais recente: se a pessoa corrigiu a grafia, vale a última versão
     (array_agg(o.customer_name order by o.created_at desc))[1] as nome,
     count(*) as pedidos,
