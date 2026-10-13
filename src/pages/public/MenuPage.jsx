@@ -198,8 +198,9 @@ export default function MenuPage() {
 
   const blocoPacotes = produtosVisiveis.length > 0 && (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-      {produtosVisiveis.map(p => (
-        <ProductCard key={p.id} product={p} />
+      {produtosVisiveis.map((p, i) => (
+        // as duas primeiras fotos aparecem sem rolar: carregam já, e não "quando aparecer"
+        <ProductCard key={p.id} product={p} prioridade={!saboresPrimeiro && i < 2} />
       ))}
     </div>
   )
@@ -213,10 +214,11 @@ export default function MenuPage() {
           : 'Todo pacote é montado de 25 em 25. Clique num sabor para começar.'}
       </p>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-        {saboresFiltrados.map(sabor => (
+        {saboresFiltrados.map((sabor, i) => (
           <FlavorCard
             key={sabor.id}
             sabor={sabor}
+            prioridade={saboresPrimeiro && i < 2}
             aoAdicionar={
               pacotesDoSabor(sabor, pacotes).length > 0 ? setSaborNoCarrinho : undefined
             }

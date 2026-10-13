@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { HiPlus } from 'react-icons/hi'
 import { catalogText } from '../../utils/catalogText'
+import { srcSetDaFoto, TAMANHO_NO_CARD } from '../../utils/foto'
 
 /**
  * Cartao de um sabor. Sem preco de proposito: sabor nao e vendido sozinho, so
@@ -11,7 +12,9 @@ import { catalogText } from '../../utils/catalogText'
  * ProductCard, porque no cardapio ele fica lado a lado com produtos e destoar
  * ali faria a aba de pasteis parecer outra pagina.
  */
-export default function FlavorCard({ sabor, aoAdicionar, compacto = false }) {
+// `prioridade`: card que aparece sem rolar a tela. A foto dele e o maior elemento da
+// primeira tela, e com loading=lazy o navegador so a pedia segundos depois.
+export default function FlavorCard({ sabor, aoAdicionar, compacto = false, prioridade = false }) {
   const [carregou, setCarregou] = useState(false)
 
   const alturaFoto = compacto ? 'h-36' : 'h-32 sm:h-56'
@@ -32,13 +35,16 @@ export default function FlavorCard({ sabor, aoAdicionar, compacto = false }) {
         <div className="relative border-2 border-brown bg-bg-warm shadow-[2px_2px_0_#5d2b04]">
           {sabor.image_url ? (
             <>
-              {!carregou && <div className="absolute inset-0 animate-pulse bg-bg-warm" />}
+              {!carregou && !prioridade && <div className="absolute inset-0 animate-pulse bg-bg-warm" />}
               <img
                 src={sabor.image_url}
+                srcSet={srcSetDaFoto(sabor.image_url)}
+                sizes={compacto ? '210px' : TAMANHO_NO_CARD}
                 alt={catalogText(sabor.name)}
-                loading="lazy"
+                loading={prioridade ? 'eager' : 'lazy'}
+                fetchPriority={prioridade ? 'high' : undefined}
                 onLoad={() => setCarregou(true)}
-                className={`block w-full ${alturaFoto} object-cover transition-opacity duration-500 ${carregou ? 'opacity-100' : 'opacity-0'}`}
+                className={`block w-full ${alturaFoto} object-cover transition-opacity duration-500 ${carregou || prioridade ? 'opacity-100' : 'opacity-0'}`}
               />
             </>
           ) : (

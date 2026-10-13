@@ -8,8 +8,9 @@ import { catalogText } from '../../utils/catalogText'
 import { ESTILO_TOAST } from '../../utils/toastEstilo'
 import FlavorPicker from './FlavorPicker'
 import toast from 'react-hot-toast'
+import { srcSetDaFoto, TAMANHO_NO_CARD } from '../../utils/foto'
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, prioridade = false }) {
   const addItem = useCartStore(s => s.addItem)
   const isFavorite = useFavoritesStore(s => s.isFavorite(product.id))
   const toggleFavorite = useFavoritesStore(s => s.toggleFavorite)
@@ -50,16 +51,19 @@ export default function ProductCard({ product }) {
       <div className="relative overflow-hidden border-2 border-brown bg-bg-warm shadow-[2px_2px_0_#5d2b04]">
         {product.image_url ? (
           <>
-            {!imgLoaded && (
+            {!imgLoaded && !prioridade && (
               <div className="absolute inset-0 w-full h-32 sm:h-56 bg-bg-warm animate-pulse flex items-center justify-center">
                 <img width={512} height={512} src="/logo.png" alt="" className="w-16 h-16 opacity-20 object-contain" />
               </div>
             )}
             <img
               src={product.image_url}
+              srcSet={srcSetDaFoto(product.image_url)}
+              sizes={TAMANHO_NO_CARD}
               alt={catalogText(product.name)}
-              className={`block w-full h-32 sm:h-56 object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
-              loading="lazy"
+              className={`block w-full h-32 sm:h-56 object-cover transition-opacity duration-500 ${imgLoaded || prioridade ? 'opacity-100' : 'opacity-0'}`}
+              loading={prioridade ? 'eager' : 'lazy'}
+              fetchPriority={prioridade ? 'high' : undefined}
               onLoad={() => setImgLoaded(true)}
             />
           </>
