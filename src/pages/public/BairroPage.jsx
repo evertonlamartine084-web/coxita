@@ -320,7 +320,7 @@ function perguntasDoBairro(bairro) {
   return [
     {
       pergunta: `Vocês entregam em ${bairro.nome}?`,
-      resposta: `Entregamos. ${bairro.nome} fica na ${bairro.zona} de ${CIDADE}, a cerca de ${virgula(bairro.km)} km da nossa cozinha, na Pajuçara. ${pedePeloSite ? 'Coloque o endereço no checkout que o site calcula a taxa na hora.' : `Chame a gente no WhatsApp que a gente passa a taxa para ${bairro.nome} e combina o horário.`}`,
+      resposta: `Entregamos. ${bairro.km < 1 ? `É aqui na ${bairro.nome}, na ${bairro.zona} de ${CIDADE}, que fica a nossa cozinha.` : `${bairro.nome} fica na ${bairro.zona} de ${CIDADE}, a cerca de ${virgula(bairro.km)} km da nossa cozinha, na Pajuçara.`} ${pedePeloSite ? 'Coloque o endereço no checkout que o site calcula a taxa na hora.' : `Chame a gente no WhatsApp que a gente passa a taxa para ${bairro.nome} e combina o horário.`}`,
     },
     {
       pergunta: `Quanto tempo demora para chegar em ${bairro.nome}?`,
