@@ -12,6 +12,7 @@
  */
 
 import { formatCurrency, formatDate, janelaDeEntrega, PAYMENT_LABELS } from './format'
+import { supabase } from '../services/supabase'
 
 const CHAVE_CONFIG = 'coxelli_zap_config'
 const CHAVE_ENVIADOS = 'coxelli_zap_enviados'
@@ -45,7 +46,30 @@ export function gravarConfigZap(mudancas) {
   } catch {
     // storage bloqueado: o envio simplesmente não fica ligado neste aparelho
   }
+  salvarCopiaDoZap(nova)
   return nova
+}
+
+/**
+ * Copia no banco so do aparelho que de fato envia: um celular abrindo a tela do Zap com a
+ * configuracao vazia nao pode apagar a do PC da loja. Roda ao mudar a configuracao e ao abrir
+ * o painel.
+ */
+export function salvarCopiaDoZap(c = lerConfigZap()) {
+  if (!(c.ligado && c.apikey && c.grupo)) return
+  const { ligado: _l, desde: _d, ...copia } = c
+  supabase.from('zap_config').update({ config: copia, updated_at: new Date().toISOString() }).eq('id', 1)
+    .then(({ error }) => { if (error) console.warn('cópia da configuração do Zap:', error.message) })
+}
+
+/**
+ * Configuracao salva no banco (tabela zap_config), para quando o Chrome do PC da loja foi limpo
+ * e a chave da Evolution e o grupo sumiram. Volta sempre desligada: quem religa e uma pessoa,
+ * e religar marca o "desde", entao pedido antigo nao vai de novo para o grupo.
+ */
+export async function copiaSalvaDoZap() {
+  const { data } = await supabase.from('zap_config').select('config').eq('id', 1).maybeSingle()
+  return data?.config?.apikey ? data.config : null
 }
 
 export const zapPronto = (c = lerConfigZap()) => c.ligado && !!c.apikey && !!c.grupo
@@ -133,12 +157,31 @@ export function numerosSemWhatsApp() {
   }
 }
 
-function marcarSemWhatsApp(numero) {
+function guardarSemWhatsApp(lista) {
+  try {
+    localStorage.setItem(CHAVE_SEM_WHATSAPP, JSON.stringify(lista.slice(-500)))
+  } catch { /* sem armazenamento */ }
+}
+
+async function marcarSemWhatsApp(numero) {
   const lista = numerosSemWhatsApp()
   if (lista.includes(numero)) return
-  try {
-    localStorage.setItem(CHAVE_SEM_WHATSAPP, JSON.stringify([...lista, numero].slice(-500)))
-  } catch { /* sem armazenamento */ }
+  guardarSemWhatsApp([...lista, numero])
+  // copia no banco: sobrevive a limpeza do Chrome
+  const { data } = await supabase.from('zap_config').select('sem_whatsapp').eq('id', 1).maybeSingle()
+  const noBanco = data?.sem_whatsapp ?? []
+  if (!noBanco.includes(numero)) {
+    await supabase.from('zap_config').update({ sem_whatsapp: [...noBanco, numero].slice(-500) }).eq('id', 1)
+  }
+}
+
+/** Junta a lista do banco com a do aparelho. Roda quando o painel abre. */
+export async function sincronizarSemWhatsApp() {
+  const { data, error } = await supabase.from('zap_config').select('sem_whatsapp').eq('id', 1).maybeSingle()
+  if (error || !data) return
+  const local = numerosSemWhatsApp()
+  const juntos = [...new Set([...local, ...(data.sem_whatsapp ?? [])])]
+  if (juntos.length !== local.length) guardarSemWhatsApp(juntos)
 }
 
 /** 'open' = conectado; 'close' / 'connecting' = falta ler o QR; null = instância ainda não criada. */
@@ -314,7 +357,7 @@ export async function mandarParaCliente(numero, texto, config = lerConfigZap()) 
   try {
     await enviarTexto(numero, texto, config)
   } catch (e) {
-    if (e.semWhatsApp) marcarSemWhatsApp(numero)
+    if (e.semWhatsApp) await marcarSemWhatsApp(numero).catch(() => {})
     throw e
   }
 }

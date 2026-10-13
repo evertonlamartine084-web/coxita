@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import {
-  lerConfigZap, gravarConfigZap, zapPronto, estadoDoZap, qrCodeDoZap, qrCodeAtualDoZap, desconectarZap, gruposDoZap, mandarNoGrupo,
+  lerConfigZap, gravarConfigZap, copiaSalvaDoZap, zapPronto, estadoDoZap, qrCodeDoZap, qrCodeAtualDoZap, desconectarZap, gruposDoZap, mandarNoGrupo,
 } from '../../utils/zapDoGrupo'
 
 const ROTULO_ESTADO = {
@@ -26,6 +26,18 @@ export default function ZapDoGrupo() {
   const [ocupado, setOcupado] = useState(false)
 
   const mudar = (mudancas) => setConfig(gravarConfigZap(mudancas))
+  const [recuperada, setRecuperada] = useState(false)
+
+  // Chrome limpo (ou PC novo): a chave e o grupo voltam da cópia no banco, com o envio
+  // desligado, para alguém conferir e religar.
+  useEffect(() => {
+    if (!aberto || config.apikey) return
+    copiaSalvaDoZap().then(copia => {
+      if (!copia) return
+      setConfig(gravarConfigZap({ ...copia, ligado: false }))
+      setRecuperada(true)
+    }).catch(() => {})
+  }, [aberto, config.apikey])
 
   const verificar = useCallback(async () => {
     if (!config.apikey) return
@@ -124,6 +136,11 @@ export default function ZapDoGrupo() {
 
       <Modal isOpen={aberto} onClose={() => setAberto(false)} title="Pedidos no grupo do WhatsApp">
         <div className="space-y-5 text-sm">
+          {recuperada && (
+            <p className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-amber-800">
+              Recuperei a configuração salva (chave e grupo). Confira abaixo e ligue o envio de novo.
+            </p>
+          )}
           <p className="text-text-light">
             Funciona só no computador da loja, com a Evolution ligada. Cada pedido novo vai para o grupo
             quando a comanda imprime, e pedido cancelado não vai.
