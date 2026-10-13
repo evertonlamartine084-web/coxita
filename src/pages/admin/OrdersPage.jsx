@@ -3,7 +3,7 @@ import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markM
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
-import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, CANAIS } from '../../utils/format'
+import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, CANAIS, janelaDeEntrega } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -468,6 +468,11 @@ export default function OrdersPage() {
                 <p className="text-sm font-bold text-blue-700">
                   Pedido agendado para {formatDate(selectedOrder.scheduled_for)}
                 </p>
+                {selectedOrder.delivery_type === 'entrega' && (
+                  <p className="text-xs text-blue-700">
+                    O cliente espera entre {janelaDeEntrega(selectedOrder.scheduled_for).de} e {janelaDeEntrega(selectedOrder.scheduled_for).ate}.
+                  </p>
+                )}
               </div>
             )}
 

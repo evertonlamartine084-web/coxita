@@ -11,7 +11,7 @@
  * (Por um dia foi o contrário; pedido de teste virando nota fiscal de verdade pesou mais.)
  */
 
-import { formatCurrency, formatDate, PAYMENT_LABELS } from './format'
+import { formatCurrency, formatDate, janelaDeEntrega, PAYMENT_LABELS } from './format'
 import { buscarCupomFiscal } from '../services/orders'
 import { supabase } from '../services/supabase'
 
@@ -295,7 +295,7 @@ function htmlDaComanda(p) {
   <div class="centro numero">PEDIDO #${esc(p.order_number)}</div>
   <div class="centro">${esc(formatDate(p.created_at))}</div>
   ${p.reposicao_de ? `<div class="faixa invertida">REPOSIÇÃO · SEM COBRANÇA</div><div class="obs">Motivo: ${esc(p.reposicao_motivo)}</div>` : ''}
-  ${p.scheduled_for ? `<div class="faixa invertida">AGENDADO: ${esc(formatDate(p.scheduled_for))}</div>` : ''}
+  ${p.scheduled_for ? `<div class="faixa invertida">AGENDADO: ${esc(formatDate(p.scheduled_for))}</div>${entrega ? `<div class="centro"><b>Chegar entre ${esc(janelaDeEntrega(p.scheduled_for).de)} e ${esc(janelaDeEntrega(p.scheduled_for).ate)}</b></div>` : ''}` : ''}
   <div class="faixa">${entrega ? 'ENTREGA' : 'RETIRADA NA LOJA'}</div>
   <div class="bloco"><b>${esc(p.customer_name)}</b><div>${esc(p.customer_phone)}</div></div>
   ${endereco}

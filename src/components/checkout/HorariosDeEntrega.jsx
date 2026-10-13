@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { horariosOcupados } from '../../services/entrega'
 import { agendaDeEntrega } from '../../utils/funcionamento'
+import { MARGEM_ENTREGA_MIN, janelaDeEntrega } from '../../utils/format'
 
 /**
  * Escolha do horário de entrega, de 30 em 30 minutos.
@@ -30,6 +31,7 @@ export default function HorariosDeEntrega({ settings, data, hora, aoEscolher, er
   const agenda = useMemo(() => agendaDeEntrega(settings, ocupados, agora), [settings, ocupados, agora])
   const primeiroComVaga = agenda.find(d => d.horarios.length)
   const diaAtual = agenda.find(d => d.data === (diaAberto ?? data)) ?? primeiroComVaga
+  const escolhido = agenda.flatMap(d => d.horarios).find(h => h.data === data && h.hora === hora)
 
   // horário escolhido que deixou de existir (encheu ou passou): limpa para o cliente escolher outro
   useEffect(() => {
@@ -93,9 +95,14 @@ export default function HorariosDeEntrega({ settings, data, hora, aoEscolher, er
           )
         })}
       </div>
+      {escolhido && (
+        <p className="mt-3 text-sm font-semibold text-text">
+          Seu pedido chega entre {janelaDeEntrega(escolhido.quando).de} e {janelaDeEntrega(escolhido.quando).ate}.
+        </p>
+      )}
       {erro && <p className="mt-2 text-xs font-semibold text-danger">{erro}</p>}
       <p className="mt-3 text-xs text-text-light">
-        Cada horário atende uma entrega por vez. O pedido chega entre o horário escolhido e meia hora depois.
+        Cada horário atende uma entrega por vez. O pedido chega até {MARGEM_ENTREGA_MIN} minutos antes ou depois do horário escolhido.
       </p>
     </div>
   )

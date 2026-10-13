@@ -11,7 +11,7 @@
  * "Permitir", toda chamada falha com "Failed to fetch".
  */
 
-import { formatCurrency, formatDate, PAYMENT_LABELS } from './format'
+import { formatCurrency, formatDate, janelaDeEntrega, PAYMENT_LABELS } from './format'
 
 const CHAVE_CONFIG = 'coxelli_zap_config'
 const CHAVE_ENVIADOS = 'coxelli_zap_enviados'
@@ -198,7 +198,10 @@ export function textoDoPedido(p) {
   const pago = p.payment_status === 'pago'
   const linhas = [`*PEDIDO #${p.order_number}* — ${entrega ? 'ENTREGA' : 'RETIRADA'}`]
   if (p.reposicao_de) linhas.push(`🔁 *REPOSIÇÃO, SEM COBRANÇA* — motivo: ${p.reposicao_motivo}`)
-  if (p.scheduled_for) linhas.push(`⏰ *AGENDADO: ${formatDate(p.scheduled_for)}*`)
+  if (p.scheduled_for) {
+    const j = entrega ? janelaDeEntrega(p.scheduled_for) : null
+    linhas.push(`⏰ *AGENDADO: ${formatDate(p.scheduled_for)}*${j ? ` (cliente espera entre ${j.de} e ${j.ate})` : ''}`)
+  }
   linhas.push('', `👤 ${p.customer_name}`, `📞 ${p.customer_phone}`)
   if (entrega) {
     linhas.push(`📍 ${p.address}, ${p.address_number}${p.address_complement ? ` - ${p.address_complement}` : ''} — ${p.neighborhood}`)
@@ -268,7 +271,9 @@ export function mensagemParaCliente(p, evento, { avaliacaoUrl = '' } = {}) {
   switch (evento) {
     case 'recebido': {
       const quando = p.scheduled_for
-        ? `${entrega ? 'Entrega' : 'Retirada'} marcada para ${formatDate(p.scheduled_for)}.`
+        ? entrega
+          ? `Entrega marcada para ${new Date(p.scheduled_for).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}, chegando entre ${janelaDeEntrega(p.scheduled_for).de} e ${janelaDeEntrega(p.scheduled_for).ate}.`
+          : `Retirada marcada para ${formatDate(p.scheduled_for)}.`
         : `${entrega ? 'A entrega sai' : 'Pode vir buscar'} assim que ficar pronto — a gente avisa por aqui.`
       return [
         `Oi${nome ? `, ${nome}` : ''}! 😊 Recebemos seu pedido na Coxelli (código ${codigo}).`,

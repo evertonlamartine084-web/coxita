@@ -5,7 +5,7 @@ import { consultarPedido, consultarPedidoPorToken, getOrderMessagesPorToken, sen
 import { guardarToken, tokenDoPedido } from '../../utils/pedidosLocais'
 import { getSettings } from '../../services/settings'
 import { createReview, getReviewByOrderId } from '../../services/reviews'
-import { formatCurrency, formatDate, PAYMENT_LABELS, rotuloDoStatus } from '../../utils/format'
+import { formatCurrency, formatDate, janelaDeEntrega, PAYMENT_LABELS, rotuloDoStatus } from '../../utils/format'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import ShareButtons from '../../components/share/ShareButtons'
@@ -409,8 +409,9 @@ export default function OrderTrackingPage() {
                     <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">Agendado</span>
                     <span className="text-sm font-semibold text-text">
                       {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                      {' às '}
-                      {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      {order.delivery_type === 'entrega'
+                        ? `, entre ${janelaDeEntrega(order.scheduled_for).de} e ${janelaDeEntrega(order.scheduled_for).ate}`
+                        : ` às ${new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
                     </span>
                   </div>
                 )}

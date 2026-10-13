@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import ShareButtons from '../../components/share/ShareButtons'
 import AvisoPush from '../../components/checkout/AvisoPush'
-import { formatCurrency, PAYMENT_LABELS } from '../../utils/format'
+import { formatCurrency, janelaDeEntrega, PAYMENT_LABELS } from '../../utils/format'
 import toast from 'react-hot-toast'
 import { linkDoPedido, tokenDoPedido } from '../../utils/pedidosLocais'
 import Seo from '../../components/ui/Seo'
@@ -75,8 +75,9 @@ export default function OrderConfirmationPage() {
                 <p className="text-xs text-text-light uppercase tracking-wider font-semibold">Agendado para</p>
                 <p className="font-display text-lg font-bold text-primary mt-1">
                   {new Date(order.scheduled_for).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}
-                  {' às '}
-                  {new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  {order.delivery_type === 'entrega'
+                    ? `, entre ${janelaDeEntrega(order.scheduled_for).de} e ${janelaDeEntrega(order.scheduled_for).ate}`
+                    : ` às ${new Date(order.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
                 </p>
               </div>
             )}

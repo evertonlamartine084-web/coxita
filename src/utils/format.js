@@ -28,6 +28,22 @@ export function mascararTelefone(valor) {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 
+/**
+ * Entrega com horario marcado chega ate 20 min antes ou depois do horario escolhido. A agenda
+ * continua de 30 em 30 min, uma entrega por horario: a margem e o que se promete ao cliente,
+ * e o que a comanda e o grupo mostram para quem sai com o pedido. Retirada segue no horario exato.
+ */
+export const MARGEM_ENTREGA_MIN = 20
+
+const hhmmBr = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+/** { de: '13:40', ate: '14:20' } para um horario marcado de entrega. */
+export function janelaDeEntrega(quando) {
+  const t = +new Date(quando)
+  const margem = MARGEM_ENTREGA_MIN * 60 * 1000
+  return { de: hhmmBr(new Date(t - margem)), ate: hhmmBr(new Date(t + margem)) }
+}
+
 export function formatDate(dateStr) {
   return new Date(dateStr).toLocaleString('pt-BR', {
     day: '2-digit',
