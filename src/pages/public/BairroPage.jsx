@@ -315,14 +315,16 @@ function textoDoBairro(bairro, daCasa, mesmaZona) {
 
 /** Perguntas da pagina. O texto muda por bairro; a pergunta, nao. */
 function perguntasDoBairro(bairro) {
+  // Pelo site, a entrega e so na Zona Norte; o resto da cidade pede pelo WhatsApp
+  const pedePeloSite = bairro.zona === 'Zona Norte'
   return [
     {
       pergunta: `Vocês entregam em ${bairro.nome}?`,
-      resposta: `Entregamos. ${bairro.nome} fica na ${bairro.zona} de ${CIDADE}, a cerca de ${virgula(bairro.km)} km da nossa cozinha, na Pajuçara. Coloque o endereço no checkout que o sistema calcula a taxa e o prazo do seu caso.`,
+      resposta: `Entregamos. ${bairro.nome} fica na ${bairro.zona} de ${CIDADE}, a cerca de ${virgula(bairro.km)} km da nossa cozinha, na Pajuçara. ${pedePeloSite ? 'Coloque o endereço no checkout que o site calcula a taxa na hora.' : `Chame a gente no WhatsApp que a gente passa a taxa para ${bairro.nome} e combina o horário.`}`,
     },
     {
       pergunta: `Quanto tempo demora para chegar em ${bairro.nome}?`,
-      resposta: `Depende do horário e do trânsito, e por isso o prazo aparece no checkout com o seu endereço, em vez de uma promessa genérica. O que a gente garante é a fritura: ela é programada para o horário combinado, não feita de manhã para entregar à tarde.`,
+      resposta: `Você marca o horário da entrega ${pedePeloSite ? 'no checkout, de 30 em 30 minutos' : 'com a gente pelo WhatsApp'}, em vez de esperar um prazo genérico. O que a gente garante é a fritura: ela é programada para o horário combinado, não feita de manhã para entregar à tarde.`,
     },
     {
       pergunta: `Dá para encomendar um cento para uma festa em ${bairro.nome}?`,

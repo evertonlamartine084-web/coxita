@@ -20,7 +20,7 @@ const META = metaIndiceDeBairros()
 const PERGUNTAS = [
   {
     pergunta: 'Vocês entregam em toda Natal?',
-    resposta: 'Entregamos, nos 36 bairros da cidade. A cozinha fica na Pajuçara, Zona Norte, e de lá sai tudo. Coloque seu endereço no checkout que o sistema calcula a taxa e o prazo.',
+    resposta: 'Entregamos, nos 36 bairros da cidade e na região. A cozinha fica na Pajuçara, Zona Norte, e de lá sai tudo. Na Zona Norte, coloque o endereço no checkout que o site calcula a taxa na hora. Nos outros bairros e na região, chame a gente no WhatsApp que a gente passa a taxa e combina o horário.',
   },
   {
     pergunta: 'Qual o pedido mínimo?',

@@ -35,7 +35,7 @@ const PERGUNTAS = [
   },
   {
     pergunta: 'Onde vocês entregam em Natal?',
-    resposta: 'A loja fica na Pajuçara e a gente entrega nos 36 bairros de Natal. Coloque seu endereço no checkout que o sistema calcula a taxa e o prazo do seu caso.',
+    resposta: 'A loja fica na Pajuçara e a gente entrega nos 36 bairros de Natal e na região. Na Zona Norte, coloque o endereço no checkout que o site calcula a taxa na hora. Nos outros bairros e na região, chame a gente no WhatsApp que a gente passa a taxa e combina o horário.',
   },
   {
     pergunta: 'Os salgados são feitos na hora?',

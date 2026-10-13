@@ -57,7 +57,7 @@ export const OCASIOES = {
       },
       {
         pergunta: 'Vocês entregam na minha casa?',
-        resposta: 'Entregamos em toda Natal, nos 36 bairros. A loja fica na Pajuçara, na Zona Norte. Coloque seu endereço no checkout que o sistema calcula a taxa e o prazo do seu caso.',
+        resposta: 'Entregamos em toda Natal, nos 36 bairros, e na região. A loja fica na Pajuçara, na Zona Norte. Na Zona Norte, coloque o endereço no checkout que o site calcula a taxa na hora. Nos outros bairros e na região, chame a gente no WhatsApp que a gente passa a taxa e combina o horário.',
       },
     ],
   },
