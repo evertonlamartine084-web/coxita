@@ -123,11 +123,12 @@ Deno.serve(async (req) => {
   const client = new Anthropic()
   let resposta
   try {
-    resposta = await client.beta.messages.create({
-      model: "claude-opus-5-5",
+    // Haiku 5.5: ~40x mais barato que o Opus (pedido do dono, 14/10/2026) e suficiente para tirar o
+    // pedido de uma conversa curta; a equipe confere tudo antes de criar. Haiku não tem fallback
+    // de recusa no servidor.
+    resposta = await client.messages.create({
+      model: "claude-haiku-5-5",
       max_tokens: 8000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
       output_config: { effort: "medium", format: { type: "json_schema", schema: ESQUEMA } },
       system: [{ type: "text", text: SISTEMA }, { type: "text", text: `Catálogo (JSON):\n${JSON.stringify(catalogo)}`, cache_control: { type: "ephemeral" } }],
       messages: [{
