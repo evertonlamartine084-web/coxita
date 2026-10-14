@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   HiArrowLeft, HiPaperAirplane, HiPencil, HiPlus, HiSearch, HiPaperClip, HiMicrophone, HiStop,
-  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles, HiUser,
+  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles, HiUser, HiQrcode,
 } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { supabase } from '../../services/supabase'
 import { aCada } from '../../utils/aCada'
-import { mascararTelefone } from '../../utils/format'
+import { mascararTelefone, formatCurrency, faltaReceber } from '../../utils/format'
+import { pixCopiaECola } from '../../utils/pix'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { CardPedidoAberto, FichaDoCliente } from '../../components/admin/AtendimentoCliente'
 import { getSettings } from '../../services/settings'
@@ -476,6 +477,34 @@ export default function AtendimentoPage() {
     }
   }
 
+  // Pix Copia e Cola com o valor dentro: duas mensagens, a segunda só com o código, para o
+  // cliente segurar o dedo e copiar.
+  const cobrarPix = async (valor, pedidoRef = null) => {
+    if (!settings.pix_key) return toast.error('Cadastre a chave Pix em Configurações primeiro.')
+    if (!(valor > 0)) return toast.error('Valor inválido.')
+    if (!window.confirm(`Mandar o Pix Copia e Cola de ${formatCurrency(valor)} para ${nomeDaConversa(conversa)}?`)) return
+    const codigo = pixCopiaECola({
+      chave: settings.pix_key, nome: settings.pix_name || settings.store_name || 'Coxelli', cidade: 'Natal',
+      valor, identificador: pedidoRef?.codigo_cliente || pedidoRef?.order_number || '***',
+    })
+    const nome = String(pedidoRef?.customer_name ?? conversa?.nome ?? '').trim().split(/\s+/)[0]
+    try {
+      setCitando(null)
+      await enfileirar({ tipo: 'texto', texto: `Oi${nome ? `, ${nome}` : ''}! O ${pedidoRef ? `seu pedido${pedidoRef.codigo_cliente ? ` *${pedidoRef.codigo_cliente}*` : ''} ficou` : 'valor ficou'} em *${formatCurrency(valor)}*.\n\nCopie o código abaixo e cole no app do seu banco, em *Pix Copia e Cola*. O valor já vai preenchido 🧡` })
+      await enfileirar({ tipo: 'texto', texto: codigo })
+    } catch {
+      toast.error('Não consegui mandar o Pix.')
+    }
+  }
+
+  const pixAvulso = () => {
+    const sugestao = pedidoAberto ? String(faltaReceber(pedidoAberto)).replace('.', ',') : ''
+    const entrada = window.prompt('Valor do Pix (R$):', sugestao)
+    if (entrada === null) return
+    const valor = Number(String(entrada).replace(/[^\d,.]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'))
+    cobrarPix(valor, pedidoAberto && Math.abs(valor - faltaReceber(pedidoAberto)) < 0.01 ? pedidoAberto : null)
+  }
+
   const ativarAvisos = async () => {
     if (typeof Notification === 'undefined') return
     setAvisos(await Notification.requestPermission())
@@ -571,11 +600,7 @@ export default function AtendimentoPage() {
 
               <CardPedidoAberto
                 pedido={pedidoAberto}
-                settings={settings}
-                aoCobrar={(t) => {
-                  if (!settings.pix_key) toast('Cadastre a chave Pix em Configurações para ela sair na mensagem.')
-                  setTexto(t); caixaRef.current?.focus()
-                }}
+                aoCobrar={(p) => cobrarPix(faltaReceber(p), p)}
                 aoMudar={carregarPedidos}
               />
               <div className="relative flex min-h-0 flex-1">
@@ -670,6 +695,7 @@ export default function AtendimentoPage() {
                     <button type="button" onClick={() => setPainel(p => (p === 'emojis' ? null : 'emojis'))} className="p-2 text-gray-500" title="Emojis"><HiEmojiHappy size={22} /></button>
                     <button type="button" onClick={() => arquivoRef.current?.click()} className="p-2 text-gray-500" title="Foto ou arquivo"><HiPaperClip size={22} /></button>
                     <button type="button" onClick={() => setPainel(p => (p === 'rapidas' ? null : 'rapidas'))} className="p-2 text-gray-500" title="Respostas rápidas (ou digite /)"><HiLightningBolt size={22} /></button>
+                    <button type="button" onClick={pixAvulso} className="p-2 text-gray-500" title="Mandar Pix Copia e Cola com valor"><HiQrcode size={22} /></button>
                     <input ref={arquivoRef} type="file" className="hidden" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                       onChange={e => subirArquivo(e.target.files?.[0])} />
                     <textarea

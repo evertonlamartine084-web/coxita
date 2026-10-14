@@ -33,21 +33,7 @@ async function avancarStatus(p, status) {
   if (status === 'entregue' && aReceber({ ...p, status: 'entregue' })) await marcarPago(p.id)
 }
 
-/** Mensagem de cobrança pronta para a caixa de texto (a pessoa confere e envia). */
-function mensagemDePix(p, settings) {
-  const nome = String(p.customer_name ?? '').trim().split(/\s+/)[0]
-  const linhas = [
-    `Oi${nome ? `, ${nome}` : ''}! O seu pedido${p.codigo_cliente ? ` (código *${p.codigo_cliente}*)` : ''} ficou em *${formatCurrency(faltaReceber(p))}*.`,
-    '',
-    settings?.pix_key ? `Pix: *${settings.pix_key}*` : 'Pix: (chave)',
-    settings?.pix_name ? `Nome: ${settings.pix_name}` : null,
-    '',
-    'Me manda o comprovante por aqui que eu já confirmo 🧡',
-  ]
-  return linhas.filter(l => l !== null).join('\n')
-}
-
-export function CardPedidoAberto({ pedido: p, settings, aoCobrar, aoMudar }) {
+export function CardPedidoAberto({ pedido: p, aoCobrar, aoMudar }) {
   if (!p) return null
   const pago = p.payment_status === 'pago'
   const passo = proximoPasso(p)
@@ -74,7 +60,7 @@ export function CardPedidoAberto({ pedido: p, settings, aoCobrar, aoMudar }) {
       <div className="ml-auto flex flex-wrap gap-1.5">
         {!pago && (
           <>
-            <button onClick={() => aoCobrar(mensagemDePix(p, settings))} className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50">
+            <button onClick={() => aoCobrar(p)} className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50">
               <HiCash /> Cobrar Pix
             </button>
             <button
