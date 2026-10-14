@@ -599,7 +599,8 @@ const contatoDoTelefone = (telefone) => {
 }
 
 async function carregarContatos(config) {
-  if (Date.now() - contatosEm < 30 * 60 * 1000 && contatos.size) return
+  // 5 min: contato salvo no celular aparece logo no painel
+  if (Date.now() - contatosEm < 5 * 60 * 1000 && contatos.size) return
   const lista = await evolution(`/chat/findContacts/${config.instancia}`, { method: 'POST', config, body: { where: {} } })
   const mapa = new Map()
   for (const c of Array.isArray(lista) ? lista : []) {
@@ -688,12 +689,17 @@ export async function completarNomes(config = lerConfigZap()) {
   if (!semNome?.length) return 0
   const { data: pedidos } = await supabase.from('orders').select('customer_name, customer_phone, created_at')
     .not('customer_phone', 'is', null).order('created_at', { ascending: false }).limit(2000)
+  // carrinho abandonado também tem nome: quem só montou o carrinho não tem pedido
+  const { data: carrinhos } = await supabase.from('carrinhos').select('nome, telefone, criado_em')
+    .not('telefone', 'is', null).order('criado_em', { ascending: false }).limit(1000)
   const doPedido = new Map()
-  for (const o of pedidos ?? []) {
-    let d = String(o.customer_phone).replace(/\D/g, '')
+  const guardar = (telefone, nome) => {
+    let d = String(telefone ?? '').replace(/\D/g, '')
     if (d.length === 10 || d.length === 11) d = `55${d}`
-    for (const v of variantesDoTelefone(d)) if (!doPedido.has(v) && o.customer_name) doPedido.set(v, o.customer_name)
+    for (const v of variantesDoTelefone(d)) if (!doPedido.has(v) && nome) doPedido.set(v, nome.trim())
   }
+  for (const o of pedidos ?? []) guardar(o.customer_phone, o.customer_name)
+  for (const c of carrinhos ?? []) guardar(c.telefone, c.nome)
   let n = 0
   for (const c of semNome) {
     const nome = contatoDoTelefone(c.telefone)?.nome

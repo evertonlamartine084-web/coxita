@@ -428,6 +428,7 @@ export default function AdminLayout() {
     // digitadas em qualquer aparelho. Só faz algo no PC com o envio ligado (zapPronto).
     let atendimentoConferidoEm = 0
     let copiadoEm = 0
+    let nomesEm = 0
     let enviandoFila = false
     const atendimento = async () => {
       const config = lerConfigZap()
@@ -441,6 +442,7 @@ export default function AdminLayout() {
             // histórico recente na primeira volta de cada hora (o wa_id único evita duplicar)
             const historico = await sincronizarMensagens(config, { paginas: 10, porPagina: 200 })
             const nomes = await completarNomes(config)
+            nomesEm = Date.now()
             const fotos = await atualizarFotosDePerfil(config)
             registrarImpressao('zap_atendimento_ligado', null, { historico, nomes, fotos, webhook })
           } catch (e) {
@@ -453,6 +455,11 @@ export default function AdminLayout() {
           copiadoEm = Date.now()
           await sincronizarMensagens(config, { paginas: 1, porPagina: 60 })
           await baixarMidias(config)
+        }
+        // nome de contato salvo agora no celular: confere a agenda a cada 5 min
+        if (Date.now() - nomesEm > 5 * 60 * 1000) {
+          nomesEm = Date.now()
+          await completarNomes(config)
         }
       } catch (e) {
         console.warn('Fila do atendimento falhou:', e)

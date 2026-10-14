@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { HiArrowLeft, HiPaperAirplane, HiPlus, HiSearch } from 'react-icons/hi'
+import { HiArrowLeft, HiPaperAirplane, HiPencil, HiPlus, HiSearch } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { supabase } from '../../services/supabase'
 import { aCada } from '../../utils/aCada'
@@ -170,6 +170,16 @@ export default function AtendimentoPage() {
     carregarMensagens()
   }
 
+  // Nome digitado aqui fica: a cópia da Evolution só preenche conversa sem nome.
+  const renomear = async () => {
+    if (!conversa) return
+    const nome = window.prompt('Nome desta conversa:', conversa.nome ?? '')
+    if (nome === null) return
+    const { error } = await supabase.from('zap_conversas').update({ nome: nome.trim() || null }).eq('chave', conversa.chave)
+    if (error) return toast.error('Não consegui renomear.')
+    carregarConversas()
+  }
+
   const abrirPedido = () => {
     if (!conversa) return
     setPedido({
@@ -248,7 +258,10 @@ export default function AtendimentoPage() {
                 </button>
                 <Avatar c={conversa} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{nomeDaConversa(conversa)}</p>
+                  <button onClick={renomear} className="flex max-w-full items-center gap-1.5 text-left" title="Renomear">
+                    <span className="truncate font-semibold">{nomeDaConversa(conversa)}</span>
+                    <HiPencil className="shrink-0 text-gray-400" size={14} />
+                  </button>
                   {conversa.telefone && conversa.nome && (
                     <p className="text-xs text-gray-500">{telefoneNaTela(conversa.telefone)}</p>
                   )}
