@@ -129,17 +129,22 @@ let ultimoEnvio = 0
 const sorteio = (min, max) => min + Math.random() * (max - min)
 
 async function enviarTexto(numero, texto, config) {
-  const espera = ultimoEnvio + sorteio(5000, 15000) - Date.now()
-  if (espera > 0) await new Promise(r => setTimeout(r, espera))
-  try {
-    await evolution(`/message/sendText/${config.instancia}`, {
-      method: 'POST', config,
-      // linkPreview false: sem o cartao grande do site em cima da mensagem, o link fica so como texto
-      body: { number: numero, text: texto, linkPreview: false, delay: Math.round(sorteio(1500, 3500)) },
-    })
-  } finally {
-    ultimoEnvio = Date.now()
+  // Uma fila so para tudo que sai do numero (grupo, avisos, respostas do Atendimento), inclusive
+  // entre abas: sem a trava, dois lacos calculavam a espera ao mesmo tempo e saiam colados.
+  const enviar = async () => {
+    const espera = ultimoEnvio + sorteio(5000, 15000) - Date.now()
+    if (espera > 0) await new Promise(r => setTimeout(r, espera))
+    try {
+      return await evolution(`/message/sendText/${config.instancia}`, {
+        method: 'POST', config,
+        // linkPreview false: sem o cartao grande do site em cima da mensagem, o link fica so como texto
+        body: { number: numero, text: texto, linkPreview: false, delay: Math.round(sorteio(1500, 3500)) },
+      })
+    } finally {
+      ultimoEnvio = Date.now()
+    }
   }
+  return navigator.locks ? navigator.locks.request('coxelli-zap-envio', enviar) : enviar()
 }
 
 /*
@@ -482,4 +487,80 @@ export async function resumoDasConversas(config = lerConfigZap()) {
     atualizado_em: new Date().toISOString(),
   }))
   return { contatos: resumo, cartoes }
+}
+
+/*
+ * Atendimento no painel (aba Atendimento, supabase/zap-atendimento.sql). As mensagens chegam ao
+ * banco pela funcao zap-webhook, que a Evolution chama; o painel do PC da loja e quem configura
+ * esse aviso na Evolution e quem envia as respostas digitadas em qualquer aparelho.
+ */
+const URL_DO_WEBHOOK = (segredo) =>
+  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zap-webhook?s=${segredo}`
+
+/** Garante que a Evolution avisa o banco de cada mensagem. Devolve true se ficou ligado. */
+export async function ligarAtendimentoNaEvolution(config = lerConfigZap()) {
+  const { data } = await supabase.from('zap_config').select('webhook_segredo').eq('id', 1).maybeSingle()
+  if (!data?.webhook_segredo) return false
+  const url = URL_DO_WEBHOOK(data.webhook_segredo)
+  let atual = null
+  try { atual = await evolution(`/webhook/find/${config.instancia}`, { config }) } catch { /* sem webhook ainda */ }
+  const eventos = (atual?.events ?? []).map(String)
+  if (atual?.enabled && atual?.url === url && eventos.includes('MESSAGES_UPSERT') && eventos.includes('SEND_MESSAGE')) return true
+  await evolution(`/webhook/set/${config.instancia}`, {
+    method: 'POST', config,
+    body: { webhook: { enabled: true, url, byEvents: false, base64: false, events: ['MESSAGES_UPSERT', 'SEND_MESSAGE'] } },
+  })
+  return true
+}
+
+/**
+ * Primeira vez: as conversas recentes entram na lista com a ultima mensagem de cada uma, para a aba
+ * nao abrir vazia. O historico completo de cada conversa so comeca a partir de quando ligou.
+ */
+export async function importarConversasRecentes(config = lerConfigZap()) {
+  const { count } = await supabase.from('zap_conversas').select('chave', { count: 'exact', head: true })
+  if ((count ?? 0) >= 5) return 0
+  const conversas = await evolution(`/chat/findChats/${config.instancia}`, { method: 'POST', config, body: {} })
+  const linhas = []
+  for (const c of Array.isArray(conversas) ? conversas : []) {
+    const jid = c.remoteJid ?? c.id
+    if (!jid || /@g\.us$|@broadcast$|@newsletter$/.test(jid)) continue
+    const lm = c.lastMessage ?? {}
+    const telefone = numeroDoJid(jid, c.remoteJidAlt, lm.key?.remoteJidAlt, lm.key?.senderPn)
+    const m = lm.message ?? {}
+    const texto = m.conversation ?? m.extendedTextMessage?.text ?? m.imageMessage?.caption ?? null
+    const ts = Number(lm.messageTimestamp ?? c.updatedAt)
+    const quando = Number.isFinite(ts) && ts > 0 ? new Date(ts * (String(Math.trunc(ts)).length > 11 ? 1 : 1000)) : (c.updatedAt ? new Date(c.updatedAt) : null)
+    linhas.push({
+      chave: telefone ?? jid, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone,
+      nome: c.pushName || c.name || null,
+      ultima_msg: texto ? texto.slice(0, 200) : (Object.keys(m).length ? '[mídia]' : null),
+      ultima_em: quando && !Number.isNaN(+quando) ? quando.toISOString() : null,
+      ultima_de_mim: !!lm.key?.fromMe,
+    })
+  }
+  const recentes = linhas.filter(l => l.ultima_em).sort((a, b) => b.ultima_em.localeCompare(a.ultima_em)).slice(0, 80)
+  const unicas = [...new Map(recentes.map(l => [l.chave, l])).values()]
+  if (unicas.length) await supabase.from('zap_conversas').upsert(unicas, { onConflict: 'chave', ignoreDuplicates: true })
+  return unicas.length
+}
+
+/** Envia as respostas que alguém digitou na aba Atendimento (status 'enviar'). */
+export async function enviarFilaDoAtendimento(config = lerConfigZap()) {
+  const { data: fila } = await supabase.from('zap_mensagens')
+    .select('id, texto, conversa, zap_conversas(jid, telefone)')
+    .eq('status', 'enviar').order('criada_em').limit(5)
+  for (const m of fila ?? []) {
+    // pega a mensagem para si: outra aba do mesmo PC nao envia de novo
+    const { data: pega } = await supabase.from('zap_mensagens').update({ status: 'enviando' })
+      .eq('id', m.id).eq('status', 'enviar').select('id')
+    if (!pega?.length) continue
+    const destino = m.zap_conversas?.telefone || m.zap_conversas?.jid
+    try {
+      const r = await enviarTexto(destino, m.texto, config)
+      await supabase.from('zap_mensagens').update({ status: 'enviada', wa_id: r?.key?.id ?? null }).eq('id', m.id)
+    } catch (e) {
+      await supabase.from('zap_mensagens').update({ status: 'erro', erro: e.message }).eq('id', m.id)
+    }
+  }
 }

@@ -1,11 +1,11 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell, HiChartBar } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell, HiChartBar, HiChatAlt2 } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
-import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp } from '../../utils/zapDoGrupo'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, importarConversasRecentes, enviarFilaDoAtendimento } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
@@ -19,6 +19,7 @@ const navItems = [
   // Chrome mostrava a faixa de "site externo" no topo toda vez que se abria o Dashboard
   { to: '/admin/', icon: HiHome, label: 'Dashboard' },
   { to: '/admin/pedidos', icon: HiClipboardList, label: 'Pedidos' },
+  { to: '/admin/atendimento', icon: HiChatAlt2, label: 'Atendimento' },
   { to: '/admin/rotas', icon: HiMap, label: 'Rotas' },
   { to: '/admin/clientes', icon: HiUsers, label: 'Clientes' },
   { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
@@ -422,7 +423,37 @@ export default function AdminLayout() {
     }
 
     enviarPendentes()
-    return aCada(enviarPendentes, 15000)
+    // Atendimento (aba Atendimento): uma vez por hora confere se a Evolution avisa o banco de cada
+    // mensagem e, na primeira vez, traz as conversas recentes; a cada 4 s envia as respostas
+    // digitadas em qualquer aparelho. Só faz algo no PC com o envio ligado (zapPronto).
+    let atendimentoConferidoEm = 0
+    let enviandoFila = false
+    const atendimento = async () => {
+      const config = lerConfigZap()
+      if (enviandoFila || !zapPronto(config)) return
+      enviandoFila = true
+      try {
+        if (Date.now() - atendimentoConferidoEm > 60 * 60 * 1000) {
+          atendimentoConferidoEm = Date.now()
+          try {
+            await ligarAtendimentoNaEvolution(config)
+            const importadas = await importarConversasRecentes(config)
+            registrarImpressao('zap_atendimento_ligado', null, { importadas })
+          } catch (e) {
+            registrarImpressao('zap_atendimento_falhou', null, { erro: e.message })
+          }
+        }
+        await enviarFilaDoAtendimento(config)
+      } catch (e) {
+        console.warn('Fila do atendimento falhou:', e)
+      } finally {
+        enviandoFila = false
+      }
+    }
+    atendimento()
+    const pararAtendimento = aCada(atendimento, 4000)
+    const pararPendentes = aCada(enviarPendentes, 15000)
+    return () => { pararAtendimento(); pararPendentes() }
   }, [])
 
   // O computador da impressora fica com o painel aberto por dias: sem isto, ele segue rodando a

@@ -110,6 +110,7 @@ const MargensPage = lazyWithRetry(importarPagina.margens)
 const PrecosPage = lazyWithRetry(importarPagina.precos)
 const EstoquePage = lazyWithRetry(importarPagina.estoque)
 const RotasPage = lazyWithRetry(importarPagina.rotas)
+const AtendimentoPage = lazyWithRetry(importarPagina.atendimento)
 const CategoriesPage = lazyWithRetry(importarPagina.categorias)
 const SettingsPage = lazyWithRetry(importarPagina.configuracoes)
 const HubLayout = lazyWithRetry(importarPagina.hub)
@@ -201,6 +202,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="pedidos" element={<OrdersPage />} />
             <Route path="rotas" element={<RotasPage />} />
+            <Route path="atendimento" element={<AtendimentoPage />} />
             <Route path="clientes" element={<CustomersPage />} />
             <Route path="bling/callback" element={<BlingCallbackPage />} />
             <Route path="produtos" element={<ProductsPage />} />

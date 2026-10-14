@@ -31,6 +31,7 @@ export const importarPagina = {
   precos: () => import('../pages/admin/PrecosPage'),
   estoque: () => import('../pages/admin/EstoquePage'),
   rotas: () => import('../pages/admin/RotasPage'),
+  atendimento: () => import('../pages/admin/AtendimentoPage'),
   categorias: () => import('../pages/admin/CategoriesPage'),
   configuracoes: () => import('../pages/admin/SettingsPage'),
   avaliacoes: () => import('../pages/admin/ReviewsPage'),

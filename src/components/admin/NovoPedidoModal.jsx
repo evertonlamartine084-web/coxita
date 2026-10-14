@@ -23,7 +23,8 @@ import Button from '../ui/Button'
  * Passa pela MESMA função do banco que o site (`criar_pedido`), então preço, desconto à vista e
  * baixa de estoque saem iguais aos de um pedido feito pelo cliente.
  */
-export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
+// `inicial`: campos já preenchidos (ex.: nome e telefone vindos da conversa do Atendimento)
+export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = null }) {
   const [produtos, setProdutos] = useState([])
   const [settings, setSettings] = useState(() => peekSettings() ?? {})
   const [itens, setItens] = useState([])
@@ -50,6 +51,10 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar }) {
     scheduled_date: '',
     scheduled_time: '',
   })
+
+  useEffect(() => {
+    if (aberto && inicial) setForm(f => ({ ...f, ...inicial }))
+  }, [aberto, inicial])
 
   useEffect(() => {
     if (!aberto) return
