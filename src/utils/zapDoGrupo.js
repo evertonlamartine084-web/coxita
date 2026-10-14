@@ -590,6 +590,15 @@ export function variantesDoTelefone(digitos) {
   return [...lista]
 }
 
+/**
+ * Nome que serve para mostrar. Nos contatos de numero escondido (@lid) a Evolution guarda o
+ * proprio codigo no lugar do nome ("111257638183156"): nome so de digitos nao vale.
+ */
+const nomeValido = (n) => {
+  const t = String(n ?? '').trim()
+  return t && /[^\d\s+()\-.]/.test(t) ? t : null
+}
+
 const contatoDoTelefone = (telefone) => {
   for (const v of variantesDoTelefone(telefone)) {
     const c = contatos.get(v)
@@ -605,7 +614,7 @@ async function carregarContatos(config) {
   const mapa = new Map()
   for (const c of Array.isArray(lista) ? lista : []) {
     const telefone = numeroDoJid(c.remoteJid, c.remoteJidAlt, c.jid, c.id)
-    const info = { nome: c.name || c.verifiedName || c.pushName || null, telefone }
+    const info = { nome: nomeValido(c.name) || nomeValido(c.verifiedName) || nomeValido(c.pushName), telefone }
     for (const id of [c.remoteJid, c.remoteJidAlt, c.jid, c.id, ...variantesDoTelefone(telefone)]) {
       if (!id) continue
       // nome salvo na agenda ganha do nome de perfil que veio em outro registro do mesmo numero
@@ -646,7 +655,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       if (!Number.isFinite(ts) || ts <= 0) continue
       const quando = new Date(ts * (String(Math.trunc(ts)).length > 11 ? 1 : 1000)).toISOString()
       const atual = conversas.get(chave) ?? { chave, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone, nome: contato?.nome ?? null }
-      if (!atual.nome && !k.fromMe && r.pushName) atual.nome = r.pushName
+      if (!atual.nome && !k.fromMe && nomeValido(r.pushName)) atual.nome = nomeValido(r.pushName)
       conversas.set(chave, atual)
       mensagens.push({
         wa_id: k.id, conversa: chave, de_mim: !!k.fromMe, tipo: c[0], texto: c[1],
