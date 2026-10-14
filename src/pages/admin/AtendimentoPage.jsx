@@ -19,7 +19,39 @@ const ROTULO_MIDIA = {
   figurinha: '🙂 Figurinha', contato: '👤 Contato', localizacao: '📍 Localização', outro: 'Mensagem',
 }
 
-const nomeDaConversa = (c) => c.nome || (c.telefone ? mascararTelefone(c.telefone.slice(-11)) : 'Sem número')
+/**
+ * 558488204664 -> (84) 98820-4664. O WhatsApp guarda muito celular sem o 9; cortar os 11 últimos
+ * dígitos dava "(58) 48820-4664".
+ */
+function telefoneNaTela(t) {
+  if (!t) return ''
+  let d = String(t).replace(/\D/g, '')
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) d = d.slice(2)
+  if (d.length === 10 && /[6-9]/.test(d[2])) d = `${d.slice(0, 2)}9${d.slice(2)}`
+  return d.length === 10 || d.length === 11 ? mascararTelefone(d) : `+${String(t).replace(/\D/g, '')}`
+}
+
+const nomeDaConversa = (c) => c.nome || (c.telefone ? telefoneNaTela(c.telefone) : 'Sem número')
+
+function Avatar({ c }) {
+  const [falhou, setFalhou] = useState(false)
+  if (c.foto_url && !falhou) {
+    return <img src={c.foto_url} alt="" onError={() => setFalhou(true)} className="h-10 w-10 shrink-0 rounded-full object-cover" />
+  }
+  const inicial = (c.nome || '?').trim()[0]?.toUpperCase() ?? '?'
+  return <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 font-semibold text-gray-500">{inicial}</div>
+}
+
+function Midia({ m, url }) {
+  if (!url) return null
+  if (m.tipo === 'audio') return <audio controls src={url} className="max-w-[240px]" />
+  if (m.tipo === 'figurinha') return <img src={url} alt="Figurinha" className="h-28 w-28 object-contain" />
+  return (
+    <a href={url} target="_blank" rel="noreferrer">
+      <img src={url} alt="Foto" className="max-h-64 rounded-md object-cover" />
+    </a>
+  )
+}
 
 function quando(iso) {
   if (!iso) return ''
@@ -30,8 +62,9 @@ function quando(iso) {
     : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
-function textoDaMensagem(m) {
+function textoDaMensagem(m, temMidia) {
   if (m.tipo === 'texto') return m.texto
+  if (temMidia) return m.texto
   return `${ROTULO_MIDIA[m.tipo] ?? 'Mensagem'}${m.texto ? ` · ${m.texto}` : ''}`
 }
 
@@ -54,6 +87,7 @@ export default function AtendimentoPage() {
   const [enviando, setEnviando] = useState(false)
   const [pedido, setPedido] = useState(null)
   const [agora, setAgora] = useState(0)
+  const [links, setLinks] = useState({}) // midia_path -> link assinado
   const fimRef = useRef(null)
   const ultimaVistaRef = useRef(null)
 
@@ -75,6 +109,19 @@ export default function AtendimentoPage() {
     if (error) return
     setMensagens(data.reverse())
     setAgora(Date.now())
+    // link assinado (1 h) só para mídia que ainda não tem
+    const faltam = data.map(m => m.midia_path).filter(Boolean)
+    if (faltam.length) {
+      setLinks(atuais => {
+        const novos = faltam.filter(p => !atuais[p])
+        if (novos.length) {
+          supabase.storage.from('zap-midia').createSignedUrls(novos, 3600).then(({ data: assinados }) => {
+            if (assinados?.length) setLinks(a => ({ ...a, ...Object.fromEntries(assinados.filter(x => x.signedUrl).map(x => [x.path, x.signedUrl])) }))
+          })
+        }
+        return atuais
+      })
+    }
     // chegou mensagem com a conversa aberta: já conta como lida
     const ultima = data[0]
     if (ultima && !ultima.de_mim && ultima.id !== ultimaVistaRef.current) {
@@ -127,7 +174,7 @@ export default function AtendimentoPage() {
     if (!conversa) return
     setPedido({
       customer_name: conversa.nome ?? '',
-      customer_phone: conversa.telefone ? mascararTelefone(conversa.telefone.slice(-11)) : '',
+      customer_phone: conversa.telefone ? telefoneNaTela(conversa.telefone) : '',
       canal: 'whatsapp',
     })
   }
@@ -168,6 +215,7 @@ export default function AtendimentoPage() {
                   onClick={() => abrir(c.chave)}
                   className={`flex w-full items-start gap-3 border-b border-gray-100 px-3 py-3 text-left hover:bg-gray-50 ${aberta === c.chave ? 'bg-green-50' : ''}`}
                 >
+                  <Avatar c={c} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className={`truncate text-sm ${c.nao_lidas ? 'font-bold' : 'font-medium'}`}>{nomeDaConversa(c)}</span>
@@ -198,10 +246,11 @@ export default function AtendimentoPage() {
                 <button onClick={() => setAberta(null)} className="md:hidden text-gray-500" aria-label="Voltar">
                   <HiArrowLeft size={20} />
                 </button>
+                <Avatar c={conversa} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{nomeDaConversa(conversa)}</p>
                   {conversa.telefone && conversa.nome && (
-                    <p className="text-xs text-gray-500">{mascararTelefone(conversa.telefone.slice(-11))}</p>
+                    <p className="text-xs text-gray-500">{telefoneNaTela(conversa.telefone)}</p>
                   )}
                 </div>
                 <button
@@ -224,7 +273,10 @@ export default function AtendimentoPage() {
                     <div className={`max-w-[80%] rounded-lg px-3 py-1.5 text-sm shadow-sm ${
                       m.de_mim ? 'bg-green-700 text-white' : 'bg-white text-gray-900'
                     } ${m.status === 'erro' ? 'ring-2 ring-red-400' : ''}`}>
-                      <p className="whitespace-pre-wrap break-words">{textoDaMensagem(m)}</p>
+                      <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} />
+                      {textoDaMensagem(m, !!(m.midia_path && links[m.midia_path])) && (
+                        <p className="whitespace-pre-wrap break-words">{textoDaMensagem(m, !!(m.midia_path && links[m.midia_path]))}</p>
+                      )}
                       <p className={`mt-0.5 flex justify-end gap-1.5 text-[10px] ${m.de_mim ? 'text-green-100' : 'text-gray-400'}`}>
                         {quando(m.criada_em)} <SituacaoDoEnvio m={m} agora={agora} />
                       </p>

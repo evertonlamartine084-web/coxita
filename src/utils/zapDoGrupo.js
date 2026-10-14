@@ -578,6 +578,26 @@ const ehConversaDeCliente = (jid) => !!jid && !/@g\.us$|@broadcast$|@newsletter$
 let contatosEm = 0
 let contatos = new Map() // jid/lid/telefone -> { nome, telefone }
 
+/**
+ * O mesmo celular com e sem o 9: o WhatsApp guarda muito numero no formato antigo (55 84 8820-4664)
+ * e a agenda/pedido no novo (55 84 98820-4664). Sem isto o contato salvo nao achava a conversa.
+ */
+export function variantesDoTelefone(digitos) {
+  const d = String(digitos ?? '').replace(/\D/g, '')
+  const lista = new Set(d ? [d] : [])
+  if (d.startsWith('55') && d.length === 12 && /[6-9]/.test(d[4])) lista.add(`${d.slice(0, 4)}9${d.slice(4)}`)
+  if (d.startsWith('55') && d.length === 13 && d[4] === '9') lista.add(`${d.slice(0, 4)}${d.slice(5)}`)
+  return [...lista]
+}
+
+const contatoDoTelefone = (telefone) => {
+  for (const v of variantesDoTelefone(telefone)) {
+    const c = contatos.get(v)
+    if (c?.nome) return c
+  }
+  return null
+}
+
 async function carregarContatos(config) {
   if (Date.now() - contatosEm < 30 * 60 * 1000 && contatos.size) return
   const lista = await evolution(`/chat/findContacts/${config.instancia}`, { method: 'POST', config, body: { where: {} } })
@@ -585,7 +605,11 @@ async function carregarContatos(config) {
   for (const c of Array.isArray(lista) ? lista : []) {
     const telefone = numeroDoJid(c.remoteJid, c.remoteJidAlt, c.jid, c.id)
     const info = { nome: c.name || c.verifiedName || c.pushName || null, telefone }
-    for (const id of [c.remoteJid, c.remoteJidAlt, c.jid, c.id, telefone]) if (id) mapa.set(String(id), info)
+    for (const id of [c.remoteJid, c.remoteJidAlt, c.jid, c.id, ...variantesDoTelefone(telefone)]) {
+      if (!id) continue
+      // nome salvo na agenda ganha do nome de perfil que veio em outro registro do mesmo numero
+      if (!mapa.get(String(id))?.nome || c.name) mapa.set(String(id), info)
+    }
   }
   contatos = mapa
   contatosEm = Date.now()
@@ -613,8 +637,9 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       if (!ehConversaDeCliente(jid) || !k.id) continue
       const c = conteudoDaMensagem(desembrulhar(r.message))
       if (!c) continue
-      const contato = contatos.get(jid) ?? contatos.get(k.remoteJidAlt ?? '') ?? null
-      const telefone = numeroDoJid(jid, k.remoteJidAlt, k.senderPn, r.remoteJidAlt) ?? contato?.telefone ?? null
+      const porJid = contatos.get(jid) ?? contatos.get(k.remoteJidAlt ?? '') ?? null
+      const telefone = numeroDoJid(jid, k.remoteJidAlt, k.senderPn, r.remoteJidAlt) ?? porJid?.telefone ?? null
+      const contato = (porJid?.nome ? porJid : null) ?? contatoDoTelefone(telefone) ?? porJid
       const chave = telefone ?? jid
       const ts = Number(r.messageTimestamp)
       if (!Number.isFinite(ts) || ts <= 0) continue
@@ -651,4 +676,84 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   }
   if (!jaTinha) await supabase.from('zap_conversas').update({ nao_lidas: 0 }).gt('nao_lidas', 0)
   return mensagens.length
+}
+
+/**
+ * Nome das conversas que ainda nao tem: primeiro a agenda do WhatsApp (com e sem o 9), depois o
+ * nome do ultimo pedido daquele telefone. Roda a cada hora no PC da loja.
+ */
+export async function completarNomes(config = lerConfigZap()) {
+  await carregarContatos(config).catch(() => {})
+  const { data: semNome } = await supabase.from('zap_conversas').select('chave, telefone').is('nome', null).not('telefone', 'is', null).limit(300)
+  if (!semNome?.length) return 0
+  const { data: pedidos } = await supabase.from('orders').select('customer_name, customer_phone, created_at')
+    .not('customer_phone', 'is', null).order('created_at', { ascending: false }).limit(2000)
+  const doPedido = new Map()
+  for (const o of pedidos ?? []) {
+    let d = String(o.customer_phone).replace(/\D/g, '')
+    if (d.length === 10 || d.length === 11) d = `55${d}`
+    for (const v of variantesDoTelefone(d)) if (!doPedido.has(v) && o.customer_name) doPedido.set(v, o.customer_name)
+  }
+  let n = 0
+  for (const c of semNome) {
+    const nome = contatoDoTelefone(c.telefone)?.nome
+      ?? variantesDoTelefone(c.telefone).map(v => doPedido.get(v)).find(Boolean)
+    if (!nome) continue
+    await supabase.from('zap_conversas').update({ nome }).eq('chave', c.chave)
+    n++
+  }
+  return n
+}
+
+/** Foto de perfil das conversas mais recentes (o link do WhatsApp vence; renova a cada 2 dias). */
+export async function atualizarFotosDePerfil(config = lerConfigZap(), limite = 40) {
+  const doisDias = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+  const { data } = await supabase.from('zap_conversas').select('chave, telefone, jid')
+    .or(`foto_em.is.null,foto_em.lt.${doisDias}`).order('ultima_em', { ascending: false, nullsFirst: false }).limit(limite)
+  let n = 0
+  for (const c of data ?? []) {
+    let url = null
+    try {
+      const r = await evolution(`/chat/fetchProfilePictureUrl/${config.instancia}`, {
+        method: 'POST', config, body: { number: c.telefone || c.jid }, limiteMs: 15000,
+      })
+      url = r?.profilePictureUrl ?? r?.picture ?? null
+    } catch { /* sem foto ou perfil fechado */ }
+    await supabase.from('zap_conversas').update({ foto_url: url, foto_em: new Date().toISOString() }).eq('chave', c.chave)
+    if (url) n++
+  }
+  return n
+}
+
+const EXTENSAO = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a' }
+
+/**
+ * Foto, audio e figurinha das conversas: baixa da Evolution e guarda no bucket privado zap-midia.
+ * Poucas por volta e so dos ultimos 7 dias, para nao pesar no PC da loja.
+ */
+export async function baixarMidias(config = lerConfigZap(), limite = 3) {
+  const umaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const seteDias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data } = await supabase.from('zap_mensagens').select('id, wa_id, conversa, tipo')
+    .in('tipo', ['imagem', 'audio', 'figurinha']).is('midia_path', null).not('wa_id', 'is', null)
+    .gte('criada_em', seteDias).or(`midia_tentou_em.is.null,midia_tentou_em.lt.${umaHora}`)
+    .order('criada_em', { ascending: false }).limit(limite)
+  let n = 0
+  for (const m of data ?? []) {
+    await supabase.from('zap_mensagens').update({ midia_tentou_em: new Date().toISOString() }).eq('id', m.id)
+    try {
+      const r = await evolution(`/chat/getBase64FromMediaMessage/${config.instancia}`, {
+        method: 'POST', config, body: { message: { key: { id: m.wa_id } }, convertToMp4: false }, limiteMs: 30000,
+      })
+      if (!r?.base64) continue
+      const tipo = String(r.mimetype || (m.tipo === 'audio' ? 'audio/ogg' : 'image/jpeg')).split(';')[0]
+      const bytes = Uint8Array.from(atob(r.base64), ch => ch.charCodeAt(0))
+      const caminho = `${m.conversa.replace(/[^\w]/g, '_')}/${m.wa_id.replace(/[^\w]/g, '_')}.${EXTENSAO[tipo] ?? 'bin'}`
+      const { error } = await supabase.storage.from('zap-midia').upload(caminho, new Blob([bytes], { type: tipo }), { contentType: tipo, upsert: true })
+      if (error) continue
+      await supabase.from('zap_mensagens').update({ midia_path: caminho, midia_tipo: tipo }).eq('id', m.id)
+      n++
+    } catch { /* tenta de novo daqui a uma hora */ }
+  }
+  return n
 }
