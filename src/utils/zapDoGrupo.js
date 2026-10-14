@@ -637,7 +637,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   const conversas = new Map()
   const mensagens = []
   // diagnóstico do nome de perfil nas conversas de número escondido (sem guardar o nome)
-  const perfilLid = { recebidas: 0, com_nome_valido: 0, so_digitos: 0, vazio: 0, campos: new Set() }
+  const perfilLid = { recebidas: 0, com_nome_valido: 0, so_digitos: 0, vazio: 0, digitos_tipo_telefone: 0, digitos_igual_lid: 0, conversas_lid: new Set(), conversas_com_nome: new Set(), campos: new Set() }
   for (let pagina = 1; pagina <= paginas; pagina++) {
     const resp = await evolution(`/chat/findMessages/${config.instancia}`, {
       method: 'POST', config, body: { where: {}, page: pagina, offset: porPagina },
@@ -659,11 +659,16 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       const quando = new Date(ts * (String(Math.trunc(ts)).length > 11 ? 1 : 1000)).toISOString()
       const atual = conversas.get(chave) ?? { chave, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone, nome: contato?.nome ?? null }
       if (!atual.nome && !k.fromMe && nomeValido(r.pushName)) atual.nome = nomeValido(r.pushName)
-      if (/@lid$/.test(jid) && !k.fromMe) {
+      if (/@lid$/.test(chave) && !k.fromMe) {
         perfilLid.recebidas++
-        if (nomeValido(r.pushName)) perfilLid.com_nome_valido++
-        else if (r.pushName) perfilLid.so_digitos++
-        else perfilLid.vazio++
+        perfilLid.conversas_lid.add(chave)
+        const pd = String(r.pushName ?? '').replace(/\D/g, '')
+        if (nomeValido(r.pushName)) { perfilLid.com_nome_valido++; perfilLid.conversas_com_nome.add(chave) }
+        else if (r.pushName) {
+          perfilLid.so_digitos++
+          if (pd.startsWith('55') && (pd.length === 12 || pd.length === 13)) perfilLid.digitos_tipo_telefone++
+          if (jid.startsWith(pd)) perfilLid.digitos_igual_lid++
+        } else perfilLid.vazio++
         Object.keys(r).forEach(c => perfilLid.campos.add(c))
       }
       conversas.set(chave, atual)
@@ -674,7 +679,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
     }
     if (pagina >= (Number(bloco?.pages) || 1)) break
   }
-  ultimoDiagnosticoLid = { ...perfilLid, campos: [...perfilLid.campos] }
+  ultimoDiagnosticoLid = { ...perfilLid, conversas_lid: perfilLid.conversas_lid.size, conversas_com_nome: perfilLid.conversas_com_nome.size, campos: [...perfilLid.campos] }
   if (!mensagens.length) return 0
 
   // Conversas primeiro (a mensagem aponta para elas). Nome so entra onde ainda nao ha.
