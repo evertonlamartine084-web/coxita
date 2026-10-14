@@ -772,3 +772,45 @@ export async function baixarMidias(config = lerConfigZap(), limite = 3) {
   }
   return n
 }
+
+/**
+ * Tenta ligar conversa de numero escondido (@lid) ao telefone: pergunta a Evolution, para os
+ * telefones dos pedidos e carrinhos, qual e o jid de cada um; se a resposta trouxer o @lid, a
+ * conversa ganha telefone e nome do pedido. Devolve um resumo para o impressao_log (sem telefones).
+ */
+export async function vincularNumerosEscondidos(config = lerConfigZap()) {
+  const { data: escondidas } = await supabase.from('zap_conversas').select('chave').is('telefone', null).like('chave', '%@lid')
+  if (!escondidas?.length) return { escondidas: 0 }
+  const alvo = new Set(escondidas.map(e => e.chave))
+  const [{ data: pedidos }, { data: carrinhos }] = await Promise.all([
+    supabase.from('orders').select('customer_name, customer_phone').not('customer_phone', 'is', null).order('created_at', { ascending: false }).limit(1500),
+    supabase.from('carrinhos').select('nome, telefone').not('telefone', 'is', null).order('criado_em', { ascending: false }).limit(800),
+  ])
+  const nomePorTelefone = new Map()
+  for (const [tel, nome] of [...(pedidos ?? []).map(o => [o.customer_phone, o.customer_name]), ...(carrinhos ?? []).map(c => [c.telefone, c.nome])]) {
+    let d = String(tel ?? '').replace(/\D/g, '')
+    if (d.length === 10 || d.length === 11) d = `55${d}`
+    if (d.startsWith('55') && !nomePorTelefone.has(d)) nomePorTelefone.set(d, nome)
+  }
+  const numeros = [...nomePorTelefone.keys()]
+  let amostra = null
+  let ligadas = 0
+  for (let i = 0; i < numeros.length; i += 50) {
+    const lote = numeros.slice(i, i + 50)
+    let resp
+    try {
+      resp = await evolution(`/chat/whatsappNumbers/${config.instancia}`, { method: 'POST', config, body: { numbers: lote }, limiteMs: 30000 })
+    } catch (e) { return { erro: e.message } }
+    const itens = Array.isArray(resp) ? resp : []
+    if (!amostra) amostra = itens.slice(0, 2).map(x => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, typeof v === 'string' ? v.replace(/\d{6,}/g, 'N') : v])))
+    for (const it of itens) {
+      const lid = Object.values(it).find(v => typeof v === 'string' && /@lid$/.test(v))
+      if (!lid || !alvo.has(lid)) continue
+      const tel = String(it.number ?? it.jid ?? '').replace(/\D/g, '')
+      const original = lote.find(n => variantesDoTelefone(n).includes(tel)) ?? tel
+      await supabase.from('zap_conversas').update({ telefone: original || null, nome: nomePorTelefone.get(original) ?? null }).eq('chave', lid).is('nome', null)
+      ligadas++
+    }
+  }
+  return { escondidas: alvo.size, consultados: numeros.length, ligadas, amostra }
+}

@@ -5,7 +5,7 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
-import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, enviarFilaDoAtendimento, sincronizarMensagens, completarNomes, atualizarFotosDePerfil, baixarMidias } from '../../utils/zapDoGrupo'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, enviarFilaDoAtendimento, sincronizarMensagens, completarNomes, atualizarFotosDePerfil, baixarMidias, vincularNumerosEscondidos } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
@@ -444,7 +444,8 @@ export default function AdminLayout() {
             const nomes = await completarNomes(config)
             nomesEm = Date.now()
             const fotos = await atualizarFotosDePerfil(config)
-            registrarImpressao('zap_atendimento_ligado', null, { historico, nomes, fotos, webhook })
+            const escondidos = await vincularNumerosEscondidos(config).catch(e => ({ erro: e.message }))
+            registrarImpressao('zap_atendimento_ligado', null, { historico, nomes, fotos, escondidos, webhook })
           } catch (e) {
             registrarImpressao('zap_atendimento_falhou', null, { erro: e.message })
           }
