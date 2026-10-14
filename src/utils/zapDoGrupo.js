@@ -497,7 +497,7 @@ export async function resumoDasConversas(config = lerConfigZap()) {
 const URL_DO_WEBHOOK = (segredo) =>
   `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zap-webhook?s=${segredo}`
 
-/** Garante que a Evolution avisa o banco de cada mensagem. Devolve true se ficou ligado. */
+/** Garante que a Evolution avisa o banco de cada mensagem. Devolve o que a Evolution guardou. */
 export async function ligarAtendimentoNaEvolution(config = lerConfigZap()) {
   const { data } = await supabase.from('zap_config').select('webhook_segredo').eq('id', 1).maybeSingle()
   if (!data?.webhook_segredo) return false
@@ -505,12 +505,16 @@ export async function ligarAtendimentoNaEvolution(config = lerConfigZap()) {
   let atual = null
   try { atual = await evolution(`/webhook/find/${config.instancia}`, { config }) } catch { /* sem webhook ainda */ }
   const eventos = (atual?.events ?? []).map(String)
-  if (atual?.enabled && atual?.url === url && eventos.includes('MESSAGES_UPSERT') && eventos.includes('SEND_MESSAGE')) return true
-  await evolution(`/webhook/set/${config.instancia}`, {
+  if (atual?.enabled && atual?.url === url && eventos.includes('MESSAGES_UPSERT') && eventos.includes('SEND_MESSAGE')) return { ja_estava: true }
+  const resposta = await evolution(`/webhook/set/${config.instancia}`, {
     method: 'POST', config,
     body: { webhook: { enabled: true, url, byEvents: false, base64: false, events: ['MESSAGES_UPSERT', 'SEND_MESSAGE'] } },
   })
-  return true
+  // o que a Evolution guardou, sem o segredo, para conferir de fora pelo impressao_log
+  let gravado = null
+  try { gravado = await evolution(`/webhook/find/${config.instancia}`, { config }) } catch { /* segue */ }
+  const semSegredo = (w) => w && ({ ...w, url: String(w.url ?? '').replace(/s=[^&]+/, 's=***') })
+  return { antes: semSegredo(atual), resposta: semSegredo(resposta?.webhook ?? resposta), gravado: semSegredo(gravado) }
 }
 
 /**

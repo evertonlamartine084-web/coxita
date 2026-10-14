@@ -436,9 +436,9 @@ export default function AdminLayout() {
         if (Date.now() - atendimentoConferidoEm > 60 * 60 * 1000) {
           atendimentoConferidoEm = Date.now()
           try {
-            await ligarAtendimentoNaEvolution(config)
+            const webhook = await ligarAtendimentoNaEvolution(config)
             const importadas = await importarConversasRecentes(config)
-            registrarImpressao('zap_atendimento_ligado', null, { importadas })
+            registrarImpressao('zap_atendimento_ligado', null, { importadas, webhook })
           } catch (e) {
             registrarImpressao('zap_atendimento_falhou', null, { erro: e.message })
           }
