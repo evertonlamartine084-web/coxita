@@ -9,22 +9,19 @@ import toast from 'react-hot-toast'
 
 const GRUPO = { salgados: 'Salgados', pasteis: 'Pastéis', doces: 'Doces' }
 
-// A cozinha embala de 50 em 50 e conta pacote, nao unidade: pedir "quantas
-// unidades" obrigava a multiplicar de cabeca a cada lancamento. O saldo
-// continua em unidade, que e como o pedido da baixa.
-const POR_PACOTE = 50
+// O quadro da cozinha e em centos ("presunto 14,75", "pizza 8,75"), e a tela tambem: antes ela
+// pedia pacotes de 50, e "8 e 75" do quadro virava 8 x 50 + 75 = 475 em vez de 875 (14/10/2026).
+// O saldo no banco continua em unidade, que e como o pedido da baixa.
 
-const emUnidades = (pacotes, soltas) =>
-  (parseInt(pacotes, 10) || 0) * POR_PACOTE + (parseInt(soltas, 10) || 0)
-
-/** "8 pacotes + 20" — como a cozinha le o freezer. */
-function emPacotes(unidades) {
-  const pacotes = Math.floor(unidades / POR_PACOTE)
-  const soltas = unidades % POR_PACOTE
-  if (unidades === 0) return null
-  if (!pacotes) return `${soltas} solta${soltas === 1 ? '' : 's'}`
-  return `${pacotes} pacote${pacotes === 1 ? '' : 's'}${soltas ? ` + ${soltas}` : ''}`
+/** "8,75" -> 875. Vazio ou invalido -> NaN. */
+const emUnidades = (centos) => {
+  const texto = String(centos ?? '').trim().replace(',', '.')
+  return texto === '' ? NaN : Math.round(parseFloat(texto) * 100)
 }
+
+/** 875 -> "8,75"; 1600 -> "16"; 150 -> "1,5". Como se escreve no quadro. */
+const emCentos = (unidades) =>
+  (unidades / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 
 const MOTIVOS = [
   { id: 'producao', label: 'Fritei mais', sinal: 1 },
@@ -43,8 +40,7 @@ export default function EstoquePage() {
   const [linhas, setLinhas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [modal, setModal] = useState(null)      // { linha, motivo }
-  const [pacotes, setPacotes] = useState('')
-  const [soltas, setSoltas] = useState('')
+  const [centos, setCentos] = useState('')
   const [observacao, setObservacao] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [historico, setHistorico] = useState(null)
@@ -61,8 +57,7 @@ export default function EstoquePage() {
 
   const abrir = (linha, motivo) => {
     setModal({ linha, motivo })
-    setPacotes('')
-    setSoltas('')
+    setCentos('')
     setObservacao('')
   }
 
@@ -71,8 +66,8 @@ export default function EstoquePage() {
 
   const confirmar = async (e) => {
     e.preventDefault()
-    const n = emUnidades(pacotes, soltas)
-    if (!Number.isFinite(n) || n < 0) return toast.error('Quantidade inválida.')
+    const n = emUnidades(centos)
+    if (!Number.isFinite(n) || n < 0) return toast.error('Escreva em centos, como no quadro: 8,75 ou 16.')
     if (n === 0 && motivoVazio(modal)) return toast.error('Informe a quantidade.')
 
     const { linha, motivo } = modal
@@ -88,7 +83,7 @@ export default function EstoquePage() {
         motivo: motivo.id,
         observacao: observacao.trim() || null,
       })
-      toast.success(`${linha.nome}: ${delta > 0 ? '+' : ''}${delta} un.`)
+      toast.success(`${linha.nome}: agora ${emCentos(linha.quantidade + delta)} centos`)
       setModal(null)
       carregar()
     } catch (erro) {
@@ -131,7 +126,7 @@ export default function EstoquePage() {
         <Button variant="secondary" onClick={carregar}>Atualizar</Button>
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        Unidades prontas no freezer, por sabor. Pedido dá baixa sozinho; cancelamento devolve.
+        Em centos, como no quadro da cozinha (8,75 = 875 unidades). Pedido dá baixa sozinho; cancelamento devolve.
       </p>
 
       {acabando.length > 0 && (
@@ -153,8 +148,8 @@ export default function EstoquePage() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Sabor</th>
-                  <th className="text-right px-4 py-3 font-medium">No freezer</th>
-                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Avisar em</th>
+                  <th className="text-right px-4 py-3 font-medium">No freezer (centos)</th>
+                  <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Avisar em (un.)</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -174,10 +169,10 @@ export default function EstoquePage() {
                       <td className={`px-4 py-3 text-right font-semibold tabular-nums ${
                         l.quantidade === 0 ? 'text-red-600' : baixo ? 'text-amber-600' : 'text-gray-900'
                       }`}>
-                        {l.quantidade}
+                        {emCentos(l.quantidade)}
                         {l.quantidade === 0
                           ? <span className="ml-1 text-xs font-normal">acabou</span>
-                          : <span className="block text-xs font-normal text-gray-400">{emPacotes(l.quantidade)}</span>}
+                          : <span className="block text-xs font-normal text-gray-400">{l.quantidade} un.</span>}
                       </td>
                       <td className="px-4 py-3 text-right hidden sm:table-cell">
                         <input
@@ -232,45 +227,33 @@ export default function EstoquePage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {modal.motivo.id === 'ajuste'
-                  ? `Quanto tem de verdade no freezer? (o sistema diz ${
-                      emPacotes(modal.linha.quantidade) ?? 'nada'})`
-                  : 'Quanto?'}
+                  ? `Quantos centos tem de verdade? (o sistema diz ${emCentos(modal.linha.quantidade)})`
+                  : 'Quantos centos?'}
               </label>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    min="0"
-                    autoFocus
-                    value={pacotes}
-                    onChange={e => setPacotes(e.target.value)}
-                    placeholder="0"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-gray-900 focus:outline-none"
-                  />
-                  <span className="block text-xs text-gray-500 mt-1">pacotes de {POR_PACOTE}</span>
-                </div>
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    min="0"
-                    value={soltas}
-                    onChange={e => setSoltas(e.target.value)}
-                    placeholder="0"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-gray-900 focus:outline-none"
-                  />
-                  <span className="block text-xs text-gray-500 mt-1">unidades soltas</span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600 mt-2">
-                {emUnidades(pacotes, soltas)} unidades
-                {modal.motivo.id === 'ajuste' && emUnidades(pacotes, soltas) !== modal.linha.quantidade && (
-                  <span className="text-gray-400">
-                    {' · '}
-                    {emUnidades(pacotes, soltas) > modal.linha.quantidade ? 'entra ' : 'sai '}
-                    {Math.abs(emUnidades(pacotes, soltas) - modal.linha.quantidade)}
-                  </span>
-                )}
-              </p>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                value={centos}
+                onChange={e => setCentos(e.target.value)}
+                placeholder="ex.: 8,75"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-lg focus:border-gray-900 focus:outline-none"
+              />
+              <span className="block text-xs text-gray-500 mt-1">
+                em centos, como no quadro: 8,75 = 8 centos e 75 · meio cento = 0,5
+              </span>
+              {Number.isFinite(emUnidades(centos)) && (
+                <p className="text-sm text-gray-600 mt-2">
+                  = {emUnidades(centos)} unidades
+                  {modal.motivo.id === 'ajuste' && emUnidades(centos) !== modal.linha.quantidade && (
+                    <span className="text-gray-400">
+                      {' · '}
+                      {emUnidades(centos) > modal.linha.quantidade ? 'entra ' : 'sai '}
+                      {Math.abs(emUnidades(centos) - modal.linha.quantidade)}
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -312,7 +295,7 @@ export default function EstoquePage() {
                     </span>
                   </span>
                   <span className={`font-semibold tabular-nums ${m.delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {m.delta > 0 ? '+' : ''}{m.delta}
+                    {m.delta > 0 ? '+' : ''}{m.delta} un.
                   </span>
                 </li>
               ))}
