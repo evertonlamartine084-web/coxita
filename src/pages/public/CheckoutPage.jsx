@@ -7,6 +7,7 @@ import { comecouCheckout, fezPedido } from '../../services/rastreio'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
+import { gravarOrigemDoPedido } from '../../services/origem'
 import { salvarCarrinho, esquecerCarrinho } from '../../services/carrinhos'
 import { getSettings } from '../../services/settings'
 import { cotarEntrega } from '../../services/entrega'
@@ -377,6 +378,7 @@ export default function CheckoutPage() {
 
       notifyNewOrder(order, items)
       fezPedido(order, items)
+      gravarOrigemDoPedido(order)
 
       // Increment coupon usage
       if (appliedCoupon) {

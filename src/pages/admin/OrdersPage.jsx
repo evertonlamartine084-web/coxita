@@ -16,6 +16,7 @@ import ReposicaoModal from '../../components/admin/ReposicaoModal'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
 import { FaWhatsapp } from 'react-icons/fa'
+import { rotuloDaOrigem } from '../../services/origem'
 import { aCada } from '../../utils/aCada'
 
 /** Link da conversa com o cliente. Telefone vem em vários formatos (lançado à mão no painel). */
@@ -479,7 +480,13 @@ export default function OrdersPage() {
             <div className="flex items-center gap-2 text-sm">
               <span className="font-medium">Origem:</span>
               {selectedOrder.canal === 'site' ? (
-                <span className={`${CANAIS.site.cor} rounded-full px-2 py-0.5 text-xs font-bold`}>{CANAIS.site.rotulo}</span>
+                <>
+                  <span className={`${CANAIS.site.cor} rounded-full px-2 py-0.5 text-xs font-bold`}>{CANAIS.site.rotulo}</span>
+                  {/* de onde veio a visita que virou pedido (anúncio, busca, Instagram…) */}
+                  {rotuloDaOrigem(selectedOrder.origem) && (
+                    <span className="text-xs text-gray-600">veio de: <b>{rotuloDaOrigem(selectedOrder.origem)}</b></span>
+                  )}
+                </>
               ) : (
                 // pedido do site fica como site; os lançados pelo painel podem ser corrigidos
                 <select

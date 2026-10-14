@@ -122,6 +122,8 @@ export function calcularVendas(pedidos, p) {
   const porProduto = {}
   const porBairro = {}
   const porEntrega = { entrega: 0, retirada: 0 }
+  // pedidos do site por origem da visita (orders.origem, gravado desde 14/10/2026)
+  const porOrigem = {}
 
   for (const o of atual) {
     const d = new Date(o.created_at)
@@ -133,6 +135,12 @@ export function calcularVendas(pedidos, p) {
     porCanal[canal].faturamento += Number(o.total)
     porCanal[canal].liquido += liquido(o)
     porCanal[canal].pedidos += 1
+    if (canal === 'site') {
+      const origem = o.origem?.canal || 'sem_registro'
+      porOrigem[origem] ??= { faturamento: 0, pedidos: 0 }
+      porOrigem[origem].faturamento += Number(o.total)
+      porOrigem[origem].pedidos += 1
+    }
 
     porSemana[d.getDay()].faturamento += Number(o.total)
     porSemana[d.getDay()].pedidos += 1
@@ -156,7 +164,7 @@ export function calcularVendas(pedidos, p) {
     atual: resumo(atual, p.ini, p.fim),
     anterior: resumo(anterior, p.antIni, p.antFim),
     porDia: [...porDia].map(([data, v]) => ({ data, ...v })),
-    porCanal, porSemana, porHora, porSabor, porProduto, porBairro, porEntrega,
+    porCanal, porOrigem, porSemana, porHora, porSabor, porProduto, porBairro, porEntrega,
     cancelados: pedidos.filter(o => o.status === 'cancelado' && dentro(o, p.ini, p.fim)).length,
     reposicoes: pedidos.filter(o => o.reposicao_de && o.status !== 'cancelado' && dentro(o, p.ini, p.fim)),
   }

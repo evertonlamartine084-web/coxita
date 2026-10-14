@@ -3,6 +3,7 @@ import Loading from '../../components/ui/Loading'
 import { Bloco, Cartao, GraficoDias, Ranking } from '../../components/hub/HubUi'
 import { formatCurrency, formatPercent, CANAIS } from '../../utils/format'
 import { variacao, DIAS_SEMANA, TAXA_IFOOD } from '../../utils/hub'
+import { rotuloDaOrigem } from '../../services/origem'
 
 /**
  * Vendas: o que vendeu, por onde, quando e para onde. "Fica na loja" desconta a taxa do iFood
@@ -31,6 +32,12 @@ export default function HubVendas() {
     .map(([nome, n]) => ({ nome, valor: n, texto: `${n} entregas` }))
     .sort((x, y) => y.valor - x.valor)
   const totalEntrega = vendas.porEntrega.entrega + vendas.porEntrega.retirada
+  const origens = Object.entries(vendas.porOrigem ?? {})
+    .map(([k, v]) => ({
+      nome: k === 'sem_registro' ? 'Sem registro (antes de 14/10)' : rotuloDaOrigem({ canal: k }),
+      valor: v.faturamento, extra: `${v.pedidos} ped.`,
+    }))
+    .sort((x, y) => y.valor - x.valor)
 
   return (
     <div className="space-y-5">
@@ -73,6 +80,10 @@ export default function HubVendas() {
             </table>
           </div>
         ) : <p className="text-sm text-text-light">Nenhuma venda no período.</p>}
+      </Bloco>
+
+      <Bloco titulo="De onde vieram os pedidos do site" subtitulo="A última origem da visita nos 30 dias antes do pedido: anúncio do Google, busca, Perfil, Instagram ou direto. Registrado desde 14/10.">
+        <Ranking itens={origens} formatar={formatCurrency} vazio="Nenhum pedido do site no período." />
       </Bloco>
 
       <div className="grid gap-5 md:grid-cols-2">

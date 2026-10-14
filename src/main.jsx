@@ -5,6 +5,7 @@ import App from './App.jsx'
 import { semear } from './services/cache'
 import { registerServiceWorker } from './services/registerServiceWorker.jsx'
 import { iniciarRastreio } from './services/rastreio'
+import { capturarOrigem } from './services/origem'
 
 // Cardapio que o build embutiu no HTML (scripts/dados-iniciais.mjs). Plantar
 // antes do render e o que faz a primeira pintura sair com conteudo em vez de
@@ -14,7 +15,10 @@ for (const [chave, dados] of Object.entries(window.__COXELLI__ ?? {})) {
 }
 
 // Tag do Google só no site da loja: o painel e o hub não são visita de cliente
-if (!/^\/(admin|hub)(\/|$)/.test(window.location.pathname)) iniciarRastreio()
+if (!/^\/(admin|hub)(\/|$)/.test(window.location.pathname)) {
+  iniciarRastreio()
+  capturarOrigem()
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
