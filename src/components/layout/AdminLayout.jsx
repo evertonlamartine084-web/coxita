@@ -5,7 +5,7 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
-import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, importarConversasRecentes, enviarFilaDoAtendimento } from '../../utils/zapDoGrupo'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, enviarFilaDoAtendimento, sincronizarMensagens } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
@@ -427,6 +427,7 @@ export default function AdminLayout() {
     // mensagem e, na primeira vez, traz as conversas recentes; a cada 4 s envia as respostas
     // digitadas em qualquer aparelho. Só faz algo no PC com o envio ligado (zapPronto).
     let atendimentoConferidoEm = 0
+    let copiadoEm = 0
     let enviandoFila = false
     const atendimento = async () => {
       const config = lerConfigZap()
@@ -437,13 +438,19 @@ export default function AdminLayout() {
           atendimentoConferidoEm = Date.now()
           try {
             const webhook = await ligarAtendimentoNaEvolution(config)
-            const importadas = await importarConversasRecentes(config)
-            registrarImpressao('zap_atendimento_ligado', null, { importadas, webhook })
+            // histórico recente na primeira volta de cada hora (o wa_id único evita duplicar)
+            const historico = await sincronizarMensagens(config, { paginas: 10, porPagina: 200 })
+            registrarImpressao('zap_atendimento_ligado', null, { historico, webhook })
           } catch (e) {
             registrarImpressao('zap_atendimento_falhou', null, { erro: e.message })
           }
         }
         await enviarFilaDoAtendimento(config)
+        // mensagens novas a cada ~10 s (o laço roda a cada 4 s)
+        if (Date.now() - copiadoEm > 9000) {
+          copiadoEm = Date.now()
+          await sincronizarMensagens(config, { paginas: 1, porPagina: 60 })
+        }
       } catch (e) {
         console.warn('Fila do atendimento falhou:', e)
       } finally {

@@ -517,38 +517,6 @@ export async function ligarAtendimentoNaEvolution(config = lerConfigZap()) {
   return { antes: semSegredo(atual), resposta: semSegredo(resposta?.webhook ?? resposta), gravado: semSegredo(gravado) }
 }
 
-/**
- * Primeira vez: as conversas recentes entram na lista com a ultima mensagem de cada uma, para a aba
- * nao abrir vazia. O historico completo de cada conversa so comeca a partir de quando ligou.
- */
-export async function importarConversasRecentes(config = lerConfigZap()) {
-  const { count } = await supabase.from('zap_conversas').select('chave', { count: 'exact', head: true })
-  if ((count ?? 0) >= 5) return 0
-  const conversas = await evolution(`/chat/findChats/${config.instancia}`, { method: 'POST', config, body: {} })
-  const linhas = []
-  for (const c of Array.isArray(conversas) ? conversas : []) {
-    const jid = c.remoteJid ?? c.id
-    if (!jid || /@g\.us$|@broadcast$|@newsletter$/.test(jid)) continue
-    const lm = c.lastMessage ?? {}
-    const telefone = numeroDoJid(jid, c.remoteJidAlt, lm.key?.remoteJidAlt, lm.key?.senderPn)
-    const m = lm.message ?? {}
-    const texto = m.conversation ?? m.extendedTextMessage?.text ?? m.imageMessage?.caption ?? null
-    const ts = Number(lm.messageTimestamp ?? c.updatedAt)
-    const quando = Number.isFinite(ts) && ts > 0 ? new Date(ts * (String(Math.trunc(ts)).length > 11 ? 1 : 1000)) : (c.updatedAt ? new Date(c.updatedAt) : null)
-    linhas.push({
-      chave: telefone ?? jid, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone,
-      nome: c.pushName || c.name || null,
-      ultima_msg: texto ? texto.slice(0, 200) : (Object.keys(m).length ? '[mídia]' : null),
-      ultima_em: quando && !Number.isNaN(+quando) ? quando.toISOString() : null,
-      ultima_de_mim: !!lm.key?.fromMe,
-    })
-  }
-  const recentes = linhas.filter(l => l.ultima_em).sort((a, b) => b.ultima_em.localeCompare(a.ultima_em)).slice(0, 80)
-  const unicas = [...new Map(recentes.map(l => [l.chave, l])).values()]
-  if (unicas.length) await supabase.from('zap_conversas').upsert(unicas, { onConflict: 'chave', ignoreDuplicates: true })
-  return unicas.length
-}
-
 /** Envia as respostas que alguém digitou na aba Atendimento (status 'enviar'). */
 export async function enviarFilaDoAtendimento(config = lerConfigZap()) {
   const { data: fila } = await supabase.from('zap_mensagens')
@@ -567,4 +535,120 @@ export async function enviarFilaDoAtendimento(config = lerConfigZap()) {
       await supabase.from('zap_mensagens').update({ status: 'erro', erro: e.message }).eq('id', m.id)
     }
   }
+}
+
+/*
+ * Copia as mensagens da Evolution para o banco, direto do painel do PC da loja. O aviso da
+ * Evolution (webhook) nao entregou as mensagens recebidas no teste de 14/10/2026; esta copia nao
+ * depende dele. Primeira vez: historico recente; depois, a cada volta, as mais novas. O wa_id e
+ * unico, entao o que ja esta no banco (pelo webhook ou por uma volta anterior) nao duplica.
+ */
+function desembrulhar(m) {
+  let atual = m ?? {}
+  for (let i = 0; i < 4; i++) {
+    const dentro = atual.ephemeralMessage?.message ?? atual.viewOnceMessage?.message ??
+      atual.viewOnceMessageV2?.message ?? atual.documentWithCaptionMessage?.message ?? atual.editedMessage?.message
+    if (!dentro) break
+    atual = dentro
+  }
+  return atual
+}
+
+/** [tipo, texto] da mensagem; null para reacao, mensagem apagada e afins. */
+function conteudoDaMensagem(m) {
+  if (m.reactionMessage || m.protocolMessage) return null
+  if (typeof m.conversation === 'string') return ['texto', m.conversation]
+  if (m.extendedTextMessage) return ['texto', m.extendedTextMessage.text ?? '']
+  if (m.imageMessage) return ['imagem', m.imageMessage.caption || null]
+  if (m.videoMessage) return ['video', m.videoMessage.caption || null]
+  if (m.audioMessage) return ['audio', null]
+  if (m.documentMessage) return ['documento', m.documentMessage.caption || m.documentMessage.fileName || null]
+  if (m.stickerMessage) return ['figurinha', null]
+  if (m.contactMessage) return ['contato', m.contactMessage.displayName || null]
+  if (m.contactsArrayMessage) return ['contato', (m.contactsArrayMessage.contacts ?? []).map(c => c.displayName).join(', ') || null]
+  if (m.locationMessage || m.liveLocationMessage) return ['localizacao', m.locationMessage?.name || m.locationMessage?.address || null]
+  if (m.buttonsResponseMessage) return ['texto', m.buttonsResponseMessage.selectedDisplayText ?? null]
+  if (m.listResponseMessage) return ['texto', m.listResponseMessage.title ?? null]
+  if (!Object.keys(m).length || m.senderKeyDistributionMessage && Object.keys(m).length === 1) return null
+  return ['outro', null]
+}
+
+const ehConversaDeCliente = (jid) => !!jid && !/@g\.us$|@broadcast$|@newsletter$/.test(jid)
+
+let contatosEm = 0
+let contatos = new Map() // jid/lid/telefone -> { nome, telefone }
+
+async function carregarContatos(config) {
+  if (Date.now() - contatosEm < 30 * 60 * 1000 && contatos.size) return
+  const lista = await evolution(`/chat/findContacts/${config.instancia}`, { method: 'POST', config, body: { where: {} } })
+  const mapa = new Map()
+  for (const c of Array.isArray(lista) ? lista : []) {
+    const telefone = numeroDoJid(c.remoteJid, c.remoteJidAlt, c.jid, c.id)
+    const info = { nome: c.name || c.verifiedName || c.pushName || null, telefone }
+    for (const id of [c.remoteJid, c.remoteJidAlt, c.jid, c.id, telefone]) if (id) mapa.set(String(id), info)
+  }
+  contatos = mapa
+  contatosEm = Date.now()
+}
+
+/**
+ * Copia as `paginas` mais recentes de mensagens (de `porPagina`). Devolve quantas linhas mandou ao
+ * banco. Na primeira vez (banco sem mensagens) zera as nao lidas no fim, senao o historico inteiro
+ * apareceria como mensagem nova.
+ */
+export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 1, porPagina = 100 } = {}) {
+  await carregarContatos(config).catch(() => {})
+  const { count: jaTinha } = await supabase.from('zap_mensagens').select('id', { count: 'exact', head: true })
+  const conversas = new Map()
+  const mensagens = []
+  for (let pagina = 1; pagina <= paginas; pagina++) {
+    const resp = await evolution(`/chat/findMessages/${config.instancia}`, {
+      method: 'POST', config, body: { where: {}, page: pagina, offset: porPagina },
+    })
+    const bloco = resp?.messages ?? resp
+    const registros = bloco?.records ?? []
+    for (const r of registros) {
+      const k = r.key ?? {}
+      const jid = k.remoteJid
+      if (!ehConversaDeCliente(jid) || !k.id) continue
+      const c = conteudoDaMensagem(desembrulhar(r.message))
+      if (!c) continue
+      const contato = contatos.get(jid) ?? contatos.get(k.remoteJidAlt ?? '') ?? null
+      const telefone = numeroDoJid(jid, k.remoteJidAlt, k.senderPn, r.remoteJidAlt) ?? contato?.telefone ?? null
+      const chave = telefone ?? jid
+      const ts = Number(r.messageTimestamp)
+      if (!Number.isFinite(ts) || ts <= 0) continue
+      const quando = new Date(ts * (String(Math.trunc(ts)).length > 11 ? 1 : 1000)).toISOString()
+      const atual = conversas.get(chave) ?? { chave, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone, nome: contato?.nome ?? null }
+      if (!atual.nome && !k.fromMe && r.pushName) atual.nome = r.pushName
+      conversas.set(chave, atual)
+      mensagens.push({
+        wa_id: k.id, conversa: chave, de_mim: !!k.fromMe, tipo: c[0], texto: c[1],
+        status: k.fromMe ? 'enviada' : 'recebida', criada_em: quando,
+      })
+    }
+    if (pagina >= (Number(bloco?.pages) || 1)) break
+  }
+  if (!mensagens.length) return 0
+
+  // Conversas primeiro (a mensagem aponta para elas). Nome so entra onde ainda nao ha.
+  const linhas = [...conversas.values()]
+  const { data: existentes } = await supabase.from('zap_conversas').select('chave, nome').in('chave', linhas.map(l => l.chave))
+  const comNome = new Set((existentes ?? []).filter(e => e.nome).map(e => e.chave))
+  const conhecidas = new Set((existentes ?? []).map(e => e.chave))
+  const novas = linhas.filter(l => !conhecidas.has(l.chave))
+  if (novas.length) await supabase.from('zap_conversas').insert(novas)
+  for (const l of linhas) {
+    if (conhecidas.has(l.chave) && !comNome.has(l.chave) && l.nome) {
+      await supabase.from('zap_conversas').update({ nome: l.nome }).eq('chave', l.chave)
+    }
+  }
+
+  // Da mais velha para a mais nova: a previa da conversa fica com a ultima.
+  mensagens.sort((a, b) => a.criada_em.localeCompare(b.criada_em))
+  for (let i = 0; i < mensagens.length; i += 200) {
+    await supabase.from('zap_mensagens').upsert(mensagens.slice(i, i + 200), { onConflict: 'wa_id', ignoreDuplicates: true })
+  }
+  if (!jaTinha) await supabase.from('zap_conversas').update({ nao_lidas: 0 }).gt('nao_lidas', 0)
+  return mensagens.length
 }
