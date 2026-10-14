@@ -177,7 +177,8 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
       toast.success(`Pedido #${pedido.order_number} criado.`)
       setItens([])
       setForm(f => ({ ...f, customer_name: '', customer_phone: '', notes: '', agendado: false, scheduled_date: '', scheduled_time: '' }))
-      aoCriar?.(pedido)
+      // nome e telefone digitados vão junto: o Atendimento usa para nomear a conversa
+      aoCriar?.({ ...pedido, customer_name: form.customer_name.trim(), customer_phone: form.customer_phone.trim() })
       aoFechar()
     } catch (e) {
       console.error('Não foi possível criar o pedido:', e)

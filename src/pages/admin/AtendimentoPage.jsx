@@ -31,7 +31,8 @@ function telefoneNaTela(t) {
   return d.length === 10 || d.length === 11 ? mascararTelefone(d) : `+${String(t).replace(/\D/g, '')}`
 }
 
-const nomeDaConversa = (c) => c.nome || (c.telefone ? telefoneNaTela(c.telefone) : 'Sem número')
+// Número escondido (@lid): o WhatsApp não manda nome nem telefone; renomear ou criar pedido resolve.
+const nomeDaConversa = (c) => c.nome || (c.telefone ? telefoneNaTela(c.telefone) : 'Número escondido · toque para nomear')
 
 function Avatar({ c }) {
   const [falhou, setFalhou] = useState(false)
@@ -326,7 +327,17 @@ export default function AtendimentoPage() {
         aberto={pedido !== null}
         inicial={pedido}
         aoFechar={() => setPedido(null)}
-        aoCriar={() => setPedido(null)}
+        aoCriar={async (criado) => {
+          setPedido(null)
+          // conversa sem nome ou sem telefone aprende com o pedido criado a partir dela
+          if (!conversa || (conversa.nome && conversa.telefone) || !criado) return
+          const digitos = String(criado.customer_phone ?? '').replace(/\D/g, '')
+          await supabase.from('zap_conversas').update({
+            nome: conversa.nome || criado.customer_name || null,
+            telefone: conversa.telefone || (digitos.length === 10 || digitos.length === 11 ? `55${digitos}` : null),
+          }).eq('chave', conversa.chave)
+          carregarConversas()
+        }}
       />
     </div>
   )
