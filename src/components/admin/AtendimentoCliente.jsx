@@ -60,9 +60,9 @@ export function CardPedidoAberto({ pedido: p, aoCobrar, aoMudar }) {
       <div className="ml-auto flex flex-wrap gap-1.5">
         {!pago && (
           <>
-            <button onClick={() => aoCobrar(p)} className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50">
+            {aoCobrar && <button onClick={() => aoCobrar(p)} className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50">
               <HiCash /> Cobrar Pix
-            </button>
+            </button>}
             <button
               onClick={() => window.confirm(`Marcar o pedido #${p.order_number} como pago (${formatCurrency(faltaReceber(p))})?`) && agir(() => marcarPago(p.id), 'Marcado como pago.')}
               className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-green-700 ring-1 ring-green-300 hover:bg-green-50"

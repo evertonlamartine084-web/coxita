@@ -130,6 +130,8 @@ function bipe() {
 }
 
 const PAGAMENTOS_DO_PAINEL = ['dinheiro', 'pix', 'credito', 'debito']
+// Pix Copia e Cola pronto (utils/pix.js), mas desligado a pedido do dono em 14/10/2026.
+const PIX_LIGADO = false
 
 const tipoDoArquivo = (mime) => (mime.startsWith('image/') ? 'imagem'
   : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : 'documento')
@@ -600,7 +602,7 @@ export default function AtendimentoPage() {
 
               <CardPedidoAberto
                 pedido={pedidoAberto}
-                aoCobrar={(p) => cobrarPix(faltaReceber(p), p)}
+                aoCobrar={PIX_LIGADO ? (p) => cobrarPix(faltaReceber(p), p) : null}
                 aoMudar={carregarPedidos}
               />
               <div className="relative flex min-h-0 flex-1">
@@ -695,7 +697,7 @@ export default function AtendimentoPage() {
                     <button type="button" onClick={() => setPainel(p => (p === 'emojis' ? null : 'emojis'))} className="p-2 text-gray-500" title="Emojis"><HiEmojiHappy size={22} /></button>
                     <button type="button" onClick={() => arquivoRef.current?.click()} className="p-2 text-gray-500" title="Foto ou arquivo"><HiPaperClip size={22} /></button>
                     <button type="button" onClick={() => setPainel(p => (p === 'rapidas' ? null : 'rapidas'))} className="p-2 text-gray-500" title="Respostas rápidas (ou digite /)"><HiLightningBolt size={22} /></button>
-                    <button type="button" onClick={pixAvulso} className="p-2 text-gray-500" title="Mandar Pix Copia e Cola com valor"><HiQrcode size={22} /></button>
+                    {PIX_LIGADO && <button type="button" onClick={pixAvulso} className="p-2 text-gray-500" title="Mandar Pix Copia e Cola com valor"><HiQrcode size={22} /></button>}
                     <input ref={arquivoRef} type="file" className="hidden" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                       onChange={e => subirArquivo(e.target.files?.[0])} />
                     <textarea
