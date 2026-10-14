@@ -128,23 +128,31 @@ async function evolution(caminho, { method = 'GET', body, config = lerConfigZap(
 let ultimoEnvio = 0
 const sorteio = (min, max) => min + Math.random() * (max - min)
 
-async function enviarTexto(numero, texto, config) {
+// `pressa`: resposta digitada por uma pessoa no Atendimento. Ela ja tem o ritmo de gente, entao
+// espera so 1,5 s desde o ultimo envio e "digita" 1 s; as automaticas seguem com 5 a 15 s.
+async function enviarPelaEvolution(caminho, corpo, config, { pressa = false } = {}) {
   // Uma fila so para tudo que sai do numero (grupo, avisos, respostas do Atendimento), inclusive
   // entre abas: sem a trava, dois lacos calculavam a espera ao mesmo tempo e saiam colados.
   const enviar = async () => {
-    const espera = ultimoEnvio + sorteio(5000, 15000) - Date.now()
+    const espera = ultimoEnvio + (pressa ? 1500 : sorteio(5000, 15000)) - Date.now()
     if (espera > 0) await new Promise(r => setTimeout(r, espera))
     try {
-      return await evolution(`/message/sendText/${config.instancia}`, {
+      return await evolution(`${caminho}/${config.instancia}`, {
         method: 'POST', config,
-        // linkPreview false: sem o cartao grande do site em cima da mensagem, o link fica so como texto
-        body: { number: numero, text: texto, linkPreview: false, delay: Math.round(sorteio(1500, 3500)) },
+        body: { ...corpo, delay: Math.round(pressa ? 1000 : sorteio(1500, 3500)) },
       })
     } finally {
       ultimoEnvio = Date.now()
     }
   }
   return navigator.locks ? navigator.locks.request('coxelli-zap-envio', enviar) : enviar()
+}
+
+async function enviarTexto(numero, texto, config, opcoes = {}) {
+  // linkPreview false: sem o cartao grande do site em cima da mensagem, o link fica so como texto
+  const corpo = { number: numero, text: texto, linkPreview: false }
+  if (opcoes.citada) corpo.quoted = { key: { id: opcoes.citada.id }, message: { conversation: opcoes.citada.texto ?? '' } }
+  return enviarPelaEvolution('/message/sendText', corpo, config, opcoes)
 }
 
 /*
@@ -518,9 +526,11 @@ export async function ligarAtendimentoNaEvolution(config = lerConfigZap()) {
 }
 
 /** Envia as respostas que alguém digitou na aba Atendimento (status 'enviar'). */
+const TIPO_DA_EVOLUTION = { imagem: 'image', video: 'video', documento: 'document' }
+
 export async function enviarFilaDoAtendimento(config = lerConfigZap()) {
   const { data: fila } = await supabase.from('zap_mensagens')
-    .select('id, texto, conversa, zap_conversas(jid, telefone)')
+    .select('id, texto, tipo, midia_path, midia_tipo, midia_nome, responde_a, responde_texto, conversa, zap_conversas(jid, telefone)')
     .eq('status', 'enviar').order('criada_em').limit(5)
   for (const m of fila ?? []) {
     // pega a mensagem para si: outra aba do mesmo PC nao envia de novo
@@ -529,7 +539,22 @@ export async function enviarFilaDoAtendimento(config = lerConfigZap()) {
     if (!pega?.length) continue
     const destino = m.zap_conversas?.telefone || m.zap_conversas?.jid
     try {
-      const r = await enviarTexto(destino, m.texto, config)
+      let r
+      if (m.midia_path) {
+        // a Evolution baixa o arquivo por este link (10 min) e manda para o WhatsApp
+        const { data: link } = await supabase.storage.from('zap-midia').createSignedUrl(m.midia_path, 600)
+        if (!link?.signedUrl) throw new Error('arquivo não encontrado')
+        r = m.tipo === 'audio'
+          ? await enviarPelaEvolution('/message/sendWhatsAppAudio', { number: destino, audio: link.signedUrl }, config, { pressa: true })
+          : await enviarPelaEvolution('/message/sendMedia', {
+            number: destino, mediatype: TIPO_DA_EVOLUTION[m.tipo] ?? 'document', mimetype: m.midia_tipo,
+            caption: m.texto ?? '', media: link.signedUrl, fileName: m.midia_nome ?? undefined,
+          }, config, { pressa: true })
+      } else {
+        r = await enviarTexto(destino, m.texto, config, {
+          pressa: true, citada: m.responde_a ? { id: m.responde_a, texto: m.responde_texto } : null,
+        })
+      }
       await supabase.from('zap_mensagens').update({ status: 'enviada', wa_id: r?.key?.id ?? null }).eq('id', m.id)
     } catch (e) {
       await supabase.from('zap_mensagens').update({ status: 'erro', erro: e.message }).eq('id', m.id)
@@ -576,6 +601,17 @@ function conteudoDaMensagem(m) {
 const ehConversaDeCliente = (jid) => !!jid && !/@g\.us$|@broadcast$|@newsletter$/.test(jid)
 
 export let ultimoDiagnosticoLid = null
+// wa_id -> situação de entrega já gravada: a volta de 2,5 s só escreve no banco o que mudou
+const vistas = new Map()
+
+/** ✓ / ✓✓ / lida, pelo último status que a Evolution guardou da mensagem enviada. */
+function situacaoDeEntrega(r) {
+  const historico = Array.isArray(r.MessageUpdate) ? r.MessageUpdate.map(u => u.status) : []
+  const todos = [...historico, r.status].filter(Boolean).map(String)
+  if (todos.some(x => /READ|PLAYED/.test(x))) return 'lido'
+  if (todos.some(x => /DELIVERY/.test(x))) return 'entregue'
+  return 'enviado'
+}
 let contatosEm = 0
 let contatos = new Map() // jid/lid/telefone -> { nome, telefone }
 
@@ -672,15 +708,35 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
         Object.keys(r).forEach(c => perfilLid.campos.add(c))
       }
       conversas.set(chave, atual)
+      const msg = desembrulhar(r.message)
+      const ctx = r.contextInfo ?? msg.extendedTextMessage?.contextInfo ?? msg.imageMessage?.contextInfo ?? null
+      const citada = ctx?.stanzaId ? conteudoDaMensagem(desembrulhar(ctx.quotedMessage)) : null
       mensagens.push({
         wa_id: k.id, conversa: chave, de_mim: !!k.fromMe, tipo: c[0], texto: c[1],
         status: k.fromMe ? 'enviada' : 'recebida', criada_em: quando,
+        responde_a: ctx?.stanzaId ?? null,
+        responde_texto: citada ? (citada[1] ?? `[${citada[0]}]`).slice(0, 200) : null,
+        status_wa: k.fromMe ? situacaoDeEntrega(r) : null,
+        midia_nome: msg.documentMessage?.fileName ?? null,
       })
     }
     if (pagina >= (Number(bloco?.pages) || 1)) break
   }
   ultimoDiagnosticoLid = { ...perfilLid, conversas_lid: perfilLid.conversas_lid.size, conversas_com_nome: perfilLid.conversas_com_nome.size, campos: [...perfilLid.campos] }
   if (!mensagens.length) return 0
+
+  // Volta rápida sem novidade (nada novo e nenhum ✓ mudou): não toca no banco.
+  const mudou = mensagens.filter(m => vistas.get(m.wa_id) !== (m.status_wa ?? ''))
+  if (!mudou.length) return 0
+  const novasMsgs = mudou.filter(m => !vistas.has(m.wa_id))
+  const soStatus = mudou.filter(m => vistas.has(m.wa_id))
+  mensagens.length = 0
+  mensagens.push(...novasMsgs)
+  for (const m of soStatus) {
+    await supabase.from('zap_mensagens').update({ status_wa: m.status_wa }).eq('wa_id', m.wa_id)
+  }
+  for (const m of mudou) vistas.set(m.wa_id, m.status_wa ?? '')
+  if (!mensagens.length) return soStatus.length
 
   // Conversas primeiro (a mensagem aponta para elas). Nome so entra onde ainda nao ha.
   const linhas = [...conversas.values()]
@@ -699,6 +755,10 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   mensagens.sort((a, b) => a.criada_em.localeCompare(b.criada_em))
   for (let i = 0; i < mensagens.length; i += 200) {
     await supabase.from('zap_mensagens').upsert(mensagens.slice(i, i + 200), { onConflict: 'wa_id', ignoreDuplicates: true })
+  }
+  // mensagem que já estava no banco antes desta sessão do painel: só o ✓ pode ter mudado
+  for (const m of mensagens.filter(x => x.de_mim && x.status_wa)) {
+    await supabase.from('zap_mensagens').update({ status_wa: m.status_wa }).eq('wa_id', m.wa_id).is('status_wa', null)
   }
   if (!jaTinha) await supabase.from('zap_conversas').update({ nao_lidas: 0 }).gt('nao_lidas', 0)
   return mensagens.length
@@ -756,7 +816,10 @@ export async function atualizarFotosDePerfil(config = lerConfigZap(), limite = 4
   return n
 }
 
-const EXTENSAO = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a' }
+const EXTENSAO = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a',
+  'video/mp4': 'mp4', 'application/pdf': 'pdf', 'audio/webm': 'webm',
+}
 
 /**
  * Foto, audio e figurinha das conversas: baixa da Evolution e guarda no bucket privado zap-midia.
@@ -766,7 +829,7 @@ export async function baixarMidias(config = lerConfigZap(), limite = 3) {
   const umaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   const seteDias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const { data } = await supabase.from('zap_mensagens').select('id, wa_id, conversa, tipo')
-    .in('tipo', ['imagem', 'audio', 'figurinha']).is('midia_path', null).not('wa_id', 'is', null)
+    .in('tipo', ['imagem', 'audio', 'figurinha', 'video', 'documento']).is('midia_path', null).not('wa_id', 'is', null)
     .gte('criada_em', seteDias).or(`midia_tentou_em.is.null,midia_tentou_em.lt.${umaHora}`)
     .order('criada_em', { ascending: false }).limit(limite)
   let n = 0
@@ -777,6 +840,7 @@ export async function baixarMidias(config = lerConfigZap(), limite = 3) {
         method: 'POST', config, body: { message: { key: { id: m.wa_id } }, convertToMp4: false }, limiteMs: 30000,
       })
       if (!r?.base64) continue
+      if (r.base64.length > 22 * 1024 * 1024) continue // acima de ~16 MB fica só a etiqueta
       const tipo = String(r.mimetype || (m.tipo === 'audio' ? 'audio/ogg' : 'image/jpeg')).split(';')[0]
       const bytes = Uint8Array.from(atob(r.base64), ch => ch.charCodeAt(0))
       const caminho = `${m.conversa.replace(/[^\w]/g, '_')}/${m.wa_id.replace(/[^\w]/g, '_')}.${EXTENSAO[tipo] ?? 'bin'}`

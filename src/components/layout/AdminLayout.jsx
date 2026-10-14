@@ -40,6 +40,16 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  // conversas do Zap com mensagem não lida (aba Atendimento)
+  const [zapNaoLidas, setZapNaoLidas] = useState(0)
+  useEffect(() => {
+    const contar = async () => {
+      const { count } = await supabase.from('zap_conversas').select('chave', { count: 'exact', head: true }).gt('nao_lidas', 0)
+      setZapNaoLidas(count ?? 0)
+    }
+    Promise.resolve().then(contar)
+    return aCada(contar, 15000)
+  }, [])
   const lastOrderCountRef = useRef(null)
   // null = ainda lendo. Lido direto do banco, sem o cache de settings: é o estado do site agora
   const [emManutencao, setEmManutencao] = useState(null)
@@ -424,10 +434,11 @@ export default function AdminLayout() {
 
     enviarPendentes()
     // Atendimento (aba Atendimento): uma vez por hora confere se a Evolution avisa o banco de cada
-    // mensagem e, na primeira vez, traz as conversas recentes; a cada 4 s envia as respostas
+    // mensagem e, na primeira vez, traz as conversas recentes; a cada 2 s envia as respostas
     // digitadas em qualquer aparelho. Só faz algo no PC com o envio ligado (zapPronto).
     let atendimentoConferidoEm = 0
     let copiadoEm = 0
+    let midiaEm = 0
     let nomesEm = 0
     let enviandoFila = false
     const atendimento = async () => {
@@ -451,10 +462,13 @@ export default function AdminLayout() {
           }
         }
         await enviarFilaDoAtendimento(config)
-        // mensagens novas a cada ~10 s (o laço roda a cada 4 s)
-        if (Date.now() - copiadoEm > 9000) {
+        // mensagens novas a cada ~2,5 s; volta sem novidade não escreve nada no banco
+        if (Date.now() - copiadoEm > 2400) {
           copiadoEm = Date.now()
-          await sincronizarMensagens(config, { paginas: 1, porPagina: 60 })
+          await sincronizarMensagens(config, { paginas: 1, porPagina: 30 })
+        }
+        if (Date.now() - midiaEm > 8000) {
+          midiaEm = Date.now()
           await baixarMidias(config)
         }
         // nome de contato salvo agora no celular: confere a agenda a cada 5 min
@@ -469,7 +483,7 @@ export default function AdminLayout() {
       }
     }
     atendimento()
-    const pararAtendimento = aCada(atendimento, 4000)
+    const pararAtendimento = aCada(atendimento, 2000)
     const pararPendentes = aCada(enviarPendentes, 15000)
     return () => { pararAtendimento(); pararPendentes() }
   }, [])
@@ -557,6 +571,11 @@ export default function AdminLayout() {
               >
                 {createElement(icon, { size: 20 })}
                 <span className="flex-1">{label}</span>
+                {to === '/admin/atendimento' && zapNaoLidas > 0 && (
+                  <span className="bg-green-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
+                    {zapNaoLidas}
+                  </span>
+                )}
                 {to === '/admin/pedidos' && displayedPendingCount > 0 && (
                   <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
                     {displayedPendingCount}
