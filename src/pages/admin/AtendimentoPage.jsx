@@ -562,10 +562,10 @@ export default function AtendimentoPage() {
                   className={`rounded-lg px-2 py-1.5 xl:hidden ${mostrarFicha ? 'bg-gray-200' : 'text-gray-500'}`}><HiUser size={18} /></button>
                 <button onClick={montarComIA} disabled={montandoIA} title="A IA lê a conversa e monta o pedido para você conferir"
                   className="flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5 disabled:opacity-50">
-                  <HiSparkles className={montandoIA ? 'animate-pulse' : ''} /> {montandoIA ? 'Lendo a conversa…' : 'Montar pedido'}
+                  <HiSparkles className={montandoIA ? 'animate-pulse' : ''} /> {montandoIA ? 'Lendo…' : 'Montar'}<span className="hidden 2xl:inline"> pedido</span>
                 </button>
                 <button onClick={abrirPedido} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">
-                  <HiPlus /> <span className="hidden sm:inline">Criar pedido</span>
+                  <HiPlus /> <span className="hidden 2xl:inline">Criar pedido</span>
                 </button>
               </header>
 
@@ -578,7 +578,7 @@ export default function AtendimentoPage() {
                 }}
                 aoMudar={carregarPedidos}
               />
-              <div className="flex min-h-0 flex-1">
+              <div className="relative flex min-h-0 flex-1">
               <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex-1 overflow-y-auto bg-[#efeae2] px-3 py-2 md:px-10">
                 {temMais && (
@@ -696,7 +696,7 @@ export default function AtendimentoPage() {
               </form>
               </div>
               {/* Ficha do cliente: coluna fixa em tela larga, painel pelo botão nas menores */}
-              <aside className={`${mostrarFicha ? 'block' : 'hidden'} xl:block w-72 shrink-0 overflow-y-auto border-l border-gray-200 bg-white`}>
+              <aside className={`${mostrarFicha ? 'block' : 'hidden'} absolute inset-y-0 right-0 z-10 w-72 max-w-full overflow-y-auto border-l border-gray-200 bg-white shadow-xl xl:static xl:block xl:shrink-0 xl:shadow-none`}>
                 <p className="border-b border-gray-200 px-4 py-2.5 font-semibold">Cliente</p>
                 <FichaDoCliente
                   pedidos={pedidosCliente}
