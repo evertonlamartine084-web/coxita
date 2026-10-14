@@ -575,6 +575,7 @@ function conteudoDaMensagem(m) {
 
 const ehConversaDeCliente = (jid) => !!jid && !/@g\.us$|@broadcast$|@newsletter$/.test(jid)
 
+export let ultimoDiagnosticoLid = null
 let contatosEm = 0
 let contatos = new Map() // jid/lid/telefone -> { nome, telefone }
 
@@ -635,6 +636,8 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   const { count: jaTinha } = await supabase.from('zap_mensagens').select('id', { count: 'exact', head: true })
   const conversas = new Map()
   const mensagens = []
+  // diagnóstico do nome de perfil nas conversas de número escondido (sem guardar o nome)
+  const perfilLid = { recebidas: 0, com_nome_valido: 0, so_digitos: 0, vazio: 0, campos: new Set() }
   for (let pagina = 1; pagina <= paginas; pagina++) {
     const resp = await evolution(`/chat/findMessages/${config.instancia}`, {
       method: 'POST', config, body: { where: {}, page: pagina, offset: porPagina },
@@ -656,6 +659,13 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       const quando = new Date(ts * (String(Math.trunc(ts)).length > 11 ? 1 : 1000)).toISOString()
       const atual = conversas.get(chave) ?? { chave, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone, nome: contato?.nome ?? null }
       if (!atual.nome && !k.fromMe && nomeValido(r.pushName)) atual.nome = nomeValido(r.pushName)
+      if (/@lid$/.test(jid) && !k.fromMe) {
+        perfilLid.recebidas++
+        if (nomeValido(r.pushName)) perfilLid.com_nome_valido++
+        else if (r.pushName) perfilLid.so_digitos++
+        else perfilLid.vazio++
+        Object.keys(r).forEach(c => perfilLid.campos.add(c))
+      }
       conversas.set(chave, atual)
       mensagens.push({
         wa_id: k.id, conversa: chave, de_mim: !!k.fromMe, tipo: c[0], texto: c[1],
@@ -664,6 +674,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
     }
     if (pagina >= (Number(bloco?.pages) || 1)) break
   }
+  ultimoDiagnosticoLid = { ...perfilLid, campos: [...perfilLid.campos] }
   if (!mensagens.length) return 0
 
   // Conversas primeiro (a mensagem aponta para elas). Nome so entra onde ainda nao ha.
