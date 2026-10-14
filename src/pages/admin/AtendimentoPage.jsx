@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   HiArrowLeft, HiPaperAirplane, HiPencil, HiPlus, HiSearch, HiPaperClip, HiMicrophone, HiStop,
-  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles,
+  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles, HiUser,
 } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { supabase } from '../../services/supabase'
 import { aCada } from '../../utils/aCada'
 import { mascararTelefone } from '../../utils/format'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
+import { CardPedidoAberto, FichaDoCliente } from '../../components/admin/AtendimentoCliente'
+import { getSettings } from '../../services/settings'
 
 /**
  * Atendimento do WhatsApp dentro do painel, em qualquer aparelho (supabase/zap-atendimento*.sql).
@@ -126,6 +128,8 @@ function bipe() {
   } catch { /* sem áudio */ }
 }
 
+const PAGAMENTOS_DO_PAINEL = ['dinheiro', 'pix', 'credito', 'debito']
+
 const tipoDoArquivo = (mime) => (mime.startsWith('image/') ? 'imagem'
   : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : 'documento')
 
@@ -145,6 +149,9 @@ export default function AtendimentoPage() {
   const [painel, setPainel] = useState(null) // 'emojis' | 'rapidas' | null
   const [respostas, setRespostas] = useState([])
   const [gravando, setGravando] = useState(null) // { recorder, stream }
+  const [pedidosCliente, setPedidosCliente] = useState(null)
+  const [settings, setSettings] = useState({})
+  const [mostrarFicha, setMostrarFicha] = useState(false)
   const [avisos, setAvisos] = useState(() => (typeof Notification !== 'undefined' ? Notification.permission : 'denied'))
   const fimRef = useRef(null)
   const abertaRef = useRef(null)
@@ -192,6 +199,15 @@ export default function AtendimentoPage() {
     await carregarMensagens()
   }
 
+  // Pedidos do cliente da conversa aberta (ficha e card do pedido em aberto)
+  const telefoneAbertoRef = useRef(null)
+  const carregarPedidos = useCallback(async () => {
+    const tel = telefoneAbertoRef.current
+    if (!tel) { setPedidosCliente([]); return }
+    const { data, error } = await supabase.rpc('pedidos_do_telefone', { p_telefone: tel })
+    if (!error && telefoneAbertoRef.current === tel) setPedidosCliente(data ?? [])
+  }, [])
+
   const carregarRespostas = useCallback(async () => {
     const { data } = await supabase.from('zap_respostas_rapidas').select('*').order('titulo')
     setRespostas(data ?? [])
@@ -199,6 +215,7 @@ export default function AtendimentoPage() {
 
   useEffect(() => {
     Promise.resolve().then(() => { carregarConversas(); carregarRespostas() })
+    getSettings().then(setSettings).catch(() => {})
     return aCada(carregarConversas, 20000)
   }, [carregarConversas, carregarRespostas])
 
@@ -254,6 +271,30 @@ export default function AtendimentoPage() {
   }, [mensagens, aberta])
 
   const conversa = conversas?.find(c => c.chave === aberta) ?? null
+  const telefoneDaConversa = conversa?.telefone ?? null
+  useEffect(() => {
+    telefoneAbertoRef.current = telefoneDaConversa
+    Promise.resolve().then(() => { setPedidosCliente(null); carregarPedidos() })
+    if (!telefoneDaConversa) return
+    return aCada(carregarPedidos, 20000)
+  }, [telefoneDaConversa, carregarPedidos])
+  const pedidoAberto = (pedidosCliente ?? []).find(p => !['entregue', 'cancelado'].includes(p.status)) ?? null
+
+  const repetirPedido = (p) => {
+    setPedido({
+      customer_name: p.customer_name ?? conversa?.nome ?? '',
+      customer_phone: conversa?.telefone ? telefoneNaTela(conversa.telefone) : (p.customer_phone ?? ''),
+      canal: 'whatsapp',
+      delivery_type: p.delivery_type ?? 'retirada',
+      payment_method: p.payment_method && PAGAMENTOS_DO_PAINEL.includes(p.payment_method) ? p.payment_method : 'dinheiro',
+      address: p.address ?? '', address_number: p.address_number ?? '', neighborhood: p.neighborhood ?? '', address_cep: p.address_cep ?? '',
+      itens: (p.itens ?? []).map(it => ({
+        produto_id: it.product_id, nome: it.product_name, quantidade: it.quantity,
+        sabores: (it.flavors ?? []).map(f => ({ id: f.flavor_id, name: f.flavor_name, quantity: f.quantity })),
+      })),
+      duvidas: [`Repetindo o pedido #${p.order_number} de ${new Date(p.created_at).toLocaleDateString('pt-BR')}. Confira horário, endereço, taxa e pagamento.`],
+    })
+  }
   const naoLidas = (conversas ?? []).filter(c => c.nao_lidas > 0).length
   const visiveis = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -517,6 +558,8 @@ export default function AtendimentoPage() {
                   </button>
                   {conversa.telefone && conversa.nome && <p className="text-xs text-gray-500">{telefoneNaTela(conversa.telefone)}</p>}
                 </div>
+                <button onClick={() => setMostrarFicha(v => !v)} title="Ficha do cliente"
+                  className={`rounded-lg px-2 py-1.5 xl:hidden ${mostrarFicha ? 'bg-gray-200' : 'text-gray-500'}`}><HiUser size={18} /></button>
                 <button onClick={montarComIA} disabled={montandoIA} title="A IA lê a conversa e monta o pedido para você conferir"
                   className="flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5 disabled:opacity-50">
                   <HiSparkles className={montandoIA ? 'animate-pulse' : ''} /> {montandoIA ? 'Lendo a conversa…' : 'Montar pedido'}
@@ -526,6 +569,17 @@ export default function AtendimentoPage() {
                 </button>
               </header>
 
+              <CardPedidoAberto
+                pedido={pedidoAberto}
+                settings={settings}
+                aoCobrar={(t) => {
+                  if (!settings.pix_key) toast('Cadastre a chave Pix em Configurações para ela sair na mensagem.')
+                  setTexto(t); caixaRef.current?.focus()
+                }}
+                aoMudar={carregarPedidos}
+              />
+              <div className="flex min-h-0 flex-1">
+              <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex-1 overflow-y-auto bg-[#efeae2] px-3 py-2 md:px-10">
                 {temMais && (
                   <div className="my-2 text-center">
@@ -640,6 +694,18 @@ export default function AtendimentoPage() {
                   </>
                 )}
               </form>
+              </div>
+              {/* Ficha do cliente: coluna fixa em tela larga, painel pelo botão nas menores */}
+              <aside className={`${mostrarFicha ? 'block' : 'hidden'} xl:block w-72 shrink-0 overflow-y-auto border-l border-gray-200 bg-white`}>
+                <p className="border-b border-gray-200 px-4 py-2.5 font-semibold">Cliente</p>
+                <FichaDoCliente
+                  pedidos={pedidosCliente}
+                  carregando={pedidosCliente === null}
+                  temTelefone={!!conversa.telefone}
+                  aoRepetir={repetirPedido}
+                />
+              </aside>
+              </div>
             </>
           )}
         </section>
@@ -651,6 +717,7 @@ export default function AtendimentoPage() {
         aoFechar={() => setPedido(null)}
         aoCriar={async (criado) => {
           setPedido(null)
+          carregarPedidos()
           // conversa sem nome ou sem telefone aprende com o pedido criado a partir dela
           if (!conversa || (conversa.nome && conversa.telefone) || !criado) return
           const digitos = String(criado.customer_phone ?? '').replace(/\D/g, '')

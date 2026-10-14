@@ -69,9 +69,10 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
     aplicadoRef.current = inicial
     const montados = []
     const faltam = []
+    const foraDoCardapio = []
     for (const it of inicial.itens) {
       const p = produtos.find(x => String(x.id) === String(it.produto_id))
-      if (!p) continue
+      if (!p) { if (it.nome) foraDoCardapio.push(it.nome); continue }
       if (it.montar_sabores) { faltam.push(p); continue }
       const flavors = p.pack_size && p.fixed_flavor_id
         ? [{ id: p.fixed_flavor_id, name: p.sabor_fixo?.name ?? p.name, quantity: p.pack_size }]
@@ -80,6 +81,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
     }
     setItens(montados)
     setFaltaSabores(faltam)
+    if (foraDoCardapio.length) setDuvidas(d => [...d, `Fora do cardápio agora: ${foraDoCardapio.join(', ')}.`])
   }, [aberto, inicial, produtos])
 
   useEffect(() => {
