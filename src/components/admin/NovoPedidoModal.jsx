@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { HiPlus, HiTrash } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { getAllProducts, getProdutosDoPainel } from '../../services/products'
@@ -52,9 +52,35 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
     scheduled_time: '',
   })
 
+  // Pedido montado pela IA no Atendimento: itens já com sabores, mais as dúvidas para conferir.
+  // `inicial.itens` = [{ produto_id, quantidade, sabores: [{id,name,quantity}], montar_sabores }]
+  const [duvidas, setDuvidas] = useState([])
+  const [faltaSabores, setFaltaSabores] = useState([]) // produtos que a IA não conseguiu fechar
+  const aplicadoRef = useRef(null)
   useEffect(() => {
-    if (aberto && inicial) setForm(f => ({ ...f, ...inicial }))
+    if (!aberto || !inicial) return
+    const { itens: _itens, duvidas: duvidasIniciais, ...campos } = inicial
+    setForm(f => ({ ...f, ...campos }))
+    setDuvidas(duvidasIniciais ?? [])
+    setFaltaSabores([])
   }, [aberto, inicial])
+  useEffect(() => {
+    if (!aberto || !inicial?.itens?.length || !produtos.length || aplicadoRef.current === inicial) return
+    aplicadoRef.current = inicial
+    const montados = []
+    const faltam = []
+    for (const it of inicial.itens) {
+      const p = produtos.find(x => String(x.id) === String(it.produto_id))
+      if (!p) continue
+      if (it.montar_sabores) { faltam.push(p); continue }
+      const flavors = p.pack_size && p.fixed_flavor_id
+        ? [{ id: p.fixed_flavor_id, name: p.sabor_fixo?.name ?? p.name, quantity: p.pack_size }]
+        : it.sabores ?? []
+      montados.push({ ...p, quantity: it.quantidade || 1, flavors })
+    }
+    setItens(montados)
+    setFaltaSabores(faltam)
+  }, [aberto, inicial, produtos])
 
   useEffect(() => {
     if (!aberto) return
@@ -194,6 +220,24 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
     <>
       <Modal isOpen={aberto} onClose={aoFechar} title="Novo pedido">
         <div className="space-y-4">
+          {(duvidas.length > 0 || faltaSabores.length > 0) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-semibold">Montado pela IA a partir da conversa. Confira:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {duvidas.map((d, i) => <li key={i}>{d}</li>)}
+              </ul>
+              {faltaSabores.map((p, i) => (
+                <button
+                  key={`${p.id}-${i}`}
+                  type="button"
+                  onClick={() => { setMontando(p); setFaltaSabores(f => f.filter((_, j) => j !== i)) }}
+                  className="mt-2 mr-2 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white"
+                >
+                  Escolher sabores: {p.name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Cliente *" value={form.customer_name} onChange={e => mudar('customer_name', e.target.value)} />
             <Input label="Telefone" value={form.customer_phone} onChange={e => mudar('customer_phone', mascararTelefone(e.target.value))} inputMode="tel" placeholder="(00) 00000-0000" />

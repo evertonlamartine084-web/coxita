@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   HiArrowLeft, HiPaperAirplane, HiPencil, HiPlus, HiSearch, HiPaperClip, HiMicrophone, HiStop,
-  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText,
+  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles,
 } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { supabase } from '../../services/supabase'
@@ -398,6 +398,43 @@ export default function AtendimentoPage() {
     })
   }
 
+  // ✨ A IA lê a conversa e devolve o pedido montado (supabase/functions/montar-pedido); a pessoa
+  // confere tudo no NovoPedidoModal antes de criar.
+  const [montandoIA, setMontandoIA] = useState(false)
+  const montarComIA = async () => {
+    if (!conversa) return
+    setMontandoIA(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('montar-pedido', { body: { conversa: conversa.chave } })
+      if (error) {
+        const corpo = await error.context?.json?.().catch(() => null)
+        const motivo = corpo?.erro
+        throw new Error(motivo === 'sem_chave' || motivo === 'chave_invalida' ? 'A IA ainda não está ligada (falta a chave da Anthropic).'
+          : motivo === 'sem_mensagens' ? 'Não há mensagens recentes nesta conversa.'
+            : motivo === 'ocupado' ? 'A IA está ocupada, tente de novo em alguns segundos.' : 'Não consegui montar o pedido.')
+      }
+      const p = data.pedido
+      const e = p.endereco ?? {}
+      const quandoOk = p.data && p.hora
+      setPedido({
+        customer_name: p.nome_cliente || conversa.nome || '',
+        customer_phone: conversa.telefone ? telefoneNaTela(conversa.telefone) : '',
+        canal: 'whatsapp',
+        ...(p.tipo_entrega === 'entrega' || p.tipo_entrega === 'retirada' ? { delivery_type: p.tipo_entrega } : {}),
+        ...(p.pagamento && p.pagamento !== 'nao_informado' ? { payment_method: p.pagamento } : {}),
+        address: e.rua ?? '', address_number: e.numero ?? '', neighborhood: e.bairro ?? '', address_cep: e.cep ?? '',
+        notes: [p.observacoes, e.complemento && `Compl.: ${e.complemento}`, p.troco_para && `Troco para R$ ${p.troco_para}`].filter(Boolean).join(' · '),
+        ...(quandoOk ? { agendado: true, scheduled_date: p.data, scheduled_time: p.hora } : {}),
+        itens: p.itens ?? [],
+        duvidas: p.duvidas ?? [],
+      })
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setMontandoIA(false)
+    }
+  }
+
   const ativarAvisos = async () => {
     if (typeof Notification === 'undefined') return
     setAvisos(await Notification.requestPermission())
@@ -480,8 +517,12 @@ export default function AtendimentoPage() {
                   </button>
                   {conversa.telefone && conversa.nome && <p className="text-xs text-gray-500">{telefoneNaTela(conversa.telefone)}</p>}
                 </div>
+                <button onClick={montarComIA} disabled={montandoIA} title="A IA lê a conversa e monta o pedido para você conferir"
+                  className="flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5 disabled:opacity-50">
+                  <HiSparkles className={montandoIA ? 'animate-pulse' : ''} /> {montandoIA ? 'Lendo a conversa…' : 'Montar pedido'}
+                </button>
                 <button onClick={abrirPedido} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">
-                  <HiPlus /> Criar pedido
+                  <HiPlus /> <span className="hidden sm:inline">Criar pedido</span>
                 </button>
               </header>
 
