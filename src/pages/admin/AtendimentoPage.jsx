@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   HiArrowLeft, HiPaperAirplane, HiPencil, HiPlus, HiSearch, HiPaperClip, HiMicrophone, HiStop,
-  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles, HiUser, HiQrcode,
+  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles, HiUser, HiQrcode, HiChevronDown,
 } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { supabase } from '../../services/supabase'
@@ -125,6 +125,35 @@ function Midia({ m, url, aoAmpliar }) {
 
 const REACOES = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 
+/** Para onde encaminhar: lista de conversas com busca. */
+function EscolherConversa({ conversas, aoEscolher, aoFechar }) {
+  const [busca, setBusca] = useState('')
+  const termo = busca.trim().toLowerCase()
+  const digitos = termo.replace(/\D/g, '')
+  const lista = conversas.filter(c => !termo || (c.nome ?? '').toLowerCase().includes(termo) || (digitos && (c.telefone ?? '').includes(digitos))).slice(0, 60)
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={aoFechar}>
+      <div className="flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <p className="font-semibold">Encaminhar para…</p>
+          <button type="button" onClick={aoFechar} className="text-gray-500"><HiX /></button>
+        </div>
+        <input autoFocus value={busca} onChange={e => setBusca(e.target.value)} placeholder="Pesquisar nome ou telefone" className="border-b border-gray-200 px-4 py-2 text-sm outline-none" />
+        <ul className="flex-1 overflow-y-auto">
+          {lista.map(c => (
+            <li key={c.chave}>
+              <button type="button" onClick={() => aoEscolher(c)} className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-gray-50">
+                <Avatar c={c} />
+                <span className="truncate">{nomeDaConversa(c)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 /** Foto em tela cheia: toque fora, no X ou Esc fecha. */
 function FotoGrande({ url, aoFechar }) {
   useEffect(() => {
@@ -192,6 +221,8 @@ export default function AtendimentoPage() {
   const [citando, setCitando] = useState(null)
   const [fotoGrande, setFotoGrande] = useState(null)
   const [reagindo, setReagindo] = useState(null) // id da mensagem com o seletor de reação aberto
+  const [menuDe, setMenuDe] = useState(null) // id da mensagem com o menu de ações aberto
+  const [encaminhando, setEncaminhando] = useState(null) // mensagem sendo encaminhada
   const [painel, setPainel] = useState(null) // 'emojis' | 'rapidas' | null
   const [respostas, setRespostas] = useState([])
   const [gravando, setGravando] = useState(null) // { recorder, stream }
@@ -559,6 +590,47 @@ export default function AtendimentoPage() {
     else carregarMensagens()
   }
 
+  // Ações da mensagem, como no WhatsApp. Apagar e editar só valem para mensagem da loja e
+  // dentro do prazo do WhatsApp (~2 dias para apagar, 15 min para editar); quem executa é o PC da loja.
+  const podeEditar = (m) => m.de_mim && m.wa_id && m.tipo === 'texto' && !m.apagada && agora - new Date(m.criada_em) < 15 * 60 * 1000
+  const podeApagar = (m) => m.de_mim && m.wa_id && !m.apagada && agora - new Date(m.criada_em) < 48 * 60 * 60 * 1000
+
+  const copiar = async (m) => {
+    setMenuDe(null)
+    try { await navigator.clipboard.writeText(m.texto ?? ''); toast.success('Copiado.') } catch { toast.error('Não consegui copiar.') }
+  }
+
+  const editarMensagem = async (m) => {
+    setMenuDe(null)
+    const novo = window.prompt('Editar mensagem:', m.texto ?? '')
+    if (novo === null || !novo.trim() || novo.trim() === m.texto) return
+    const { error } = await supabase.from('zap_mensagens').update({ acao_pendente: { tipo: 'editar', texto: novo.trim() }, erro: null }).eq('id', m.id)
+    if (error) toast.error('Não consegui editar.')
+    else carregarMensagens()
+  }
+
+  const apagarMensagem = async (m) => {
+    setMenuDe(null)
+    if (!window.confirm('Apagar esta mensagem para todos? O cliente vai ver "Mensagem apagada".')) return
+    const { error } = await supabase.from('zap_mensagens').update({ acao_pendente: { tipo: 'apagar' }, erro: null }).eq('id', m.id)
+    if (error) toast.error('Não consegui apagar.')
+    else carregarMensagens()
+  }
+
+  const encaminharPara = async (destino) => {
+    const m = encaminhando
+    setEncaminhando(null)
+    if (!m || !destino) return
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('zap_mensagens').insert({
+      conversa: destino.chave, de_mim: true, status: 'enviar', enviada_por: user?.email ?? null,
+      tipo: m.midia_path ? m.tipo : 'texto', texto: m.texto,
+      midia_path: m.midia_path ?? null, midia_tipo: m.midia_tipo ?? null, midia_nome: m.midia_nome ?? null,
+    })
+    if (error) return toast.error('Não consegui encaminhar.')
+    toast.success(`Encaminhada para ${nomeDaConversa(destino)}.`)
+  }
+
   const ativarAvisos = async () => {
     if (typeof Notification === 'undefined') return
     setAvisos(await Notification.requestPermission())
@@ -672,10 +744,24 @@ export default function AtendimentoPage() {
                   const novoDia = i === 0 || new Date(mensagens[i - 1].criada_em).toDateString() !== new Date(m.criada_em).toDateString()
                   const temMidia = !!(m.midia_path && links[m.midia_path])
                   const legenda = m.tipo === 'texto' || temMidia ? m.texto : `${ROTULO_MIDIA[m.tipo] ?? 'Mensagem'}${m.texto ? ` · ${m.texto}` : ''}`
-                  const botaoResponder = m.wa_id && (
-                    <div className="relative flex flex-col gap-1 opacity-40 md:opacity-0 md:group-hover:opacity-100">
-                      <button onClick={() => { setCitando(m); caixaRef.current?.focus() }} title="Responder" className="text-gray-500"><HiReply /></button>
-                      <button onClick={() => setReagindo(r => (r === m.id ? null : m.id))} title="Reagir" className="text-gray-500"><HiEmojiHappy /></button>
+                  const acoes = [
+                    m.wa_id && !m.apagada && { rotulo: 'Responder', fazer: () => { setMenuDe(null); setCitando(m); caixaRef.current?.focus() } },
+                    m.wa_id && !m.apagada && { rotulo: 'Reagir', fazer: () => { setMenuDe(null); setReagindo(m.id) } },
+                    m.texto && !m.apagada && { rotulo: 'Copiar', fazer: () => copiar(m) },
+                    !m.apagada && (m.texto || m.midia_path) && { rotulo: 'Encaminhar', fazer: () => { setMenuDe(null); setEncaminhando(m) } },
+                    podeEditar(m) && { rotulo: 'Editar', fazer: () => editarMensagem(m) },
+                    podeApagar(m) && { rotulo: 'Apagar para todos', fazer: () => apagarMensagem(m), perigo: true },
+                  ].filter(Boolean)
+                  const botaoResponder = acoes.length > 0 && (
+                    <div className="relative">
+                      <button onClick={() => setMenuDe(d => (d === m.id ? null : m.id))} title="Mais" className={`rounded-full p-0.5 text-gray-500 hover:bg-black/5 ${menuDe === m.id ? 'opacity-100' : 'opacity-40 md:opacity-0 md:group-hover:opacity-100'}`}><HiChevronDown /></button>
+                      {menuDe === m.id && (
+                        <div className={`absolute top-6 z-20 w-44 overflow-hidden rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-gray-200 ${m.de_mim ? 'right-0' : 'left-0'}`}>
+                          {acoes.map(a => (
+                            <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-3 py-1.5 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : ''}`}>{a.rotulo}</button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                   const reacoes = Object.entries(m.reacoes ?? {}).filter(([, e]) => e)
@@ -695,9 +781,21 @@ export default function AtendimentoPage() {
                           {m.responde_texto && (
                             <div className="mb-1 rounded border-l-4 border-green-600 bg-black/5 px-2 py-1 text-xs text-gray-600 line-clamp-3">{previaDaLista(m.responde_texto)}</div>
                           )}
-                          <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande} />
-                          {legenda && <p className="whitespace-pre-wrap break-words"><ComLinks texto={legenda} /></p>}
+                          {m.apagada ? (
+                            <>
+                              <p className="italic text-gray-500">🚫 {m.de_mim ? 'Você apagou esta mensagem' : 'Mensagem apagada'}</p>
+                              {!m.de_mim && legenda && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-gray-400 line-through" title="O cliente apagou; só a equipe vê">{legenda}</p>}
+                            </>
+                          ) : (
+                            <>
+                              <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande} />
+                              {legenda && <p className="whitespace-pre-wrap break-words"><ComLinks texto={legenda} /></p>}
+                            </>
+                          )}
+                          {m.acao_pendente && <p className="text-[10px] text-gray-500">{m.acao_pendente.tipo === 'apagar' ? 'apagando…' : 'editando…'}</p>}
+                          {m.erro && m.status !== 'erro' && <p className="text-[10px] text-red-600">{m.erro}</p>}
                           <p className="mt-0.5 flex justify-end gap-1 text-[10px] text-gray-500">
+                            {m.editada && !m.apagada && <span>Editada</span>}
                             {horario(m.criada_em)} <Situacao m={m} agora={agora} />
                           </p>
                           {(reacoes.length > 0 || pendente) && (
@@ -811,6 +909,13 @@ export default function AtendimentoPage() {
       </div>
 
       {fotoGrande && <FotoGrande url={fotoGrande} aoFechar={() => setFotoGrande(null)} />}
+      {encaminhando && (
+        <EscolherConversa
+          conversas={conversas.filter(c => c.chave !== aberta)}
+          aoEscolher={encaminharPara}
+          aoFechar={() => setEncaminhando(null)}
+        />
+      )}
 
       <NovoPedidoModal
         aberto={pedido !== null}

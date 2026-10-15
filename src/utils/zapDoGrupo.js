@@ -555,7 +555,7 @@ export async function enviarFilaDoAtendimento(config = lerConfigZap()) {
           pressa: true, citada: m.responde_a ? { id: m.responde_a, texto: m.responde_texto } : null,
         })
       }
-      await supabase.from('zap_mensagens').update({ status: 'enviada', wa_id: r?.key?.id ?? null }).eq('id', m.id)
+      await supabase.from('zap_mensagens').update({ status: 'enviada', wa_id: r?.key?.id ?? null, remote_jid: r?.key?.remoteJid ?? null }).eq('id', m.id)
     } catch (e) {
       await supabase.from('zap_mensagens').update({ status: 'erro', erro: e.message }).eq('id', m.id)
     }
@@ -676,6 +676,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   const conversas = new Map()
   const mensagens = []
   const reacoesVistas = []
+  const protocolos = []
   // diagnóstico do nome de perfil nas conversas de número escondido (sem guardar o nome)
   const perfilLid = { recebidas: 0, com_nome_valido: 0, so_digitos: 0, vazio: 0, digitos_tipo_telefone: 0, digitos_igual_lid: 0, conversas_lid: new Set(), conversas_com_nome: new Set(), campos: new Set() }
   for (let pagina = 1; pagina <= paginas; pagina++) {
@@ -688,6 +689,13 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       const k = r.key ?? {}
       const jid = k.remoteJid
       if (!ehConversaDeCliente(jid) || !k.id) continue
+      // apagou ou editou uma mensagem: muda a mensagem original
+      const pm = r.message?.protocolMessage ?? desembrulhar(r.message).protocolMessage
+      if (pm?.key?.id) {
+        if (pm.type === 0 || pm.type === 'REVOKE') protocolos.push({ id: k.id, alvo: pm.key.id, apagar: true })
+        else if (pm.editedMessage) protocolos.push({ id: k.id, alvo: pm.key.id, texto: conteudoDaMensagem(desembrulhar(pm.editedMessage))?.[1] ?? null })
+        continue
+      }
       // reação (👍 ❤️) não é mensagem: vai para a mensagem reagida
       const reacao = desembrulhar(r.message).reactionMessage
       if (reacao?.key?.id) {
@@ -731,6 +739,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
         responde_texto: citada ? (citada[1] ?? `[${citada[0]}]`).slice(0, 200) : null,
         status_wa: k.fromMe ? situacaoDeEntrega(r) : null,
         midia_nome: msg.documentMessage?.fileName ?? null,
+        remote_jid: jid,
       })
     }
     if (pagina >= (Number(bloco?.pages) || 1)) break
@@ -740,6 +749,13 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
     if (vistas.get(re.id) === re.emoji) continue
     const { error } = await supabase.rpc('zap_reagir', { p_wa_id: re.alvo, p_de: re.de, p_emoji: re.emoji })
     if (!error) vistas.set(re.id, re.emoji)
+  }
+
+  for (const pr of [...protocolos].reverse()) {
+    if (vistas.has(pr.id)) continue
+    const mudanca = pr.apagar ? { apagada: true } : { texto: pr.texto, editada: true }
+    const { error } = await supabase.from('zap_mensagens').update(mudanca).eq('wa_id', pr.alvo)
+    if (!error) vistas.set(pr.id, 'protocolo')
   }
 
   ultimoDiagnosticoLid = { ...perfilLid, conversas_lid: perfilLid.conversas_lid.size, conversas_com_nome: perfilLid.conversas_com_nome.size, campos: [...perfilLid.campos] }
@@ -944,5 +960,36 @@ export async function enviarReacoesPendentes(config = lerConfigZap()) {
       await supabase.rpc('zap_reagir', { p_wa_id: m.wa_id, p_de: 'loja', p_emoji: emoji })
     } catch { /* deixa sem a reação; não fica tentando para sempre */ }
     await supabase.from('zap_mensagens').update({ reacao_pendente: null }).eq('id', m.id)
+  }
+}
+
+/**
+ * Apagar para todos e editar, pedidos pelo painel (zap_mensagens.acao_pendente). Só mensagem da
+ * loja; o WhatsApp recusa apagar depois de ~2 dias e editar depois de 15 min.
+ */
+export async function executarAcoesPendentes(config = lerConfigZap()) {
+  const { data } = await supabase.from('zap_mensagens')
+    .select('id, wa_id, remote_jid, acao_pendente, zap_conversas(jid, telefone)')
+    .not('acao_pendente', 'is', null).eq('de_mim', true).not('wa_id', 'is', null).limit(5)
+  for (const m of data ?? []) {
+    const jid = m.remote_jid || m.zap_conversas?.jid
+    const acao = m.acao_pendente ?? {}
+    const executar = () => (acao.tipo === 'apagar'
+      ? evolution(`/chat/deleteMessageForEveryone/${config.instancia}`, {
+        method: 'DELETE', config, body: { id: m.wa_id, remoteJid: jid, fromMe: true },
+      })
+      : evolution(`/chat/updateMessage/${config.instancia}`, {
+        method: 'POST', config,
+        body: { number: m.zap_conversas?.telefone || jid, key: { remoteJid: jid, fromMe: true, id: m.wa_id }, text: acao.texto },
+      }))
+    try {
+      await (navigator.locks ? navigator.locks.request('coxelli-zap-envio', executar) : executar())
+      const feito = acao.tipo === 'apagar' ? { apagada: true } : { texto: acao.texto, editada: true }
+      await supabase.from('zap_mensagens').update({ ...feito, acao_pendente: null, erro: null }).eq('id', m.id)
+    } catch (e) {
+      await supabase.from('zap_mensagens').update({
+        acao_pendente: null, erro: `Não consegui ${acao.tipo === 'apagar' ? 'apagar' : 'editar'}: ${e.message}`,
+      }).eq('id', m.id)
+    }
   }
 }
