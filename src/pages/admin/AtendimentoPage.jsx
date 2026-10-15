@@ -655,7 +655,7 @@ export default function AtendimentoPage() {
         {/* Lista de conversas */}
         <aside className={`${aberta ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-gray-200 md:w-[320px] lg:w-[340px] 2xl:w-[380px]`}>
           <header className="flex h-16 shrink-0 items-center justify-between bg-[#f0f2f5] px-4">
-            <h1 className="text-lg font-semibold text-gray-900">Conversas</h1>
+            <h2 className="font-sans text-lg font-semibold text-gray-900">Conversas</h2>
             <div className="flex items-center gap-1">
               {avisos === 'default' && (
                 <button onClick={ativarAvisos} title="Avisar mensagem nova" aria-label="Avisar mensagem nova" className={ICONE}><HiBell size={20} /></button>
