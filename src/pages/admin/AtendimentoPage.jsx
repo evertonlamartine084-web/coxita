@@ -258,6 +258,8 @@ export default function AtendimentoPage() {
   const arquivoRef = useRef(null)
   const caixaRef = useRef(null)
   const rolarRef = useRef(true)
+  const areaRef = useRef(null)
+  const noFim = () => { const a = areaRef.current; return !a || a.scrollHeight - a.scrollTop - a.clientHeight < 120 }
 
   const carregarConversas = useCallback(async () => {
     const { data, error } = await supabase.from('zap_conversas').select('*')
@@ -324,7 +326,7 @@ export default function AtendimentoPage() {
     const canal = supabase.channel('atendimento-zap')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'zap_mensagens' }, (p) => {
         const m = p.new ?? {}
-        if (m.conversa && m.conversa === abertaRef.current) { rolarRef.current = true; carregarMensagens() }
+        if (m.conversa && m.conversa === abertaRef.current) { if (noFim()) rolarRef.current = true; carregarMensagens() }
         recarregarLista()
         if (p.eventType === 'INSERT' && m.de_mim === false && (m.conversa !== abertaRef.current || document.hidden)) {
           bipe()
@@ -365,7 +367,12 @@ export default function AtendimentoPage() {
       const c = conversasRef.current.find(x => x.chave === aberta)
       if (c?.nao_lidas) supabase.from('zap_conversas').update({ nao_lidas: 0 }).eq('chave', aberta).then(() => {})
     }
-    if (rolarRef.current) fimRef.current?.scrollIntoView({ block: 'end' })
+    // Como no WhatsApp: rola para o fim ao abrir, ao enviar e quando chega mensagem com a pessoa já
+    // no fim. Quem está lendo mensagens antigas não é puxado para baixo pela atualização.
+    if (rolarRef.current) {
+      fimRef.current?.scrollIntoView({ block: 'end' })
+      rolarRef.current = false
+    }
   }, [mensagens, aberta])
 
   const conversa = conversas?.find(c => c.chave === aberta) ?? null
@@ -603,6 +610,13 @@ export default function AtendimentoPage() {
   }
 
   // Reação: grava como pendente; o PC da loja manda pela Evolution. Tocar na mesma tira.
+  // abre para cima se o elemento está na metade de baixo da área das mensagens
+  const paraCima = (el) => {
+    const a = areaRef.current?.getBoundingClientRect()
+    const t = el.getBoundingClientRect().top
+    return a ? t > a.top + a.height * 0.5 : t > window.innerHeight * 0.55
+  }
+
   const reagir = async (m, emoji) => {
     setReagindo(null)
     const tirar = m.reacoes?.loja === emoji
@@ -765,7 +779,7 @@ export default function AtendimentoPage() {
               />
               <div className="relative flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <div className="min-h-0 flex-1 overflow-y-auto bg-[#efeae2] px-3 py-3 sm:px-6 xl:px-12" onClick={() => { if (menuDe) setMenuDe(null) }}>
+                  <div ref={areaRef} className="min-h-0 flex-1 overflow-y-auto bg-[#efeae2] px-3 py-3 sm:px-6 xl:px-12" onClick={() => { if (menuDe) setMenuDe(null) }}>
                     {temMais && (
                       <div className="mb-3 text-center">
                         <button onClick={carregarAnteriores} className="h-7 rounded-full bg-white/95 px-3 text-xs text-gray-600 shadow-sm hover:bg-white">Carregar mensagens anteriores</button>
@@ -803,7 +817,7 @@ export default function AtendimentoPage() {
                                 // tela de toque: como no WhatsApp do celular, tocar na mensagem abre o menu
                                 if (!acoes.length || !window.matchMedia('(hover: none)').matches || e.target.closest('a, button, audio, video')) return
                                 e.stopPropagation()
-                                setAbrirParaCima(e.currentTarget.getBoundingClientRect().top > window.innerHeight * 0.55)
+                                setAbrirParaCima(paraCima(e.currentTarget))
                                 setMenuDe(d => (d === m.id ? null : m.id))
                               }}
                               className={`relative max-w-[85%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.5px] leading-5 text-gray-900 shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] sm:max-w-[75%] lg:max-w-[65%] ${
@@ -846,7 +860,7 @@ export default function AtendimentoPage() {
                             </div>
                             {acoes.length > 0 && (
                               <div className={`shrink-0 self-start pt-1 ${m.de_mim ? 'order-first' : ''}`}>
-                                <button onClick={(e) => { e.stopPropagation(); setAbrirParaCima(e.currentTarget.getBoundingClientRect().top > window.innerHeight * 0.55); setMenuDe(d => (d === m.id ? null : m.id)) }} aria-label="Mais opções"
+                                <button onClick={(e) => { e.stopPropagation(); setAbrirParaCima(paraCima(e.currentTarget)); setMenuDe(d => (d === m.id ? null : m.id)) }} aria-label="Mais opções"
                                   className={`flex h-6 w-6 items-center justify-center rounded-full bg-white/80 text-gray-500 shadow-sm transition-opacity hover:text-gray-700 ${menuDe === m.id ? 'opacity-100' : 'pointer-events-none opacity-0 [@media(hover:hover)]:pointer-events-auto [@media(hover:hover)]:group-hover/linha:opacity-100'}`}>
                                   <HiChevronDown size={16} />
                                 </button>
