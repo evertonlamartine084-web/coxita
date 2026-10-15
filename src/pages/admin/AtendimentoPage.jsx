@@ -610,11 +610,16 @@ export default function AtendimentoPage() {
   }
 
   // Reação: grava como pendente; o PC da loja manda pela Evolution. Tocar na mesma tira.
-  // abre para cima se o elemento está na metade de baixo da área das mensagens
+  // O menu abre junto da setinha (topo do balão) e vai para o lado onde cabe: mede o espaço livre
+  // abaixo da setinha e acima do balão na área das mensagens. Balão alto não empurra o menu para fora.
+  const ALTURA_MENU = 210
   const paraCima = (el) => {
     const a = areaRef.current?.getBoundingClientRect()
-    const t = el.getBoundingClientRect().top
-    return a ? t > a.top + a.height * 0.5 : t > window.innerHeight * 0.55
+    const linha = (el.closest('.group\\/linha') ?? el).getBoundingClientRect()
+    if (!a) return false
+    const abaixo = a.bottom - (linha.top + 32)
+    const acima = linha.top - a.top
+    return abaixo < ALTURA_MENU && acima > abaixo
   }
 
   const reagir = async (m, emoji) => {
@@ -850,7 +855,7 @@ export default function AtendimentoPage() {
                                 </span>
                               )}
                               {reagindo === m.id && (
-                                <div className={`absolute z-20 flex gap-0.5 rounded-full bg-white px-2 py-1 shadow-xl ring-1 ring-black/5 ${abrirParaCima ? '-top-11' : 'top-full mt-1'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
+                                <div className={`absolute z-20 flex gap-0.5 rounded-full bg-white px-2 py-1 shadow-xl ring-1 ring-black/5 ${abrirParaCima ? '-top-11' : 'top-8'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
                                   {REACOES.map(e => (
                                     <button key={e} type="button" onClick={() => reagir(m, e)} className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-125 ${m.reacoes?.loja === e ? 'bg-gray-200' : ''}`}>{e}</button>
                                   ))}
@@ -865,7 +870,7 @@ export default function AtendimentoPage() {
                                   <HiChevronDown size={16} />
                                 </button>
                                 {menuDe === m.id && (
-                                  <div className={`absolute z-30 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5 ${abrirParaCima ? 'bottom-full mb-1' : 'top-full mt-1'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
+                                  <div className={`absolute z-30 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5 ${abrirParaCima ? 'bottom-full mb-1' : 'top-8'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
                                     {acoes.map(a => (
                                       <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-4 py-2 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : 'text-gray-800'}`}>{a.rotulo}</button>
                                     ))}
