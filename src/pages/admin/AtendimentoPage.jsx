@@ -63,7 +63,8 @@ function rotuloDoDia(iso) {
   const ontem = new Date(); ontem.setDate(hoje.getDate() - 1)
   if (d.toDateString() === hoje.toDateString()) return 'Hoje'
   if (d.toDateString() === ontem.toDateString()) return 'Ontem'
-  return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+  const t = d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return t.charAt(0).toUpperCase() + t.slice(1) // "Domingo, 11 de outubro"
 }
 
 /** Texto com link clicável. */
@@ -198,6 +199,10 @@ function bipe() {
     o.start(); o.stop(ctx.currentTime + 0.25)
   } catch { /* sem áudio */ }
 }
+
+// Medidas padrão: ícone de ação 40 px redondo; botão de ação 36 px.
+const ICONE = 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-700 disabled:opacity-40'
+const BOTAO = 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors'
 
 const PAGAMENTOS_DO_PAINEL = ['dinheiro', 'pix', 'credito', 'debito']
 // Pix Copia e Cola pronto (utils/pix.js), mas desligado a pedido do dono em 14/10/2026.
@@ -640,55 +645,58 @@ export default function AtendimentoPage() {
     ? respostas.filter(r => r.titulo.toLowerCase().includes(texto.slice(1).toLowerCase()))
     : respostas
 
-  if (conversas === null) return <p className="text-gray-500">Carregando conversas…</p>
+  if (conversas === null) {
+    return <div className="flex flex-1 items-center justify-center text-sm text-gray-500">Carregando conversas…</div>
+  }
 
   return (
-    <div>
-      <div className={`${aberta ? 'hidden md:flex' : 'flex'} items-center justify-between mb-4`}>
-        <h1 className="text-2xl font-bold">Atendimento</h1>
-        {avisos === 'default' && (
-          <button onClick={ativarAvisos} className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm">
-            <HiBell /> Avisar mensagem nova
-          </button>
-        )}
-      </div>
-
-      <div className="flex h-[calc(100vh-10rem)] min-h-[440px] overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-white lg:rounded-xl lg:border lg:border-gray-200 lg:shadow-sm">
         {/* Lista de conversas */}
-        <aside className={`${aberta ? 'hidden md:flex' : 'flex'} w-full md:w-96 shrink-0 flex-col border-r border-gray-200`}>
-          <div className="space-y-2 border-b border-gray-200 p-3">
-            <div className="flex gap-2">
-              <label className="flex flex-1 items-center gap-2 rounded-lg bg-gray-100 px-3 py-2">
-                <HiSearch className="text-gray-400" />
-                <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Pesquisar nome ou telefone" className="w-full bg-transparent text-sm outline-none" />
-              </label>
-              <button onClick={novaConversa} title="Nova conversa" className="rounded-lg bg-green-600 px-3 text-white"><HiPlus /></button>
+        <aside className={`${aberta ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-gray-200 md:w-[320px] lg:w-[340px] 2xl:w-[380px]`}>
+          <header className="flex h-16 shrink-0 items-center justify-between bg-[#f0f2f5] px-4">
+            <h1 className="text-lg font-semibold text-gray-900">Conversas</h1>
+            <div className="flex items-center gap-1">
+              {avisos === 'default' && (
+                <button onClick={ativarAvisos} title="Avisar mensagem nova" aria-label="Avisar mensagem nova" className={ICONE}><HiBell size={20} /></button>
+              )}
+              <button onClick={novaConversa} title="Nova conversa" aria-label="Nova conversa" className={ICONE}><HiPlus size={20} /></button>
             </div>
-            <div className="flex gap-2 text-sm">
-              {[['todas', 'Todas'], ['naoLidas', `Não lidas${naoLidas ? ` (${naoLidas})` : ''}`]].map(([id, rotulo]) => (
-                <button key={id} onClick={() => setFiltro(id)} className={`rounded-full px-3 py-1 ${filtro === id ? 'bg-green-100 font-semibold text-green-800' : 'bg-gray-100 text-gray-600'}`}>{rotulo}</button>
+          </header>
+          <div className="shrink-0 space-y-2 border-b border-gray-200 px-3 py-2">
+            <label className="flex h-9 items-center gap-2 rounded-lg bg-[#f0f2f5] px-3 focus-within:ring-2 focus-within:ring-green-600/30">
+              <HiSearch className="shrink-0 text-gray-500" size={16} />
+              <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Pesquisar nome ou telefone" aria-label="Pesquisar" className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-500" />
+            </label>
+            <div className="flex gap-2">
+              {[['todas', 'Todas'], ['naoLidas', `Não lidas${naoLidas ? ` · ${naoLidas}` : ''}`]].map(([id, rotulo]) => (
+                <button key={id} onClick={() => setFiltro(id)} aria-pressed={filtro === id}
+                  className={`h-7 rounded-full px-3 text-[13px] transition-colors ${filtro === id ? 'bg-green-100 font-semibold text-green-800' : 'bg-[#f0f2f5] text-gray-600 hover:bg-gray-200'}`}>
+                  {rotulo}
+                </button>
               ))}
             </div>
           </div>
-          <ul className="flex-1 overflow-y-auto">
+          <ul className="min-h-0 flex-1 overflow-y-auto">
             {visiveis.length === 0 && (
-              <li className="p-6 text-center text-sm text-gray-500">
+              <li className="px-6 py-10 text-center text-sm text-gray-500">
                 {conversas.length === 0 ? 'As conversas aparecem aqui assim que o painel do PC da loja ligar o atendimento.'
                   : filtro === 'naoLidas' ? 'Nenhuma conversa não lida.' : 'Nenhuma conversa com esse nome ou telefone.'}
               </li>
             )}
             {visiveis.map(c => (
               <li key={c.chave}>
-                <button onClick={() => abrir(c.chave)} className={`flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2.5 text-left hover:bg-gray-50 ${aberta === c.chave ? 'bg-gray-100' : ''}`}>
+                <button onClick={() => abrir(c.chave)} aria-current={aberta === c.chave ? 'true' : undefined}
+                  className={`flex h-[72px] w-full items-center gap-3 px-3 text-left transition-colors ${aberta === c.chave ? 'bg-[#f0f2f5]' : 'hover:bg-gray-50'}`}>
                   <Avatar c={c} tamanho="h-12 w-12" />
-                  <div className="min-w-0 flex-1">
+                  <div className="flex h-full min-w-0 flex-1 flex-col justify-center border-b border-gray-100">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className={`truncate ${c.nao_lidas ? 'font-bold' : 'font-medium'}`}>{nomeDaConversa(c)}</span>
-                      <span className={`shrink-0 text-xs ${c.nao_lidas ? 'font-semibold text-green-600' : 'text-gray-400'}`}>{quandoNaLista(c.ultima_em)}</span>
+                      <span className={`truncate text-[15px] leading-5 ${c.nao_lidas ? 'font-semibold text-gray-900' : 'text-gray-900'}`}>{nomeDaConversa(c)}</span>
+                      <span className={`shrink-0 text-xs leading-5 ${c.nao_lidas ? 'font-semibold text-green-600' : 'text-gray-500'}`}>{quandoNaLista(c.ultima_em)}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm text-gray-500">{c.ultima_de_mim && 'Você: '}{previaDaLista(c.ultima_msg)}</span>
-                      {c.nao_lidas > 0 && <span className="shrink-0 rounded-full bg-green-500 px-1.5 text-[11px] font-bold text-white">{c.nao_lidas}</span>}
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <span className="truncate text-[13px] leading-5 text-gray-500">{c.ultima_de_mim && 'Você: '}{previaDaLista(c.ultima_msg)}</span>
+                      {c.nao_lidas > 0 && <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-green-500 px-1.5 text-[11px] font-bold text-white">{c.nao_lidas}</span>}
                     </div>
                   </div>
                 </button>
@@ -700,28 +708,38 @@ export default function AtendimentoPage() {
         {/* Conversa aberta */}
         <section className={`${aberta ? 'flex' : 'hidden md:flex'} min-w-0 flex-1 flex-col`}>
           {!conversa ? (
-            <div className="m-auto p-6 text-center text-sm text-gray-500">Escolha uma conversa ou comece uma nova no +.</div>
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-[#f0f2f5] p-6 text-center">
+              <p className="text-base font-semibold text-gray-700">Atendimento Coxelli</p>
+              <p className="max-w-xs text-sm text-gray-500">Escolha uma conversa na lista, ou comece uma nova no +.</p>
+            </div>
           ) : (
             <>
-              <header className="flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2">
-                <button onClick={() => { abertaRef.current = null; setAberta(null) }} className="md:hidden text-gray-500" aria-label="Voltar"><HiArrowLeft size={20} /></button>
+              <header className="@container flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 bg-[#f0f2f5] px-2 sm:gap-3 sm:px-4">
+                <button onClick={() => { abertaRef.current = null; setAberta(null) }} className={`${ICONE} md:hidden`} aria-label="Voltar"><HiArrowLeft size={20} /></button>
                 <Avatar c={conversa} />
-                <div className="min-w-0 flex-1">
-                  <button onClick={renomear} className="flex max-w-full items-center gap-1.5 text-left" title="Renomear">
-                    <span className="truncate font-semibold">{nomeDaConversa(conversa)}</span>
-                    <HiPencil className="shrink-0 text-gray-400" size={14} />
+                <button onClick={renomear} title="Renomear" className="group/nome min-w-0 flex-1 text-left">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-[15px] font-semibold leading-5 text-gray-900">{nomeDaConversa(conversa)}</span>
+                    <HiPencil className="shrink-0 text-gray-400 opacity-0 transition-opacity group-hover/nome:opacity-100" size={13} />
+                  </span>
+                  {conversa.telefone && conversa.nome && (
+                    <span className="block truncate whitespace-nowrap text-xs leading-4 text-gray-500">{telefoneNaTela(conversa.telefone)}</span>
+                  )}
+                </button>
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                  <button onClick={() => setMostrarFicha(v => !v)} title="Ficha do cliente" aria-label="Ficha do cliente" aria-pressed={mostrarFicha}
+                    className={`${ICONE} min-[1380px]:hidden ${mostrarFicha ? 'bg-gray-200 text-gray-800' : ''}`}><HiUser size={20} /></button>
+                  <button onClick={montarComIA} disabled={montandoIA} title="A IA lê a conversa e monta o pedido para você conferir"
+                    className={`${BOTAO} w-9 border border-primary/40 bg-white text-primary hover:bg-primary/5 disabled:opacity-60 @[30rem]:w-auto @[30rem]:px-3`}>
+                    <HiSparkles className={montandoIA ? 'animate-pulse' : ''} size={16} />
+                    <span className="hidden @[30rem]:inline">{montandoIA ? 'Lendo…' : 'Montar pedido'}</span>
                   </button>
-                  {conversa.telefone && conversa.nome && <p className="text-xs text-gray-500">{telefoneNaTela(conversa.telefone)}</p>}
+                  <button onClick={abrirPedido} title="Criar pedido"
+                    className={`${BOTAO} w-9 bg-primary text-white hover:bg-primary/90 @[30rem]:w-auto @[30rem]:px-3`}>
+                    <HiPlus size={16} />
+                    <span className="hidden @[30rem]:inline">Pedido</span>
+                  </button>
                 </div>
-                <button onClick={() => setMostrarFicha(v => !v)} title="Ficha do cliente"
-                  className={`rounded-lg px-2 py-1.5 xl:hidden ${mostrarFicha ? 'bg-gray-200' : 'text-gray-500'}`}><HiUser size={18} /></button>
-                <button onClick={montarComIA} disabled={montandoIA} title="A IA lê a conversa e monta o pedido para você conferir"
-                  className="flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/5 disabled:opacity-50">
-                  <HiSparkles className={montandoIA ? 'animate-pulse' : ''} /> {montandoIA ? 'Lendo…' : 'Montar'}<span className="hidden 2xl:inline"> pedido</span>
-                </button>
-                <button onClick={abrirPedido} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">
-                  <HiPlus /> <span className="hidden 2xl:inline">Criar pedido</span>
-                </button>
               </header>
 
               <CardPedidoAberto
@@ -730,178 +748,190 @@ export default function AtendimentoPage() {
                 aoMudar={carregarPedidos}
               />
               <div className="relative flex min-h-0 flex-1">
-              <div className="flex min-w-0 flex-1 flex-col">
-              <div className="flex-1 overflow-y-auto bg-[#efeae2] px-3 py-2 md:px-10">
-                {temMais && (
-                  <div className="my-2 text-center">
-                    <button onClick={carregarAnteriores} className="rounded-full bg-white/90 px-3 py-1 text-xs text-gray-600 shadow-sm">Carregar mensagens anteriores</button>
-                  </div>
-                )}
-                {mensagens.length === 0 && (
-                  <p className="mx-auto mt-4 w-fit rounded-lg bg-[#fff5c4] px-3 py-1.5 text-center text-xs text-gray-700">Nenhuma mensagem ainda nesta conversa.</p>
-                )}
-                {mensagens.map((m, i) => {
-                  const novoDia = i === 0 || new Date(mensagens[i - 1].criada_em).toDateString() !== new Date(m.criada_em).toDateString()
-                  const temMidia = !!(m.midia_path && links[m.midia_path])
-                  const legenda = m.tipo === 'texto' || temMidia ? m.texto : `${ROTULO_MIDIA[m.tipo] ?? 'Mensagem'}${m.texto ? ` · ${m.texto}` : ''}`
-                  const acoes = [
-                    m.wa_id && !m.apagada && { rotulo: 'Responder', fazer: () => { setMenuDe(null); setCitando(m); caixaRef.current?.focus() } },
-                    m.wa_id && !m.apagada && { rotulo: 'Reagir', fazer: () => { setMenuDe(null); setReagindo(m.id) } },
-                    m.texto && !m.apagada && { rotulo: 'Copiar', fazer: () => copiar(m) },
-                    !m.apagada && (m.texto || m.midia_path) && { rotulo: 'Encaminhar', fazer: () => { setMenuDe(null); setEncaminhando(m) } },
-                    podeEditar(m) && { rotulo: 'Editar', fazer: () => editarMensagem(m) },
-                    podeApagar(m) && { rotulo: 'Apagar para todos', fazer: () => apagarMensagem(m), perigo: true },
-                  ].filter(Boolean)
-                  const botaoResponder = acoes.length > 0 && (
-                    <div className="relative">
-                      <button onClick={() => setMenuDe(d => (d === m.id ? null : m.id))} title="Mais" className={`rounded-full p-0.5 text-gray-500 hover:bg-black/5 ${menuDe === m.id ? 'opacity-100' : 'opacity-40 md:opacity-0 md:group-hover:opacity-100'}`}><HiChevronDown /></button>
-                      {menuDe === m.id && (
-                        <div className={`absolute top-6 z-20 w-44 overflow-hidden rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-gray-200 ${m.de_mim ? 'right-0' : 'left-0'}`}>
-                          {acoes.map(a => (
-                            <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-3 py-1.5 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : ''}`}>{a.rotulo}</button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                  const reacoes = Object.entries(m.reacoes ?? {}).filter(([, e]) => e)
-                  const pendente = m.reacao_pendente && m.reacao_pendente !== '-' ? m.reacao_pendente : null
-                  return (
-                    <div key={m.id}>
-                      {novoDia && (
-                        <div className="my-3 text-center">
-                          <span className="rounded-lg bg-white/90 px-3 py-1 text-xs capitalize text-gray-600 shadow-sm">{rotuloDoDia(m.criada_em)}</span>
-                        </div>
-                      )}
-                      <div className={`group mb-1 flex items-center gap-1 ${m.de_mim ? 'justify-end' : 'justify-start'}`}>
-                        {m.de_mim && botaoResponder}
-                        <div className={`max-w-[85%] md:max-w-[65%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${
-                          m.de_mim ? 'rounded-tr-none bg-[#d9fdd3] text-gray-900' : 'rounded-tl-none bg-white text-gray-900'
-                        } ${m.status === 'erro' ? 'ring-2 ring-red-400' : ''}`}>
-                          {m.responde_texto && (
-                            <div className="mb-1 rounded border-l-4 border-green-600 bg-black/5 px-2 py-1 text-xs text-gray-600 line-clamp-3">{previaDaLista(m.responde_texto)}</div>
-                          )}
-                          {m.apagada ? (
-                            <>
-                              <p className="italic text-gray-500">🚫 {m.de_mim ? 'Você apagou esta mensagem' : 'Mensagem apagada'}</p>
-                              {!m.de_mim && legenda && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-gray-400 line-through" title="O cliente apagou; só a equipe vê">{legenda}</p>}
-                            </>
-                          ) : (
-                            <>
-                              <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande} />
-                              {legenda && <p className="whitespace-pre-wrap break-words"><ComLinks texto={legenda} /></p>}
-                            </>
-                          )}
-                          {m.acao_pendente && <p className="text-[10px] text-gray-500">{m.acao_pendente.tipo === 'apagar' ? 'apagando…' : 'editando…'}</p>}
-                          {m.erro && m.status !== 'erro' && <p className="text-[10px] text-red-600">{m.erro}</p>}
-                          <p className="mt-0.5 flex justify-end gap-1 text-[10px] text-gray-500">
-                            {m.editada && !m.apagada && <span>Editada</span>}
-                            {horario(m.criada_em)} <Situacao m={m} agora={agora} />
-                          </p>
-                          {(reacoes.length > 0 || pendente) && (
-                            <div className={`-mb-3 mt-0.5 flex gap-0.5 ${m.de_mim ? 'justify-end' : 'justify-start'}`}>
-                              <span className="rounded-full bg-white px-1.5 text-sm shadow ring-1 ring-gray-200" title={reacoes.map(([de, e]) => `${de === 'loja' ? 'Loja' : 'Cliente'}: ${e}`).join(' · ')}>
-                                {reacoes.filter(([de]) => !(de === 'loja' && pendente)).map(([, e]) => e).join('')}{pendente && <span className="opacity-50">{pendente}</span>}
-                              </span>
-                            </div>
-                          )}
-                          {reagindo === m.id && (
-                            <div className={`mt-2 flex gap-1 rounded-full bg-white px-2 py-1 shadow-lg ring-1 ring-gray-200 ${m.de_mim ? 'justify-end' : ''}`}>
-                              {REACOES.map(e => (
-                                <button key={e} type="button" onClick={() => reagir(m, e)} className={`rounded-full px-1 text-xl hover:scale-125 ${m.reacoes?.loja === e ? 'bg-gray-200' : ''}`}>{e}</button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {!m.de_mim && botaoResponder}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 overflow-y-auto bg-[#efeae2] px-3 py-3 sm:px-6 xl:px-12" onClick={() => { if (menuDe) setMenuDe(null) }}>
+                    {temMais && (
+                      <div className="mb-3 text-center">
+                        <button onClick={carregarAnteriores} className="h-7 rounded-full bg-white/95 px-3 text-xs text-gray-600 shadow-sm hover:bg-white">Carregar mensagens anteriores</button>
                       </div>
-                    </div>
-                  )
-                })}
-                <div ref={fimRef} />
-              </div>
-
-              {/* Painéis acima da caixa: emojis e respostas rápidas */}
-              {painel === 'emojis' && (
-                <div className="grid max-h-44 grid-cols-10 gap-1 overflow-y-auto border-t border-gray-200 bg-white p-2 text-xl md:grid-cols-14">
-                  {EMOJIS.map(em => <button key={em} type="button" onClick={() => { setTexto(t => t + em); caixaRef.current?.focus() }} className="rounded hover:bg-gray-100">{em}</button>)}
-                </div>
-              )}
-              {(painel === 'rapidas' || texto.startsWith('/')) && (
-                <div className="max-h-56 overflow-y-auto border-t border-gray-200 bg-white">
-                  {respostasFiltradas.map(r => (
-                    <div key={r.id} className="flex items-start gap-2 border-b border-gray-100 px-3 py-2 hover:bg-gray-50">
-                      <button type="button" onClick={() => { setTexto(r.texto); setPainel(null); caixaRef.current?.focus() }} className="min-w-0 flex-1 text-left">
-                        <p className="text-sm font-semibold">/{r.titulo}</p>
-                        <p className="truncate text-xs text-gray-500">{r.texto}</p>
-                      </button>
-                      <button type="button" onClick={() => apagarResposta(r)} className="text-gray-400 hover:text-red-500" title="Apagar"><HiX /></button>
-                    </div>
-                  ))}
-                  {respostasFiltradas.length === 0 && <p className="px-3 py-2 text-xs text-gray-500">Nenhuma resposta rápida{texto.length > 1 ? ' com esse nome' : ''}.</p>}
-                  <button type="button" onClick={novaResposta} className="w-full px-3 py-2 text-left text-sm font-semibold text-green-700 hover:bg-gray-50">+ Nova resposta rápida</button>
-                </div>
-              )}
-              {citando && (
-                <div className="flex items-center gap-2 border-t border-gray-200 bg-gray-50 px-3 py-2">
-                  <div className="min-w-0 flex-1 rounded border-l-4 border-green-600 bg-white px-2 py-1 text-xs text-gray-600">
-                    <p className="font-semibold text-green-700">{citando.de_mim ? 'Você' : nomeDaConversa(conversa)}</p>
-                    <p className="truncate">{citando.texto ?? ROTULO_MIDIA[citando.tipo]}</p>
-                  </div>
-                  <button type="button" onClick={() => setCitando(null)} className="text-gray-500"><HiX /></button>
-                </div>
-              )}
-
-              <form onSubmit={enviar} className="flex items-end gap-1.5 border-t border-gray-200 bg-gray-50 p-2">
-                {gravando ? (
-                  <>
-                    <button type="button" onClick={cancelarGravacao} className="p-2 text-gray-500" title="Cancelar"><HiX size={22} /></button>
-                    <div className="flex flex-1 items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-red-600">
-                      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600" /> Gravando… toque no quadrado para enviar
-                    </div>
-                    <button type="button" onClick={gravar} className="rounded-full bg-green-600 p-2.5 text-white" title="Enviar áudio"><HiStop size={18} /></button>
-                  </>
-                ) : (
-                  <>
-                    <button type="button" onClick={() => setPainel(p => (p === 'emojis' ? null : 'emojis'))} className="p-2 text-gray-500" title="Emojis"><HiEmojiHappy size={22} /></button>
-                    <button type="button" onClick={() => arquivoRef.current?.click()} className="p-2 text-gray-500" title="Foto ou arquivo"><HiPaperClip size={22} /></button>
-                    <button type="button" onClick={() => setPainel(p => (p === 'rapidas' ? null : 'rapidas'))} className="p-2 text-gray-500" title="Respostas rápidas (ou digite /)"><HiLightningBolt size={22} /></button>
-                    {PIX_LIGADO && <button type="button" onClick={pixAvulso} className="p-2 text-gray-500" title="Mandar Pix Copia e Cola com valor"><HiQrcode size={22} /></button>}
-                    <input ref={arquivoRef} type="file" className="hidden" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
-                      onChange={e => subirArquivo(e.target.files?.[0])} />
-                    <textarea
-                      ref={caixaRef}
-                      value={texto}
-                      onChange={e => setTexto(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) enviar(e) }}
-                      onPaste={e => { const f = e.clipboardData?.files?.[0]; if (f) { e.preventDefault(); subirArquivo(f) } }}
-                      rows={1}
-                      placeholder="Mensagem"
-                      className="max-h-32 flex-1 resize-none rounded-lg bg-white px-3 py-2.5 text-sm outline-none"
-                    />
-                    {texto.trim() ? (
-                      <button type="submit" disabled={enviando} className="rounded-full bg-green-600 p-2.5 text-white disabled:opacity-40" aria-label="Enviar">
-                        <HiPaperAirplane className="rotate-90" size={18} />
-                      </button>
-                    ) : (
-                      <button type="button" onClick={gravar} disabled={enviando} className="rounded-full bg-green-600 p-2.5 text-white disabled:opacity-40" title="Gravar áudio">
-                        <HiMicrophone size={18} />
-                      </button>
                     )}
-                  </>
-                )}
-              </form>
-              </div>
-              {/* Ficha do cliente: coluna fixa em tela larga, painel pelo botão nas menores */}
-              <aside className={`${mostrarFicha ? 'block' : 'hidden'} absolute inset-y-0 right-0 z-10 w-72 max-w-full overflow-y-auto border-l border-gray-200 bg-white shadow-xl xl:static xl:block xl:shrink-0 xl:shadow-none`}>
-                <p className="border-b border-gray-200 px-4 py-2.5 font-semibold">Cliente</p>
-                <FichaDoCliente
-                  pedidos={pedidosCliente}
-                  carregando={pedidosCliente === null}
-                  temTelefone={!!conversa.telefone}
-                  aoRepetir={repetirPedido}
-                />
-              </aside>
+                    {mensagens.length === 0 && (
+                      <p className="mx-auto mt-4 w-fit rounded-lg bg-[#fff5c4] px-3 py-1.5 text-center text-xs text-gray-700 shadow-sm">Nenhuma mensagem ainda nesta conversa.</p>
+                    )}
+                    {mensagens.map((m, i) => {
+                      const novoDia = i === 0 || new Date(mensagens[i - 1].criada_em).toDateString() !== new Date(m.criada_em).toDateString()
+                      // sequência do mesmo lado: balões mais juntos, e só o primeiro tem a "ponta"
+                      const continua = !novoDia && i > 0 && mensagens[i - 1].de_mim === m.de_mim
+                      const temMidia = !!(m.midia_path && links[m.midia_path])
+                      const legenda = m.tipo === 'texto' || temMidia ? m.texto : `${ROTULO_MIDIA[m.tipo] ?? 'Mensagem'}${m.texto ? ` · ${m.texto}` : ''}`
+                      const acoes = [
+                        m.wa_id && !m.apagada && { rotulo: 'Responder', fazer: () => { setMenuDe(null); setCitando(m); caixaRef.current?.focus() } },
+                        m.wa_id && !m.apagada && { rotulo: 'Reagir', fazer: () => { setMenuDe(null); setReagindo(m.id) } },
+                        m.texto && !m.apagada && { rotulo: 'Copiar', fazer: () => copiar(m) },
+                        !m.apagada && (m.texto || m.midia_path) && { rotulo: 'Encaminhar', fazer: () => { setMenuDe(null); setEncaminhando(m) } },
+                        podeEditar(m) && { rotulo: 'Editar', fazer: () => editarMensagem(m) },
+                        podeApagar(m) && { rotulo: 'Apagar para todos', fazer: () => apagarMensagem(m), perigo: true },
+                      ].filter(Boolean)
+                      const reacoes = Object.entries(m.reacoes ?? {}).filter(([, e]) => e)
+                      const pendente = m.reacao_pendente && m.reacao_pendente !== '-' ? m.reacao_pendente : null
+                      return (
+                        <div key={m.id}>
+                          {novoDia && (
+                            <div className="sticky top-0 z-10 my-3 text-center first:mt-0">
+                              <span className="inline-block rounded-lg bg-white/95 px-3 py-1 text-xs text-gray-600 shadow-sm">{rotuloDoDia(m.criada_em)}</span>
+                            </div>
+                          )}
+                          <div className={`flex ${m.de_mim ? 'justify-end' : 'justify-start'} ${continua ? 'mt-0.5' : 'mt-2'} ${reacoes.length || pendente ? 'mb-3' : ''}`}>
+                            <div className={`group relative max-w-[85%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.5px] leading-5 text-gray-900 shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] sm:max-w-[75%] lg:max-w-[65%] ${
+                              m.de_mim ? 'bg-[#d9fdd3]' : 'bg-white'} ${!continua ? (m.de_mim ? 'rounded-tr-none' : 'rounded-tl-none') : ''} ${m.status === 'erro' ? 'ring-2 ring-red-400' : ''}`}>
+                              {acoes.length > 0 && (
+                                <div className="absolute right-1 top-1 z-10">
+                                  <button onClick={(e) => { e.stopPropagation(); setMenuDe(d => (d === m.id ? null : m.id)) }} aria-label="Mais opções"
+                                    className={`flex h-6 w-6 items-center justify-center rounded-full text-gray-500 transition-opacity ${m.de_mim ? 'bg-[#d9fdd3]' : 'bg-white'} ${menuDe === m.id ? 'opacity-100' : 'opacity-60 md:opacity-0 md:group-hover:opacity-100'}`}>
+                                    <HiChevronDown size={16} />
+                                  </button>
+                                  {menuDe === m.id && (
+                                    <div className="absolute right-0 top-7 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5" onClick={e => e.stopPropagation()}>
+                                      {acoes.map(a => (
+                                        <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-4 py-2 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : 'text-gray-800'}`}>{a.rotulo}</button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {m.responde_texto && (
+                                <div className="mb-1 rounded-md border-l-4 border-green-600 bg-black/5 px-2 py-1 text-[13px] leading-[18px] text-gray-600 line-clamp-3">{previaDaLista(m.responde_texto)}</div>
+                              )}
+                              {m.apagada ? (
+                                <>
+                                  <p className="pr-6 italic text-gray-500">🚫 {m.de_mim ? 'Você apagou esta mensagem' : 'Mensagem apagada'}</p>
+                                  {!m.de_mim && legenda && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-gray-400 line-through" title="O cliente apagou; só a equipe vê">{legenda}</p>}
+                                </>
+                              ) : (
+                                <>
+                                  <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande} />
+                                  {legenda && <p className={`whitespace-pre-wrap break-words ${temMidia ? 'mt-1' : ''} pr-6`}><ComLinks texto={legenda} /></p>}
+                                </>
+                              )}
+                              {m.acao_pendente && <p className="mt-0.5 text-[11px] text-gray-500">{m.acao_pendente.tipo === 'apagar' ? 'apagando…' : 'editando…'}</p>}
+                              {m.erro && m.status !== 'erro' && <p className="mt-0.5 text-[11px] text-red-600">{m.erro}</p>}
+                              <p className="mt-0.5 flex items-center justify-end gap-1 text-[11px] leading-4 text-gray-500">
+                                {m.editada && !m.apagada && <span>Editada</span>}
+                                <span>{horario(m.criada_em)}</span>
+                                <Situacao m={m} agora={agora} />
+                              </p>
+                              {(reacoes.length > 0 || pendente) && (
+                                <span className={`absolute -bottom-3 ${m.de_mim ? 'right-2' : 'left-2'} rounded-full bg-white px-1.5 py-px text-[13px] shadow ring-1 ring-black/5`}
+                                  title={reacoes.map(([de, e]) => `${de === 'loja' ? 'Loja' : 'Cliente'}: ${e}`).join(' · ')}>
+                                  {reacoes.filter(([de]) => !(de === 'loja' && pendente)).map(([, e]) => e).join('')}{pendente && <span className="opacity-50">{pendente}</span>}
+                                </span>
+                              )}
+                              {reagindo === m.id && (
+                                <div className={`absolute -top-11 z-20 flex gap-0.5 rounded-full bg-white px-2 py-1 shadow-xl ring-1 ring-black/5 ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
+                                  {REACOES.map(e => (
+                                    <button key={e} type="button" onClick={() => reagir(m, e)} className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-125 ${m.reacoes?.loja === e ? 'bg-gray-200' : ''}`}>{e}</button>
+                                  ))}
+                                  <button type="button" onClick={() => setReagindo(null)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100"><HiX size={16} /></button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div ref={fimRef} />
+                  </div>
+
+                  {/* Painéis acima da caixa: emojis e respostas rápidas */}
+                  {painel === 'emojis' && (
+                    <div className="grid max-h-48 shrink-0 grid-cols-8 gap-1 overflow-y-auto border-t border-gray-200 bg-white p-2 sm:grid-cols-12 lg:grid-cols-16">
+                      {EMOJIS.map(em => (
+                        <button key={em} type="button" onClick={() => { setTexto(t => t + em); caixaRef.current?.focus() }} className="flex h-10 items-center justify-center rounded-lg text-2xl hover:bg-gray-100">{em}</button>
+                      ))}
+                    </div>
+                  )}
+                  {(painel === 'rapidas' || texto.startsWith('/')) && (
+                    <div className="max-h-60 shrink-0 overflow-y-auto border-t border-gray-200 bg-white">
+                      {respostasFiltradas.map(r => (
+                        <div key={r.id} className="flex items-start gap-2 border-b border-gray-100 px-4 py-2.5 hover:bg-gray-50">
+                          <button type="button" onClick={() => { setTexto(r.texto); setPainel(null); caixaRef.current?.focus() }} className="min-w-0 flex-1 text-left">
+                            <p className="text-sm font-semibold text-gray-900">/{r.titulo.toLowerCase()}</p>
+                            <p className="truncate text-xs text-gray-500">{r.texto.split('\n')[0]}</p>
+                          </button>
+                          <button type="button" onClick={() => apagarResposta(r)} className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-red-500" title="Apagar"><HiX size={14} /></button>
+                        </div>
+                      ))}
+                      {respostasFiltradas.length === 0 && <p className="px-4 py-2.5 text-xs text-gray-500">Nenhuma resposta rápida{texto.length > 1 ? ' com esse nome' : ''}.</p>}
+                      <button type="button" onClick={novaResposta} className="w-full px-4 py-2.5 text-left text-sm font-semibold text-green-700 hover:bg-gray-50">+ Nova resposta rápida</button>
+                    </div>
+                  )}
+                  {citando && (
+                    <div className="flex shrink-0 items-center gap-2 border-t border-gray-200 bg-[#f0f2f5] px-3 pt-2">
+                      <div className="min-w-0 flex-1 rounded-lg border-l-4 border-green-600 bg-white px-3 py-1.5 text-xs text-gray-600">
+                        <p className="font-semibold text-green-700">{citando.de_mim ? 'Você' : nomeDaConversa(conversa)}</p>
+                        <p className="truncate">{citando.texto ?? ROTULO_MIDIA[citando.tipo]}</p>
+                      </div>
+                      <button type="button" onClick={() => setCitando(null)} className={ICONE} aria-label="Cancelar resposta"><HiX size={18} /></button>
+                    </div>
+                  )}
+
+                  <form onSubmit={enviar} className={`flex shrink-0 items-end gap-1 bg-[#f0f2f5] px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:gap-2 sm:px-4 ${citando ? '' : 'border-t border-gray-200'}`}>
+                    {gravando ? (
+                      <>
+                        <button type="button" onClick={cancelarGravacao} className={ICONE} title="Cancelar" aria-label="Cancelar gravação"><HiX size={22} /></button>
+                        <div className="flex h-10 flex-1 items-center gap-2 rounded-full bg-white px-4 text-sm text-red-600 shadow-sm">
+                          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600" /> Gravando… toque no quadrado para enviar
+                        </div>
+                        <button type="button" onClick={gravar} className={`${ICONE} bg-green-600 text-white hover:bg-green-700 hover:text-white`} title="Enviar áudio" aria-label="Enviar áudio"><HiStop size={18} /></button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" onClick={() => setPainel(p => (p === 'emojis' ? null : 'emojis'))} className={`${ICONE} ${painel === 'emojis' ? 'bg-gray-200 text-gray-800' : ''}`} title="Emojis" aria-label="Emojis"><HiEmojiHappy size={22} /></button>
+                        <button type="button" onClick={() => arquivoRef.current?.click()} className={ICONE} title="Foto ou arquivo" aria-label="Anexar"><HiPaperClip size={22} /></button>
+                        <button type="button" onClick={() => setPainel(p => (p === 'rapidas' ? null : 'rapidas'))} className={`${ICONE} ${painel === 'rapidas' ? 'bg-gray-200 text-gray-800' : ''}`} title="Respostas rápidas (ou digite /)" aria-label="Respostas rápidas"><HiLightningBolt size={20} /></button>
+                        {PIX_LIGADO && <button type="button" onClick={pixAvulso} className={ICONE} title="Mandar Pix Copia e Cola com valor" aria-label="Pix"><HiQrcode size={20} /></button>}
+                        <input ref={arquivoRef} type="file" className="hidden" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
+                          onChange={e => subirArquivo(e.target.files?.[0])} />
+                        <textarea
+                          ref={caixaRef}
+                          value={texto}
+                          onChange={e => { setTexto(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px` }}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) enviar(e) }}
+                          onPaste={e => { const f = e.clipboardData?.files?.[0]; if (f) { e.preventDefault(); subirArquivo(f) } }}
+                          rows={1}
+                          placeholder="Mensagem"
+                          aria-label="Mensagem"
+                          className="block h-10 max-h-32 min-w-0 flex-1 resize-none rounded-[20px] bg-white px-4 py-2.5 text-[15px] leading-5 text-gray-900 shadow-sm outline-none placeholder:text-gray-500"
+                        />
+                        {texto.trim() ? (
+                          <button type="submit" disabled={enviando} className={`${ICONE} bg-green-600 text-white hover:bg-green-700 hover:text-white`} aria-label="Enviar">
+                            <HiPaperAirplane className="rotate-90" size={18} />
+                          </button>
+                        ) : (
+                          <button type="button" onClick={gravar} disabled={enviando} className={`${ICONE} bg-green-600 text-white hover:bg-green-700 hover:text-white`} title="Gravar áudio" aria-label="Gravar áudio">
+                            <HiMicrophone size={20} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </form>
+                </div>
+
+                {/* Ficha do cliente: coluna fixa em tela larga, painel por cima nas menores */}
+                <aside className={`${mostrarFicha ? 'flex' : 'hidden'} absolute inset-y-0 right-0 z-20 w-80 max-w-full flex-col border-l border-gray-200 bg-white shadow-2xl min-[1380px]:static min-[1380px]:flex min-[1380px]:w-72 min-[1380px]:shadow-none`}>
+                  <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4">
+                    <p className="text-sm font-semibold text-gray-900">Cliente</p>
+                    <button onClick={() => setMostrarFicha(false)} className={`${ICONE} h-8 w-8 min-[1380px]:hidden`} aria-label="Fechar ficha"><HiX size={16} /></button>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <FichaDoCliente
+                      pedidos={pedidosCliente}
+                      carregando={pedidosCliente === null}
+                      temTelefone={!!conversa.telefone}
+                      aoRepetir={(p) => { setMostrarFicha(false); repetirPedido(p) }}
+                    />
+                  </div>
+                </aside>
               </div>
             </>
           )}

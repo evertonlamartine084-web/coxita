@@ -37,6 +37,9 @@ const ANTECEDENCIA_AGENDADO = 60 * 60 * 1000
 
 export default function AdminLayout() {
   const location = useLocation()
+  // Atendimento ocupa a altura exata da tela (como o WhatsApp): sem margem no celular e com a
+  // caixa de mensagem colada embaixo. As outras páginas rolam normalmente.
+  const telaCheia = location.pathname.startsWith('/admin/atendimento')
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
@@ -635,14 +638,18 @@ export default function AdminLayout() {
       </aside>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 ${telaCheia ? 'h-[100dvh] lg:h-screen overflow-hidden' : ''}`}>
         <header className="bg-cream border-b-4 border-festa px-4 py-3 flex items-center lg:hidden sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="text-brown text-2xl mr-3" aria-label="Abrir menu">☰</button>
           <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-9 w-auto" />
           <span className="ml-auto font-display text-xs font-extrabold uppercase tracking-widest text-festa">Admin</span>
         </header>
-        <main className="admin-content flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
-          <AvisosDoPainel />
+        <main className={telaCheia
+          ? 'admin-content flex min-h-0 flex-1 flex-col overflow-hidden lg:p-4'
+          : 'admin-content flex-1 p-4 md:p-6 lg:p-8 overflow-auto'}>
+          <div className={telaCheia ? 'shrink-0 px-3 pt-3 lg:px-0 lg:pt-0 empty:hidden' : ''}>
+            <AvisosDoPainel />
+          </div>
           <Outlet />
         </main>
       </div>
