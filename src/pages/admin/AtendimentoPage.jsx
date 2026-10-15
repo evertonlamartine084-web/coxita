@@ -796,12 +796,19 @@ export default function AtendimentoPage() {
                             </div>
                           )}
                           <div className={`flex ${m.de_mim ? 'justify-end' : 'justify-start'} ${continua ? 'mt-0.5' : 'mt-2'} ${reacoes.length || pendente ? 'mb-3' : ''}`}>
-                            <div className={`group relative max-w-[85%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.5px] leading-5 text-gray-900 shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] sm:max-w-[75%] lg:max-w-[65%] ${
+                            <div
+                              onClick={(e) => {
+                                // tela de toque: como no WhatsApp do celular, tocar na mensagem abre o menu
+                                if (!acoes.length || !window.matchMedia('(hover: none)').matches || e.target.closest('a, button, audio, video')) return
+                                e.stopPropagation()
+                                setMenuDe(d => (d === m.id ? null : m.id))
+                              }}
+                              className={`group relative max-w-[85%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.5px] leading-5 text-gray-900 shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] sm:max-w-[75%] lg:max-w-[65%] ${
                               m.de_mim ? 'bg-[#d9fdd3]' : 'bg-white'} ${!continua ? (m.de_mim ? 'rounded-tr-none' : 'rounded-tl-none') : ''} ${m.status === 'erro' ? 'ring-2 ring-red-400' : ''}`}>
                               {acoes.length > 0 && (
                                 <div className="absolute right-1 top-1 z-10">
                                   <button onClick={(e) => { e.stopPropagation(); setMenuDe(d => (d === m.id ? null : m.id)) }} aria-label="Mais opções"
-                                    className={`flex h-6 w-6 items-center justify-center rounded-full text-gray-500 transition-opacity ${m.de_mim ? 'bg-[#d9fdd3]' : 'bg-white'} ${menuDe === m.id ? 'opacity-100' : 'opacity-60 md:opacity-0 md:group-hover:opacity-100'}`}>
+                                    className={`flex h-6 w-6 items-center justify-center rounded-full text-gray-500 transition-opacity ${m.de_mim ? 'bg-[#d9fdd3]' : 'bg-white'} ${menuDe === m.id ? 'opacity-100' : 'opacity-0 [@media(hover:hover)]:group-hover:opacity-100'}`}>
                                     <HiChevronDown size={16} />
                                   </button>
                                   {menuDe === m.id && (
