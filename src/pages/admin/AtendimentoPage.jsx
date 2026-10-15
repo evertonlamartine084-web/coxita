@@ -41,7 +41,9 @@ function telefoneNaTela(t) {
 // Número escondido (@lid): o WhatsApp não manda nome nem telefone; renomear ou criar pedido resolve.
 const nomeDaConversa = (c) => c.nome || (c.telefone ? telefoneNaTela(c.telefone) : 'Número escondido · toque para nomear')
 
-const previaDaLista = (t) => String(t ?? '').replace(/^\[(\w+)\]$/, (_, tipo) => ROTULO_MIDIA[tipo] ?? 'Mensagem')
+const previaDaLista = (t) => String(t ?? '')
+  .replace(/^\[(\w+)\]$/, (_, tipo) => ROTULO_MIDIA[tipo] ?? 'Mensagem')
+  .replace(/([*_~])([^*_~\n]+)\1/g, '$2') // sem os símbolos de negrito/itálico, como no WhatsApp
 
 function horario(iso) {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -67,12 +69,24 @@ function rotuloDoDia(iso) {
   return t.charAt(0).toUpperCase() + t.slice(1) // "Domingo, 11 de outubro"
 }
 
-/** Texto com link clicável. */
+/** Formatação do WhatsApp: *negrito*, _itálico_, ~riscado~ e ```monoespaçado```. */
+function Formatado({ texto }) {
+  const partes = String(texto).split(/(```[^`]+```|\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g)
+  return partes.map((p, i) => {
+    if (/^```[\s\S]+```$/.test(p)) return <code key={i} className="font-mono text-[13px]">{p.slice(3, -3)}</code>
+    if (/^\*[^*\n]+\*$/.test(p)) return <strong key={i} className="font-semibold">{p.slice(1, -1)}</strong>
+    if (/^_[^_\n]+_$/.test(p)) return <em key={i}>{p.slice(1, -1)}</em>
+    if (/^~[^~\n]+~$/.test(p)) return <s key={i}>{p.slice(1, -1)}</s>
+    return <span key={i}>{p}</span>
+  })
+}
+
+/** Texto com link clicável e a formatação do WhatsApp. */
 function ComLinks({ texto }) {
   const partes = String(texto).split(/(https?:\/\/[^\s]+)/g)
   return partes.map((p, i) => (/^https?:\/\//.test(p)
-    ? <a key={i} href={p} target="_blank" rel="noreferrer" className="underline break-all">{p}</a>
-    : <span key={i}>{p}</span>))
+    ? <a key={i} href={p} target="_blank" rel="noreferrer" className="break-all text-[#027eb5] underline-offset-2 hover:underline">{p}</a>
+    : <Formatado key={i} texto={p} />))
 }
 
 function Avatar({ c, tamanho = 'h-10 w-10' }) {
