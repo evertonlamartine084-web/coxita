@@ -851,7 +851,7 @@ export default function AtendimentoPage() {
                                   <HiChevronDown size={16} />
                                 </button>
                                 {menuDe === m.id && (
-                                  <div className={`absolute z-30 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5 ${abrirParaCima ? 'bottom-8' : 'top-8'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
+                                  <div className={`absolute z-30 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5 ${abrirParaCima ? 'bottom-8' : 'top-8'} ${m.de_mim ? 'left-0' : 'right-0'} max-w-[calc(100vw-1.5rem)]`} onClick={e => e.stopPropagation()}>
                                     {acoes.map(a => (
                                       <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-4 py-2 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : 'text-gray-800'}`}>{a.rotulo}</button>
                                     ))}
