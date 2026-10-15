@@ -5,7 +5,7 @@ import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
 import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
-import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, enviarFilaDoAtendimento, sincronizarMensagens, completarNomes, atualizarFotosDePerfil, baixarMidias, vincularNumerosEscondidos, ultimoDiagnosticoLid } from '../../utils/zapDoGrupo'
+import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, enviarFilaDoAtendimento, sincronizarMensagens, completarNomes, atualizarFotosDePerfil, baixarMidias, vincularNumerosEscondidos, ultimoDiagnosticoLid, enviarReacoesPendentes } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
@@ -462,6 +462,7 @@ export default function AdminLayout() {
           }
         }
         await enviarFilaDoAtendimento(config)
+        await enviarReacoesPendentes(config)
         // mensagens novas a cada ~2,5 s; volta sem novidade não escreve nada no banco
         if (Date.now() - copiadoEm > 2400) {
           copiadoEm = Date.now()

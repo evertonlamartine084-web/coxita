@@ -675,6 +675,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   const { count: jaTinha } = await supabase.from('zap_mensagens').select('id', { count: 'exact', head: true })
   const conversas = new Map()
   const mensagens = []
+  const reacoesVistas = []
   // diagnóstico do nome de perfil nas conversas de número escondido (sem guardar o nome)
   const perfilLid = { recebidas: 0, com_nome_valido: 0, so_digitos: 0, vazio: 0, digitos_tipo_telefone: 0, digitos_igual_lid: 0, conversas_lid: new Set(), conversas_com_nome: new Set(), campos: new Set() }
   for (let pagina = 1; pagina <= paginas; pagina++) {
@@ -687,6 +688,12 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       const k = r.key ?? {}
       const jid = k.remoteJid
       if (!ehConversaDeCliente(jid) || !k.id) continue
+      // reação (👍 ❤️) não é mensagem: vai para a mensagem reagida
+      const reacao = desembrulhar(r.message).reactionMessage
+      if (reacao?.key?.id) {
+        reacoesVistas.push({ id: k.id, alvo: reacao.key.id, de: k.fromMe ? 'loja' : 'cliente', emoji: reacao.text ?? '' })
+        continue
+      }
       const c = conteudoDaMensagem(desembrulhar(r.message))
       if (!c) continue
       const porJid = contatos.get(jid) ?? contatos.get(k.remoteJidAlt ?? '') ?? null
@@ -728,6 +735,13 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
     }
     if (pagina >= (Number(bloco?.pages) || 1)) break
   }
+  // Reações: da mais velha para a mais nova (a última do cliente é a que vale); cada uma uma vez só
+  for (const re of [...reacoesVistas].reverse()) {
+    if (vistas.get(re.id) === re.emoji) continue
+    const { error } = await supabase.rpc('zap_reagir', { p_wa_id: re.alvo, p_de: re.de, p_emoji: re.emoji })
+    if (!error) vistas.set(re.id, re.emoji)
+  }
+
   ultimoDiagnosticoLid = { ...perfilLid, conversas_lid: perfilLid.conversas_lid.size, conversas_com_nome: perfilLid.conversas_com_nome.size, campos: [...perfilLid.campos] }
   if (!mensagens.length) return 0
 
@@ -909,4 +923,26 @@ export async function vincularNumerosEscondidos(config = lerConfigZap()) {
     }
   }
   return { escondidas: alvo.size, consultados: numeros.length, ligadas, amostra }
+}
+
+/**
+ * Reações que alguém deu pelo painel (zap_mensagens.reacao_pendente): o PC da loja manda pela
+ * Evolution, na mesma fila dos envios, e passa para reacoes.loja.
+ */
+export async function enviarReacoesPendentes(config = lerConfigZap()) {
+  const { data } = await supabase.from('zap_mensagens')
+    .select('id, wa_id, de_mim, reacao_pendente, zap_conversas(jid)')
+    .not('reacao_pendente', 'is', null).not('wa_id', 'is', null).limit(5)
+  for (const m of data ?? []) {
+    const emoji = m.reacao_pendente === '-' ? '' : m.reacao_pendente
+    const enviar = () => evolution(`/message/sendReaction/${config.instancia}`, {
+      method: 'POST', config,
+      body: { key: { remoteJid: m.zap_conversas?.jid, fromMe: !!m.de_mim, id: m.wa_id }, reaction: emoji },
+    })
+    try {
+      await (navigator.locks ? navigator.locks.request('coxelli-zap-envio', enviar) : enviar())
+      await supabase.rpc('zap_reagir', { p_wa_id: m.wa_id, p_de: 'loja', p_emoji: emoji })
+    } catch { /* deixa sem a reação; não fica tentando para sempre */ }
+    await supabase.from('zap_mensagens').update({ reacao_pendente: null }).eq('id', m.id)
+  }
 }

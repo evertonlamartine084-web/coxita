@@ -83,9 +83,30 @@ function Avatar({ c, tamanho = 'h-10 w-10' }) {
   return <div className={`${tamanho} flex shrink-0 items-center justify-center rounded-full bg-gray-200 font-semibold text-gray-500`}>{inicial}</div>
 }
 
-function Midia({ m, url }) {
+const VELOCIDADES = [1, 1.5, 2]
+
+/** Áudio com 1x / 1,5x / 2x, como no WhatsApp. */
+function Audio({ url }) {
+  const ref = useRef(null)
+  const [vel, setVel] = useState(1)
+  const trocar = () => {
+    const prox = VELOCIDADES[(VELOCIDADES.indexOf(vel) + 1) % VELOCIDADES.length]
+    setVel(prox)
+    if (ref.current) ref.current.playbackRate = prox
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <audio ref={ref} controls src={url} className="max-w-[230px]" onPlay={e => { e.currentTarget.playbackRate = vel }} />
+      <button type="button" onClick={trocar} className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold text-gray-700">
+        {String(vel).replace('.', ',')}x
+      </button>
+    </div>
+  )
+}
+
+function Midia({ m, url, aoAmpliar }) {
   if (!url) return null
-  if (m.tipo === 'audio') return <audio controls src={url} className="max-w-[260px]" />
+  if (m.tipo === 'audio') return <Audio url={url} />
   if (m.tipo === 'figurinha') return <img src={url} alt="Figurinha" className="h-28 w-28 object-contain" />
   if (m.tipo === 'video') return <video controls src={url} className="max-h-72 rounded-md" />
   if (m.tipo === 'documento') {
@@ -96,9 +117,29 @@ function Midia({ m, url }) {
     )
   }
   return (
-    <a href={url} target="_blank" rel="noreferrer">
+    <button type="button" onClick={() => aoAmpliar(url)} className="block">
       <img src={url} alt="Foto" className="max-h-72 rounded-md object-cover" />
-    </a>
+    </button>
+  )
+}
+
+const REACOES = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
+/** Foto em tela cheia: toque fora, no X ou Esc fecha. */
+function FotoGrande({ url, aoFechar }) {
+  useEffect(() => {
+    const tecla = (e) => { if (e.key === 'Escape') aoFechar() }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  }, [aoFechar])
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4" onClick={aoFechar}>
+      <img src={url} alt="Foto" className="max-h-full max-w-full object-contain" onClick={e => e.stopPropagation()} />
+      <div className="absolute right-4 top-4 flex gap-2">
+        <a href={url} target="_blank" rel="noreferrer" download onClick={e => e.stopPropagation()} className="rounded-full bg-white/15 px-3 py-1.5 text-sm text-white no-underline hover:bg-white/25">Baixar</a>
+        <button type="button" onClick={aoFechar} className="rounded-full bg-white/15 p-2 text-white hover:bg-white/25" aria-label="Fechar"><HiX size={20} /></button>
+      </div>
+    </div>
   )
 }
 
@@ -149,6 +190,8 @@ export default function AtendimentoPage() {
   const [agora, setAgora] = useState(0)
   const [links, setLinks] = useState({}) // midia_path -> link assinado
   const [citando, setCitando] = useState(null)
+  const [fotoGrande, setFotoGrande] = useState(null)
+  const [reagindo, setReagindo] = useState(null) // id da mensagem com o seletor de reação aberto
   const [painel, setPainel] = useState(null) // 'emojis' | 'rapidas' | null
   const [respostas, setRespostas] = useState([])
   const [gravando, setGravando] = useState(null) // { recorder, stream }
@@ -507,6 +550,15 @@ export default function AtendimentoPage() {
     cobrarPix(valor, pedidoAberto && Math.abs(valor - faltaReceber(pedidoAberto)) < 0.01 ? pedidoAberto : null)
   }
 
+  // Reação: grava como pendente; o PC da loja manda pela Evolution. Tocar na mesma tira.
+  const reagir = async (m, emoji) => {
+    setReagindo(null)
+    const tirar = m.reacoes?.loja === emoji
+    const { error } = await supabase.from('zap_mensagens').update({ reacao_pendente: tirar ? '-' : emoji }).eq('id', m.id)
+    if (error) toast.error('Não consegui reagir.')
+    else carregarMensagens()
+  }
+
   const ativarAvisos = async () => {
     if (typeof Notification === 'undefined') return
     setAvisos(await Notification.requestPermission())
@@ -621,8 +673,13 @@ export default function AtendimentoPage() {
                   const temMidia = !!(m.midia_path && links[m.midia_path])
                   const legenda = m.tipo === 'texto' || temMidia ? m.texto : `${ROTULO_MIDIA[m.tipo] ?? 'Mensagem'}${m.texto ? ` · ${m.texto}` : ''}`
                   const botaoResponder = m.wa_id && (
-                    <button onClick={() => { setCitando(m); caixaRef.current?.focus() }} title="Responder" className="text-gray-500 opacity-40 md:opacity-0 md:group-hover:opacity-100"><HiReply /></button>
+                    <div className="relative flex flex-col gap-1 opacity-40 md:opacity-0 md:group-hover:opacity-100">
+                      <button onClick={() => { setCitando(m); caixaRef.current?.focus() }} title="Responder" className="text-gray-500"><HiReply /></button>
+                      <button onClick={() => setReagindo(r => (r === m.id ? null : m.id))} title="Reagir" className="text-gray-500"><HiEmojiHappy /></button>
+                    </div>
                   )
+                  const reacoes = Object.entries(m.reacoes ?? {}).filter(([, e]) => e)
+                  const pendente = m.reacao_pendente && m.reacao_pendente !== '-' ? m.reacao_pendente : null
                   return (
                     <div key={m.id}>
                       {novoDia && (
@@ -638,11 +695,25 @@ export default function AtendimentoPage() {
                           {m.responde_texto && (
                             <div className="mb-1 rounded border-l-4 border-green-600 bg-black/5 px-2 py-1 text-xs text-gray-600 line-clamp-3">{previaDaLista(m.responde_texto)}</div>
                           )}
-                          <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} />
+                          <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande} />
                           {legenda && <p className="whitespace-pre-wrap break-words"><ComLinks texto={legenda} /></p>}
                           <p className="mt-0.5 flex justify-end gap-1 text-[10px] text-gray-500">
                             {horario(m.criada_em)} <Situacao m={m} agora={agora} />
                           </p>
+                          {(reacoes.length > 0 || pendente) && (
+                            <div className={`-mb-3 mt-0.5 flex gap-0.5 ${m.de_mim ? 'justify-end' : 'justify-start'}`}>
+                              <span className="rounded-full bg-white px-1.5 text-sm shadow ring-1 ring-gray-200" title={reacoes.map(([de, e]) => `${de === 'loja' ? 'Loja' : 'Cliente'}: ${e}`).join(' · ')}>
+                                {reacoes.filter(([de]) => !(de === 'loja' && pendente)).map(([, e]) => e).join('')}{pendente && <span className="opacity-50">{pendente}</span>}
+                              </span>
+                            </div>
+                          )}
+                          {reagindo === m.id && (
+                            <div className={`mt-2 flex gap-1 rounded-full bg-white px-2 py-1 shadow-lg ring-1 ring-gray-200 ${m.de_mim ? 'justify-end' : ''}`}>
+                              {REACOES.map(e => (
+                                <button key={e} type="button" onClick={() => reagir(m, e)} className={`rounded-full px-1 text-xl hover:scale-125 ${m.reacoes?.loja === e ? 'bg-gray-200' : ''}`}>{e}</button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         {!m.de_mim && botaoResponder}
                       </div>
@@ -738,6 +809,8 @@ export default function AtendimentoPage() {
           )}
         </section>
       </div>
+
+      {fotoGrande && <FotoGrande url={fotoGrande} aoFechar={() => setFotoGrande(null)} />}
 
       <NovoPedidoModal
         aberto={pedido !== null}
