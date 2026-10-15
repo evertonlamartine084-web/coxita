@@ -33,13 +33,8 @@ as $$
     -- o nome mais recente: se a pessoa corrigiu a grafia, vale a última versão
     (array_agg(o.customer_name order by o.created_at desc))[1] as nome,
     count(*) as pedidos,
-    -- pedido cancelado não conta como dinheiro entrado
-    coalesce(sum(o.total) filter (where o.status <> 'cancelado'), 0) as total_gasto,
-    coalesce(
-      sum(o.total) filter (where o.status <> 'cancelado')
-      / nullif(count(*) filter (where o.status <> 'cancelado'), 0),
-      0
-    ) as ticket_medio,
+    coalesce(sum(o.total), 0) as total_gasto,
+    coalesce(sum(o.total) / nullif(count(*), 0), 0) as ticket_medio,
     min(o.created_at) as primeiro_pedido,
     max(o.created_at) as ultimo_pedido,
     (array_agg(o.address order by o.created_at desc) filter (where o.address is not null))[1] as endereco,
@@ -48,6 +43,8 @@ as $$
   where regexp_replace(coalesce(o.customer_phone, ''), '\D', '', 'g') <> ''
     -- reposição (pedido refeito sem cobrança) é a mesma compra, não um pedido a mais
     and o.reposicao_de is null
+    -- cancelado não é compra: não conta pedido, valor, data nem "recorrente" (15/10/2026)
+    and o.status <> 'cancelado'
   group by right(regexp_replace(o.customer_phone, '\D', '', 'g'), 11)
   order by max(o.created_at) desc;
 $$;
