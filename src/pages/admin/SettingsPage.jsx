@@ -11,6 +11,8 @@ const fields = [
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'address', label: 'Endereço' },
   { key: 'opening_hours', label: 'Horário de Funcionamento (exibição)', placeholder: 'Ex: Loja: todos os dias, 9h às 21h. Entrega: segunda a sábado, das 13h às 18h' },
+  { key: 'loja_abre', label: 'Loja abre às (retirada)', type: 'time' },
+  { key: 'loja_fecha', label: 'Loja fecha às', type: 'time' },
   { key: 'opening_time', label: 'Entrega começa às (seg a sáb)', type: 'time' },
   { key: 'closing_time', label: 'Entrega termina às', type: 'time' },
   { key: 'estimated_delivery', label: 'Tempo estimado de entrega', placeholder: 'Ex: 30-45 min' },

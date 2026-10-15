@@ -20,6 +20,27 @@ export function dataLocal(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// Horário da LOJA (retirada): todos os dias. Fora dele o site não aceita retirada "agora" — o
+// cliente escolhe o horário (pedido das 08:37 de 15/10/2026 entrou com a loja fechada).
+const LOJA_ABRE_PADRAO = '09:00'
+const LOJA_FECHA_PADRAO = '21:00'
+
+export function horarioDaLoja(settings = {}) {
+  return { abre: settings.loja_abre || LOJA_ABRE_PADRAO, fecha: settings.loja_fecha || LOJA_FECHA_PADRAO }
+}
+
+export function lojaAbertaEm(quando, settings) {
+  const { abre, fecha } = horarioDaLoja(settings)
+  const hora = hhmm(quando)
+  return hora >= abre && hora < fecha
+}
+
+/** Erro de retirada marcada fora do horário da loja, ou null. */
+export function erroDeRetirada(hora, settings) {
+  const { abre, fecha } = horarioDaLoja(settings)
+  return hora < abre || hora >= fecha ? `A loja funciona das ${abre} às ${fecha}` : null
+}
+
 export function entregaAbertaEm(quando, settings) {
   const { abre, fecha } = horarioDeEntrega(settings)
   const hora = hhmm(quando)
