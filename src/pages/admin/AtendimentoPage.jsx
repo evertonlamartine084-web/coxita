@@ -241,6 +241,8 @@ export default function AtendimentoPage() {
   const [fotoGrande, setFotoGrande] = useState(null)
   const [reagindo, setReagindo] = useState(null) // id da mensagem com o seletor de reação aberto
   const [menuDe, setMenuDe] = useState(null) // id da mensagem com o menu de ações aberto
+  // menus abrem para o lado com espaço: perto do fim da tela, para cima; perto do topo, para baixo
+  const [abrirParaCima, setAbrirParaCima] = useState(false)
   const [encaminhando, setEncaminhando] = useState(null) // mensagem sendo encaminhada
   const [painel, setPainel] = useState(null) // 'emojis' | 'rapidas' | null
   const [respostas, setRespostas] = useState([])
@@ -795,43 +797,29 @@ export default function AtendimentoPage() {
                               <span className="inline-block rounded-lg bg-white/95 px-3 py-1 text-xs text-gray-600 shadow-sm">{rotuloDoDia(m.criada_em)}</span>
                             </div>
                           )}
-                          <div className={`flex ${m.de_mim ? 'justify-end' : 'justify-start'} ${continua ? 'mt-0.5' : 'mt-2'} ${reacoes.length || pendente ? 'mb-3' : ''}`}>
+                          <div className={`group/linha flex items-start gap-1.5 ${m.de_mim ? 'justify-end' : 'justify-start'} ${continua ? 'mt-0.5' : 'mt-2'} ${reacoes.length || pendente ? 'mb-3' : ''}`}>
                             <div
                               onClick={(e) => {
                                 // tela de toque: como no WhatsApp do celular, tocar na mensagem abre o menu
                                 if (!acoes.length || !window.matchMedia('(hover: none)').matches || e.target.closest('a, button, audio, video')) return
                                 e.stopPropagation()
+                                setAbrirParaCima(e.currentTarget.getBoundingClientRect().top > window.innerHeight * 0.55)
                                 setMenuDe(d => (d === m.id ? null : m.id))
                               }}
-                              className={`group relative max-w-[85%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.5px] leading-5 text-gray-900 shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] sm:max-w-[75%] lg:max-w-[65%] ${
+                              className={`relative max-w-[85%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14.5px] leading-5 text-gray-900 shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] sm:max-w-[75%] lg:max-w-[65%] ${
                               m.de_mim ? 'bg-[#d9fdd3]' : 'bg-white'} ${!continua ? (m.de_mim ? 'rounded-tr-none' : 'rounded-tl-none') : ''} ${m.status === 'erro' ? 'ring-2 ring-red-400' : ''}`}>
-                              {acoes.length > 0 && (
-                                <div className="absolute right-1 top-1 z-10">
-                                  <button onClick={(e) => { e.stopPropagation(); setMenuDe(d => (d === m.id ? null : m.id)) }} aria-label="Mais opções"
-                                    className={`flex h-6 w-6 items-center justify-center rounded-full text-gray-500 transition-opacity ${m.de_mim ? 'bg-[#d9fdd3]' : 'bg-white'} ${menuDe === m.id ? 'opacity-100' : 'opacity-0 [@media(hover:hover)]:group-hover:opacity-100'}`}>
-                                    <HiChevronDown size={16} />
-                                  </button>
-                                  {menuDe === m.id && (
-                                    <div className="absolute right-0 top-7 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5" onClick={e => e.stopPropagation()}>
-                                      {acoes.map(a => (
-                                        <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-4 py-2 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : 'text-gray-800'}`}>{a.rotulo}</button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
                               {m.responde_texto && (
                                 <div className="mb-1 rounded-md border-l-4 border-green-600 bg-black/5 px-2 py-1 text-[13px] leading-[18px] text-gray-600 line-clamp-3">{previaDaLista(m.responde_texto)}</div>
                               )}
                               {m.apagada ? (
                                 <>
-                                  <p className="pr-6 italic text-gray-500">🚫 {m.de_mim ? 'Você apagou esta mensagem' : 'Mensagem apagada'}</p>
+                                  <p className="italic text-gray-500">🚫 {m.de_mim ? 'Você apagou esta mensagem' : 'Mensagem apagada'}</p>
                                   {!m.de_mim && legenda && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-gray-400 line-through" title="O cliente apagou; só a equipe vê">{legenda}</p>}
                                 </>
                               ) : (
                                 <>
                                   <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande} />
-                                  {legenda && <p className={`whitespace-pre-wrap break-words ${temMidia ? 'mt-1' : ''} pr-6`}><ComLinks texto={legenda} /></p>}
+                                  {legenda && <p className={`whitespace-pre-wrap break-words ${temMidia ? 'mt-1' : ''}`}><ComLinks texto={legenda} /></p>}
                                 </>
                               )}
                               {m.acao_pendente && <p className="mt-0.5 text-[11px] text-gray-500">{m.acao_pendente.tipo === 'apagar' ? 'apagando…' : 'editando…'}</p>}
@@ -848,7 +836,7 @@ export default function AtendimentoPage() {
                                 </span>
                               )}
                               {reagindo === m.id && (
-                                <div className={`absolute -top-11 z-20 flex gap-0.5 rounded-full bg-white px-2 py-1 shadow-xl ring-1 ring-black/5 ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
+                                <div className={`absolute z-20 flex gap-0.5 rounded-full bg-white px-2 py-1 shadow-xl ring-1 ring-black/5 ${abrirParaCima ? '-top-11' : 'top-full mt-1'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
                                   {REACOES.map(e => (
                                     <button key={e} type="button" onClick={() => reagir(m, e)} className={`flex h-8 w-8 items-center justify-center rounded-full text-xl transition-transform hover:scale-125 ${m.reacoes?.loja === e ? 'bg-gray-200' : ''}`}>{e}</button>
                                   ))}
@@ -856,6 +844,21 @@ export default function AtendimentoPage() {
                                 </div>
                               )}
                             </div>
+                            {acoes.length > 0 && (
+                              <div className={`relative shrink-0 self-start pt-1 ${m.de_mim ? 'order-first' : ''}`}>
+                                <button onClick={(e) => { e.stopPropagation(); setAbrirParaCima(e.currentTarget.getBoundingClientRect().top > window.innerHeight * 0.55); setMenuDe(d => (d === m.id ? null : m.id)) }} aria-label="Mais opções"
+                                  className={`flex h-6 w-6 items-center justify-center rounded-full bg-white/80 text-gray-500 shadow-sm transition-opacity hover:text-gray-700 ${menuDe === m.id ? 'opacity-100' : 'pointer-events-none opacity-0 [@media(hover:hover)]:pointer-events-auto [@media(hover:hover)]:group-hover/linha:opacity-100'}`}>
+                                  <HiChevronDown size={16} />
+                                </button>
+                                {menuDe === m.id && (
+                                  <div className={`absolute z-30 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5 ${abrirParaCima ? 'bottom-8' : 'top-8'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
+                                    {acoes.map(a => (
+                                      <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-4 py-2 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : 'text-gray-800'}`}>{a.rotulo}</button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
