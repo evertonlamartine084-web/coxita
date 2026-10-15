@@ -67,16 +67,29 @@ Deno.serve(async (req) => {
 
   const corpo = await req.json().catch(() => null)
   const evento = String(corpo?.event ?? "").toLowerCase().replace(/_/g, ".")
-  if (!["messages.upsert", "send.message"].includes(evento)) return json({ ignorado: evento })
+  // Diagnóstico (sem texto de mensagem): o formato que chegou e por que cada mensagem foi pulada.
+  const motivos: string[] = []
+  const registrar = (gravadas: number) => supabase.from("impressao_log").insert({
+    aparelho: "webhook", versao: "zap-webhook", evento: "zap_webhook", detalhe: {
+      evento: corpo?.event ?? null, chaves: Object.keys(corpo ?? {}),
+      data: Array.isArray(corpo?.data) ? `lista(${corpo.data.length})` : Object.keys(corpo?.data ?? {}),
+      jid: String(corpo?.data?.key?.remoteJid ?? "").replace(/^\d+/, "N"),
+      msg: Object.keys(corpo?.data?.message ?? {}), gravadas, motivos,
+    },
+  })
+  if (!["messages.upsert", "send.message"].includes(evento)) {
+    await registrar(0)
+    return json({ ignorado: evento })
+  }
 
   const lista: Msg[] = Array.isArray(corpo?.data) ? corpo.data : corpo?.data?.messages ?? [corpo?.data]
   let gravadas = 0
   for (const d of lista) {
     const k = d?.key ?? {}
     const jid: string = k.remoteJid ?? ""
-    if (!jid || /@g\.us$|@broadcast$|@newsletter$/.test(jid)) continue
+    if (!jid || /@g\.us$|@broadcast$|@newsletter$/.test(jid)) { motivos.push(jid ? "grupo/status" : "sem jid"); continue }
     const c = conteudo(desembrulhar(d.message))
-    if (!c) continue
+    if (!c) { motivos.push("reação/protocolo"); continue }
     const [tipo, texto] = c
 
     const telefone = numeroDoJid(jid, k.remoteJidAlt, k.senderPn, d.remoteJidAlt)
@@ -116,6 +129,8 @@ Deno.serve(async (req) => {
       status: fromMe ? "enviada" : "recebida", criada_em: quando,
     }, { onConflict: "wa_id", ignoreDuplicates: true })
     if (!error) gravadas++
+    else motivos.push(`erro: ${error.message}`)
   }
+  await registrar(gravadas)
   return json({ ok: true, gravadas })
 })
