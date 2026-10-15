@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   HiArrowLeft, HiPaperAirplane, HiPencil, HiPlus, HiSearch, HiPaperClip, HiMicrophone, HiStop,
-  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiDocumentText, HiSparkles, HiUser, HiQrcode, HiChevronDown,
+  HiEmojiHappy, HiLightningBolt, HiReply, HiX, HiBell, HiSparkles, HiUser, HiQrcode, HiChevronDown,
 } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { supabase } from '../../services/supabase'
@@ -100,40 +100,134 @@ function Avatar({ c, tamanho = 'h-10 w-10' }) {
 
 const VELOCIDADES = [1, 1.5, 2]
 
-/** Áudio com 1x / 1,5x / 2x, como no WhatsApp. */
-function Audio({ url }) {
+const tempo = (seg) => {
+  if (!Number.isFinite(seg) || seg < 0) return '0:00'
+  const t = Math.round(seg)
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
+}
+
+const tamanhoArquivo = (bytes) => {
+  if (!bytes) return null
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`
+  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`
+}
+
+/** Player de áudio como o do WhatsApp: play redondo, barra arrastável, duração, 1x/1,5x/2x e a foto. */
+function Audio({ url, foto, inicial, deMim }) {
   const ref = useRef(null)
+  const [tocando, setTocando] = useState(false)
+  const [atual, setAtual] = useState(0)
+  const [total, setTotal] = useState(0)
   const [vel, setVel] = useState(1)
-  const trocar = () => {
+
+  const alternar = () => {
+    const a = ref.current
+    if (!a) return
+    if (a.paused) { a.playbackRate = vel; a.play() } else a.pause()
+  }
+  const trocarVelocidade = () => {
     const prox = VELOCIDADES[(VELOCIDADES.indexOf(vel) + 1) % VELOCIDADES.length]
     setVel(prox)
     if (ref.current) ref.current.playbackRate = prox
   }
+  // áudio gravado no navegador (webm) chega sem duração: pular para o fim força o navegador a medir
+  const aoCarregar = (e) => {
+    const a = e.currentTarget
+    if (Number.isFinite(a.duration)) return setTotal(a.duration)
+    a.currentTime = 1e7
+    a.ontimeupdate = () => { a.ontimeupdate = null; setTotal(a.duration); a.currentTime = 0 }
+  }
+
   return (
-    <div className="flex items-center gap-1.5">
-      <audio ref={ref} controls src={url} className="max-w-[230px]" onPlay={e => { e.currentTarget.playbackRate = vel }} />
-      <button type="button" onClick={trocar} className="rounded-full bg-black/10 px-2 py-0.5 text-xs font-semibold text-gray-700">
-        {String(vel).replace('.', ',')}x
+    <div className="flex w-[250px] items-center gap-2.5 py-0.5 sm:w-[280px]">
+      <div className="relative shrink-0">
+        {foto
+          ? <img src={foto} alt="" className="h-11 w-11 rounded-full object-cover" />
+          : <div className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold ${deMim ? 'bg-[#25d366]/20 text-green-800' : 'bg-gray-200 text-gray-500'}`}>{inicial}</div>}
+        <span className={`absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full ring-2 ${deMim ? 'bg-sky-500 ring-[#d9fdd3]' : 'bg-[#25d366] ring-white'}`}>
+          <HiMicrophone className="text-white" size={9} />
+        </span>
+      </div>
+      <button type="button" onClick={alternar} aria-label={tocando ? 'Pausar' : 'Tocar'}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-600 hover:bg-black/5">
+        {tocando
+          ? <svg width="14" height="16" viewBox="0 0 14 16" fill="currentColor"><rect x="1" y="1" width="4" height="14" rx="1" /><rect x="9" y="1" width="4" height="14" rx="1" /></svg>
+          : <svg width="16" height="18" viewBox="0 0 16 18" fill="currentColor"><path d="M2 1.8v14.4a1 1 0 0 0 1.5.86l12-7.2a1 1 0 0 0 0-1.72l-12-7.2A1 1 0 0 0 2 1.8z" /></svg>}
       </button>
+      <div className="min-w-0 flex-1">
+        <input type="range" min="0" max={total || 0} step="0.1" value={atual} aria-label="Posição do áudio"
+          onChange={e => { if (ref.current) ref.current.currentTime = Number(e.target.value); setAtual(Number(e.target.value)) }}
+          className="block h-1 w-full cursor-pointer appearance-none rounded-full bg-gray-300 accent-[#25d366]" />
+        <div className="mt-1.5 flex items-center justify-between text-[11px] leading-none text-gray-500">
+          <span>{tempo(tocando || atual ? atual : total)}</span>
+          {(tocando || vel !== 1) && (
+            <button type="button" onClick={trocarVelocidade} className="rounded-full bg-black/10 px-1.5 py-0.5 font-semibold text-gray-700">
+              {String(vel).replace('.', ',')}x
+            </button>
+          )}
+        </div>
+      </div>
+      <audio ref={ref} src={url} preload="metadata" className="hidden"
+        onLoadedMetadata={aoCarregar}
+        onTimeUpdate={e => setAtual(e.currentTarget.currentTime)}
+        onPlay={() => setTocando(true)} onPause={() => setTocando(false)}
+        onEnded={() => { setTocando(false); setAtual(0) }} />
     </div>
   )
 }
 
-function Midia({ m, url, aoAmpliar }) {
-  if (!url) return null
-  if (m.tipo === 'audio') return <Audio url={url} />
-  if (m.tipo === 'figurinha') return <img src={url} alt="Figurinha" className="h-28 w-28 object-contain" />
-  if (m.tipo === 'video') return <video controls src={url} className="max-h-72 rounded-md" />
-  if (m.tipo === 'documento') {
-    return (
-      <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-md bg-black/5 px-3 py-2 no-underline">
-        <HiDocumentText size={22} /> <span className="truncate">{m.midia_nome || 'Documento'}</span>
-      </a>
-    )
-  }
+const CORES_DOCUMENTO = { pdf: 'bg-red-500', doc: 'bg-blue-600', docx: 'bg-blue-600', xls: 'bg-green-600', xlsx: 'bg-green-600', csv: 'bg-green-600', txt: 'bg-gray-500' }
+
+/** Documento como no WhatsApp: ícone pelo tipo, nome, "PDF · 230 kB" e baixar. */
+function Documento({ m, url }) {
+  const nome = m.midia_nome || 'Documento'
+  const ext = (nome.match(/\.(\w{2,5})$/)?.[1] ?? m.midia_tipo?.split('/')[1] ?? 'arq').toLowerCase()
+  const detalhe = [ext.toUpperCase(), tamanhoArquivo(m.midia_tamanho)].filter(Boolean).join(' · ')
   return (
-    <button type="button" onClick={() => aoAmpliar(url)} className="block">
-      <img src={url} alt="Foto" className="max-h-72 rounded-md object-cover" />
+    <a href={url} target="_blank" rel="noreferrer" download={nome}
+      className="flex w-[250px] items-center gap-3 rounded-lg bg-black/5 p-2.5 no-underline transition-colors hover:bg-black/10 sm:w-[280px]">
+      <span className={`flex h-11 w-9 shrink-0 items-end justify-center rounded-md pb-1 text-[9px] font-bold uppercase text-white ${CORES_DOCUMENTO[ext] ?? 'bg-gray-500'}`}>{ext.slice(0, 4)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-gray-900">{nome}</span>
+        <span className="block text-xs text-gray-500">{detalhe}</span>
+      </span>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-400/60 text-gray-500">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v12m0 0l-5-5m5 5l5-5M5 20h14" /></svg>
+      </span>
+    </a>
+  )
+}
+
+/** Localização: cartão com o endereço e "Abrir no mapa" (Google Maps). */
+function Localizacao({ m }) {
+  const lat = m.dados?.lat
+  const lng = m.dados?.lng
+  const mapa = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : null
+  const corpo = (
+    <>
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-xl">📍</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-gray-900">{m.texto || 'Localização'}</span>
+        <span className="block text-xs text-[#027eb5]">{mapa ? 'Abrir no mapa' : 'Localização sem coordenadas'}</span>
+      </span>
+    </>
+  )
+  return mapa
+    ? <a href={mapa} target="_blank" rel="noreferrer" className="flex w-[250px] items-center gap-3 rounded-lg bg-black/5 p-2.5 no-underline hover:bg-black/10 sm:w-[280px]">{corpo}</a>
+    : <div className="flex w-[250px] items-center gap-3 rounded-lg bg-black/5 p-2.5 sm:w-[280px]">{corpo}</div>
+}
+
+function Midia({ m, url, aoAmpliar, foto, inicial }) {
+  if (m.tipo === 'localizacao') return <Localizacao m={m} />
+  if (!url) return null
+  if (m.tipo === 'audio') return <Audio url={url} foto={foto} inicial={inicial} deMim={m.de_mim} />
+  if (m.tipo === 'figurinha') return <img src={url} alt="Figurinha" className="h-32 w-32 object-contain" />
+  if (m.tipo === 'video') return <video controls src={url} className="max-h-72 w-full rounded-md bg-black" />
+  if (m.tipo === 'documento') return <Documento m={m} url={url} />
+  return (
+    <button type="button" onClick={() => aoAmpliar(url)} className="block overflow-hidden rounded-md">
+      <img src={url} alt="Foto" className="max-h-80 w-full object-cover" />
     </button>
   )
 }
@@ -260,6 +354,13 @@ export default function AtendimentoPage() {
   const rolarRef = useRef(true)
   const areaRef = useRef(null)
   const noFim = () => { const a = areaRef.current; return !a || a.scrollHeight - a.scrollTop - a.clientHeight < 120 }
+  // Botão ↓ de descer ao fim, com quantas chegaram enquanto a pessoa lia as antigas
+  const [longeDoFim, setLongeDoFim] = useState(false)
+  const [novasAbaixo, setNovasAbaixo] = useState(0)
+  const descerAoFim = () => {
+    areaRef.current?.scrollTo({ top: areaRef.current.scrollHeight, behavior: 'smooth' })
+    setNovasAbaixo(0)
+  }
 
   const carregarConversas = useCallback(async () => {
     const { data, error } = await supabase.from('zap_conversas').select('*')
@@ -326,7 +427,11 @@ export default function AtendimentoPage() {
     const canal = supabase.channel('atendimento-zap')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'zap_mensagens' }, (p) => {
         const m = p.new ?? {}
-        if (m.conversa && m.conversa === abertaRef.current) { if (noFim()) rolarRef.current = true; carregarMensagens() }
+        if (m.conversa && m.conversa === abertaRef.current) {
+          if (noFim()) rolarRef.current = true
+          else if (p.eventType === 'INSERT' && m.de_mim === false) setNovasAbaixo(n => n + 1)
+          carregarMensagens()
+        }
         recarregarLista()
         if (p.eventType === 'INSERT' && m.de_mim === false && (m.conversa !== abertaRef.current || document.hidden)) {
           bipe()
@@ -346,6 +451,8 @@ export default function AtendimentoPage() {
   const abrir = (chave) => {
     abertaRef.current = chave
     quantasRef.current = PAGINA
+    setNovasAbaixo(0)
+    setLongeDoFim(false)
     rolarRef.current = true
     setMensagens([])
     setCitando(null)
@@ -451,7 +558,7 @@ export default function AtendimentoPage() {
       if (error) throw error
       await enfileirar({
         tipo: tipoForcado ?? tipoDoArquivo(mime), midia_path: caminho, midia_tipo: mime,
-        midia_nome: arquivo.name || null, texto: texto.trim() || null,
+        midia_nome: arquivo.name || null, midia_tamanho: arquivo.size || null, texto: texto.trim() || null,
       })
       setTexto('')
     } catch {
@@ -784,7 +891,10 @@ export default function AtendimentoPage() {
               />
               <div className="relative flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <div ref={areaRef} className="min-h-0 flex-1 overflow-y-auto bg-[#efeae2] px-3 py-3 sm:px-6 xl:px-12" onClick={() => { if (menuDe) setMenuDe(null) }}>
+                  <div className="relative flex min-h-0 flex-1 flex-col">
+                  <div ref={areaRef}
+                    onScroll={() => { const longe = !noFim(); setLongeDoFim(longe); if (!longe) setNovasAbaixo(0) }}
+                    className="min-h-0 flex-1 overflow-y-auto bg-[#efeae2] px-3 py-3 sm:px-6 xl:px-12" onClick={() => { if (menuDe) setMenuDe(null) }}>
                     {temMais && (
                       <div className="mb-3 text-center">
                         <button onClick={carregarAnteriores} className="h-7 rounded-full bg-white/95 px-3 text-xs text-gray-600 shadow-sm hover:bg-white">Carregar mensagens anteriores</button>
@@ -798,7 +908,8 @@ export default function AtendimentoPage() {
                       // sequência do mesmo lado: balões mais juntos, e só o primeiro tem a "ponta"
                       const continua = !novoDia && i > 0 && mensagens[i - 1].de_mim === m.de_mim
                       const temMidia = !!(m.midia_path && links[m.midia_path])
-                      const legenda = m.tipo === 'texto' || temMidia ? m.texto : `${ROTULO_MIDIA[m.tipo] ?? 'Mensagem'}${m.texto ? ` · ${m.texto}` : ''}`
+                      const legenda = m.tipo === 'localizacao' || (m.tipo === 'documento' && temMidia && m.texto === m.midia_nome) ? null
+                    : m.tipo === 'texto' || temMidia ? m.texto : `${ROTULO_MIDIA[m.tipo] ?? 'Mensagem'}${m.texto ? ` · ${m.texto}` : ''}`
                       const acoes = [
                         m.wa_id && !m.apagada && { rotulo: 'Responder', fazer: () => { setMenuDe(null); setCitando(m); caixaRef.current?.focus() } },
                         m.wa_id && !m.apagada && { rotulo: 'Reagir', fazer: () => { setMenuDe(null); setReagindo(m.id) } },
@@ -837,7 +948,8 @@ export default function AtendimentoPage() {
                                 </>
                               ) : (
                                 <>
-                                  <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande} />
+                                  <Midia m={m} url={m.midia_path ? links[m.midia_path] : null} aoAmpliar={setFotoGrande}
+                                    foto={m.de_mim ? null : conversa.foto_url} inicial={m.de_mim ? 'Eu' : (conversa.nome || '?').trim()[0]?.toUpperCase()} />
                                   {legenda && <p className={`whitespace-pre-wrap break-words ${temMidia ? 'mt-1' : ''}`}><ComLinks texto={legenda} /></p>}
                                 </>
                               )}
@@ -883,6 +995,16 @@ export default function AtendimentoPage() {
                       )
                     })}
                     <div ref={fimRef} />
+                  </div>
+                  {longeDoFim && (
+                    <button type="button" onClick={descerAoFim} aria-label="Ir para a mensagem mais recente"
+                      className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-md ring-1 ring-black/5 transition-colors hover:bg-gray-50 sm:right-5">
+                      <HiChevronDown size={22} />
+                      {novasAbaixo > 0 && (
+                        <span className="absolute -top-1.5 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#25d366] px-1 text-[11px] font-bold text-white">{novasAbaixo}</span>
+                      )}
+                    </button>
+                  )}
                   </div>
 
                   {/* Painéis acima da caixa: emojis e respostas rápidas */}

@@ -739,6 +739,11 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
         responde_texto: citada ? (citada[1] ?? `[${citada[0]}]`).slice(0, 200) : null,
         status_wa: k.fromMe ? situacaoDeEntrega(r) : null,
         midia_nome: msg.documentMessage?.fileName ?? null,
+        midia_tamanho: Number(msg.documentMessage?.fileLength ?? msg.videoMessage?.fileLength ?? msg.audioMessage?.fileLength) || null,
+        // localização: coordenadas para abrir no mapa
+        dados: msg.locationMessage || msg.liveLocationMessage
+          ? { lat: (msg.locationMessage ?? msg.liveLocationMessage).degreesLatitude, lng: (msg.locationMessage ?? msg.liveLocationMessage).degreesLongitude }
+          : null,
         remote_jid: jid,
       })
     }
@@ -892,7 +897,7 @@ export async function baixarMidias(config = lerConfigZap(), limite = 3) {
       const caminho = `${m.conversa.replace(/[^\w]/g, '_')}/${m.wa_id.replace(/[^\w]/g, '_')}.${EXTENSAO[tipo] ?? 'bin'}`
       const { error } = await supabase.storage.from('zap-midia').upload(caminho, new Blob([bytes], { type: tipo }), { contentType: tipo, upsert: true })
       if (error) continue
-      await supabase.from('zap_mensagens').update({ midia_path: caminho, midia_tipo: tipo }).eq('id', m.id)
+      await supabase.from('zap_mensagens').update({ midia_path: caminho, midia_tipo: tipo, midia_tamanho: bytes.length }).eq('id', m.id)
       n++
     } catch { /* tenta de novo daqui a uma hora */ }
   }
