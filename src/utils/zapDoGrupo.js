@@ -629,11 +629,12 @@ export function variantesDoTelefone(digitos) {
 
 /**
  * Nome que serve para mostrar. Nos contatos de numero escondido (@lid) a Evolution guarda o
- * proprio codigo no lugar do nome ("111257638183156"): nome so de digitos nao vale.
+ * proprio codigo no lugar do nome ("111257638183156"), e muito perfil e so emoji ("🥰"): sem
+ * nenhuma letra nao vale como nome.
  */
 const nomeValido = (n) => {
   const t = String(n ?? '').trim()
-  return t && /[^\d\s+()\-.]/.test(t) ? t : null
+  return t && /\p{L}/u.test(t) ? t : null
 }
 
 const contatoDoTelefone = (telefone) => {
@@ -651,7 +652,9 @@ async function carregarContatos(config) {
   const mapa = new Map()
   for (const c of Array.isArray(lista) ? lista : []) {
     const telefone = numeroDoJid(c.remoteJid, c.remoteJidAlt, c.jid, c.id)
-    const info = { nome: nomeValido(c.name) || nomeValido(c.verifiedName) || nomeValido(c.pushName), telefone }
+    // `salvo`: nome que alguém da loja gravou na agenda do celular (ganha do nome de perfil)
+    const salvo = nomeValido(c.name)
+    const info = { nome: salvo || nomeValido(c.verifiedName) || nomeValido(c.pushName), salvo: !!salvo, telefone }
     for (const id of [c.remoteJid, c.remoteJidAlt, c.jid, c.id, ...variantesDoTelefone(telefone)]) {
       if (!id) continue
       // nome salvo na agenda ganha do nome de perfil que veio em outro registro do mesmo numero
@@ -693,8 +696,11 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       const ts = Number(r.messageTimestamp)
       if (!Number.isFinite(ts) || ts <= 0) continue
       const quando = new Date(ts * (String(Math.trunc(ts)).length > 11 ? 1 : 1000)).toISOString()
-      const atual = conversas.get(chave) ?? { chave, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone, nome: contato?.nome ?? null }
-      if (!atual.nome && !k.fromMe && nomeValido(r.pushName)) atual.nome = nomeValido(r.pushName)
+      const atual = conversas.get(chave) ?? {
+        chave, jid: telefone ? `${telefone}@s.whatsapp.net` : jid, telefone,
+        nome: contato?.nome ?? null, nome_origem: contato?.nome ? (contato.salvo ? 'agenda' : 'perfil') : null,
+      }
+      if (!atual.nome && !k.fromMe && nomeValido(r.pushName)) { atual.nome = nomeValido(r.pushName); atual.nome_origem = 'perfil' }
       if (/@lid$/.test(chave) && !k.fromMe) {
         perfilLid.recebidas++
         perfilLid.conversas_lid.add(chave)
@@ -747,7 +753,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   if (novas.length) await supabase.from('zap_conversas').insert(novas)
   for (const l of linhas) {
     if (conhecidas.has(l.chave) && !comNome.has(l.chave) && l.nome) {
-      await supabase.from('zap_conversas').update({ nome: l.nome }).eq('chave', l.chave)
+      await supabase.from('zap_conversas').update({ nome: l.nome, nome_origem: l.nome_origem }).eq('chave', l.chave)
     }
   }
 
@@ -765,13 +771,20 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
 }
 
 /**
- * Nome das conversas que ainda nao tem: primeiro a agenda do WhatsApp (com e sem o 9), depois o
- * nome do ultimo pedido daquele telefone. Roda a cada hora no PC da loja.
+ * Nome das conversas: o contato salvo na agenda do celular (com e sem o 9) ganha do nome de
+ * perfil do WhatsApp ("🥰", "Dudinha"); sem agenda, o nome do último pedido ou carrinho. Nome
+ * digitado no painel (nome_origem 'manual') nunca é trocado. Roda a cada 5 min no PC da loja.
  */
 export async function completarNomes(config = lerConfigZap()) {
   await carregarContatos(config).catch(() => {})
-  const { data: semNome } = await supabase.from('zap_conversas').select('chave, telefone').is('nome', null).not('telefone', 'is', null).limit(300)
-  if (!semNome?.length) return 0
+  const { data: candidatas } = await supabase.from('zap_conversas').select('chave, telefone, nome, nome_origem')
+    .not('telefone', 'is', null).or('nome.is.null,nome_origem.is.null,nome_origem.eq.perfil,nome_origem.eq.pedido').limit(500)
+  const semNome = (candidatas ?? []).filter(c => {
+    if (!c.nome || !nomeValido(c.nome)) return true
+    const agenda = contatoDoTelefone(c.telefone)
+    return agenda?.salvo && agenda.nome !== c.nome // salvo na agenda com outro nome
+  })
+  if (!semNome.length) return 0
   const { data: pedidos } = await supabase.from('orders').select('customer_name, customer_phone, created_at')
     .not('customer_phone', 'is', null).order('created_at', { ascending: false }).limit(2000)
   // carrinho abandonado também tem nome: quem só montou o carrinho não tem pedido
@@ -787,10 +800,13 @@ export async function completarNomes(config = lerConfigZap()) {
   for (const c of carrinhos ?? []) guardar(c.telefone, c.nome)
   let n = 0
   for (const c of semNome) {
-    const nome = contatoDoTelefone(c.telefone)?.nome
-      ?? variantesDoTelefone(c.telefone).map(v => doPedido.get(v)).find(Boolean)
-    if (!nome) continue
-    await supabase.from('zap_conversas').update({ nome }).eq('chave', c.chave)
+    const agenda = contatoDoTelefone(c.telefone)
+    const doPedidoOuCarrinho = variantesDoTelefone(c.telefone).map(v => doPedido.get(v)).find(Boolean)
+    const [nome, nome_origem] = agenda?.salvo ? [agenda.nome, 'agenda']
+      : doPedidoOuCarrinho && (!c.nome || !nomeValido(c.nome)) ? [doPedidoOuCarrinho, 'pedido']
+        : agenda?.nome && (!c.nome || !nomeValido(c.nome)) ? [agenda.nome, 'perfil'] : [null, null]
+    if (!nome || nome === c.nome) continue
+    await supabase.from('zap_conversas').update({ nome, nome_origem }).eq('chave', c.chave)
     n++
   }
   return n

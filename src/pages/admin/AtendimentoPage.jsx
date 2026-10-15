@@ -428,7 +428,7 @@ export default function AtendimentoPage() {
     if (!conversa) return
     const nome = window.prompt('Nome desta conversa:', conversa.nome ?? '')
     if (nome === null) return
-    const { error } = await supabase.from('zap_conversas').update({ nome: nome.trim() || null }).eq('chave', conversa.chave)
+    const { error } = await supabase.from('zap_conversas').update({ nome: nome.trim() || null, nome_origem: nome.trim() ? 'manual' : null }).eq('chave', conversa.chave)
     if (error) return toast.error('Não consegui renomear.')
     carregarConversas()
   }
@@ -751,6 +751,7 @@ export default function AtendimentoPage() {
           const digitos = String(criado.customer_phone ?? '').replace(/\D/g, '')
           await supabase.from('zap_conversas').update({
             nome: conversa.nome || criado.customer_name || null,
+            ...(!conversa.nome && criado.customer_name ? { nome_origem: 'pedido' } : {}),
             telefone: conversa.telefone || (digitos.length === 10 || digitos.length === 11 ? `55${digitos}` : null),
           }).eq('chave', conversa.chave)
           carregarConversas()

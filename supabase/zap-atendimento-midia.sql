@@ -17,3 +17,4 @@ create policy "zap_midia_admin_ler" on storage.objects for select
 drop policy if exists "zap_midia_admin_gravar" on storage.objects;
 create policy "zap_midia_admin_gravar" on storage.objects for insert
   with check (bucket_id = 'zap-midia' and auth.role() = 'authenticated');
+alter table zap_conversas add column if not exists nome_origem text; -- agenda | pedido | perfil | manual (14/10/2026)
