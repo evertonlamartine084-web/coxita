@@ -797,7 +797,7 @@ export default function AtendimentoPage() {
                               <span className="inline-block rounded-lg bg-white/95 px-3 py-1 text-xs text-gray-600 shadow-sm">{rotuloDoDia(m.criada_em)}</span>
                             </div>
                           )}
-                          <div className={`group/linha flex items-start gap-1.5 ${m.de_mim ? 'justify-end' : 'justify-start'} ${continua ? 'mt-0.5' : 'mt-2'} ${reacoes.length || pendente ? 'mb-3' : ''}`}>
+                          <div className={`group/linha relative flex items-start gap-1.5 ${m.de_mim ? 'justify-end' : 'justify-start'} ${continua ? 'mt-0.5' : 'mt-2'} ${reacoes.length || pendente ? 'mb-3' : ''}`}>
                             <div
                               onClick={(e) => {
                                 // tela de toque: como no WhatsApp do celular, tocar na mensagem abre o menu
@@ -845,13 +845,13 @@ export default function AtendimentoPage() {
                               )}
                             </div>
                             {acoes.length > 0 && (
-                              <div className={`relative shrink-0 self-start pt-1 ${m.de_mim ? 'order-first' : ''}`}>
+                              <div className={`shrink-0 self-start pt-1 ${m.de_mim ? 'order-first' : ''}`}>
                                 <button onClick={(e) => { e.stopPropagation(); setAbrirParaCima(e.currentTarget.getBoundingClientRect().top > window.innerHeight * 0.55); setMenuDe(d => (d === m.id ? null : m.id)) }} aria-label="Mais opções"
                                   className={`flex h-6 w-6 items-center justify-center rounded-full bg-white/80 text-gray-500 shadow-sm transition-opacity hover:text-gray-700 ${menuDe === m.id ? 'opacity-100' : 'pointer-events-none opacity-0 [@media(hover:hover)]:pointer-events-auto [@media(hover:hover)]:group-hover/linha:opacity-100'}`}>
                                   <HiChevronDown size={16} />
                                 </button>
                                 {menuDe === m.id && (
-                                  <div className={`absolute z-30 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5 ${abrirParaCima ? 'bottom-8' : 'top-8'} ${m.de_mim ? 'left-0' : 'right-0'} max-w-[calc(100vw-1.5rem)]`} onClick={e => e.stopPropagation()}>
+                                  <div className={`absolute z-30 w-48 overflow-hidden rounded-lg bg-white py-1.5 text-sm shadow-xl ring-1 ring-black/5 ${abrirParaCima ? 'bottom-full mb-1' : 'top-full mt-1'} ${m.de_mim ? 'right-0' : 'left-0'}`} onClick={e => e.stopPropagation()}>
                                     {acoes.map(a => (
                                       <button key={a.rotulo} type="button" onClick={a.fazer} className={`block w-full px-4 py-2 text-left hover:bg-gray-100 ${a.perigo ? 'text-red-600' : 'text-gray-800'}`}>{a.rotulo}</button>
                                     ))}
