@@ -42,9 +42,33 @@ const ehAgendadoEmAberto = (o) =>
 const ehPromocao = (o) =>
   (o.order_items ?? []).some(i => /^promo/i.test(i.product_name ?? ''))
 
+/** Minúsculas e sem acento: "Conceição" acha "conceicao". */
+const normalizar = (texto) =>
+  String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+/**
+ * A busca da lista: número (#50 ou 50), código do cliente, nome, telefone, endereço e produto.
+ * Telefone compara só os dígitos, então "(84) 98859" acha "84988594535".
+ */
+function casaComBusca(pedido, busca) {
+  const termo = normalizar(busca).trim().replace(/^#/, '')
+  if (!termo) return true
+  if (String(pedido.order_number) === termo) return true
+  // número curto é o nº do pedido; sem isto, "50" traria todo "50 Churros"
+  if (/^\d{1,3}$/.test(termo)) return false
+  const digitos = termo.replace(/\D/g, '')
+  if (digitos.length >= 4 && (pedido.customer_phone || '').replace(/\D/g, '').includes(digitos)) return true
+  const campos = [
+    pedido.codigo_cliente, pedido.customer_name, pedido.address, pedido.neighborhood, pedido.address_complement,
+    pedido.address_reference, pedido.notes, ...(pedido.order_items ?? []).map(i => i.product_name),
+  ]
+  return termo.split(/\s+/).every(palavra => campos.some(c => normalizar(c).includes(palavra)))
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [filter, setFilter] = useState('')
+  const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [editandoItens, setEditandoItens] = useState(false)
@@ -69,9 +93,11 @@ export default function OrdersPage() {
   const statusDoFiltro = filter === AGENDADOS ? null : (filter || null)
   const agendadosEmAberto = orders.filter(ehAgendadoEmAberto).length
   // Agendado fica só na aba dele até ser entregue ou cancelado; aí volta para as abas de sempre
+  // Buscando, o agendado aparece em qualquer aba: quem procura a Nadja não sabe que ela está lá
+  const buscando = busca.trim() !== ''
   const pedidosVisiveis = filter === AGENDADOS
-    ? orders.filter(ehAgendadoEmAberto)
-    : orders.filter(o => !ehAgendadoEmAberto(o))
+    ? orders.filter(o => ehAgendadoEmAberto(o) && casaComBusca(o, busca))
+    : orders.filter(o => (buscando || !ehAgendadoEmAberto(o)) && casaComBusca(o, busca))
 
   const loadOrders = useCallback((showLoading = false) => {
     if (showLoading) setLoading(true)
@@ -309,6 +335,27 @@ export default function OrdersPage() {
         aoCriar={() => loadOrders()}
       />
 
+      <div className="relative mb-3">
+        <input
+          type="search"
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+          placeholder="Buscar por nº, código, nome, telefone, endereço ou produto"
+          aria-label="Buscar pedidos"
+          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-9 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        {buscando && (
+          <button
+            type="button"
+            onClick={() => setBusca('')}
+            aria-label="Limpar busca"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 text-lg leading-none text-gray-400 hover:text-gray-700"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-4 mb-4">
         <button
@@ -343,7 +390,9 @@ export default function OrdersPage() {
       {loading ? <Loading /> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {pedidosVisiveis.length === 0 ? (
-            <p className="text-text-light text-center py-8">Nenhum pedido encontrado.</p>
+            <p className="text-text-light text-center py-8">
+              {buscando ? `Nenhum pedido com "${busca.trim()}"${filter ? ' nesta aba' : ''}.` : 'Nenhum pedido encontrado.'}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
