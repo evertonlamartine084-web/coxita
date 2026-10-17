@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       .from("orders")
       .select(`
         id, order_number, status, customer_name, customer_phone, customer_cpf, payment_method,
-        subtotal, delivery_fee, discount, total, bling_pedido_id, bling_nfe_id,
+        subtotal, delivery_fee, discount, total, sinal_valor, sinal_forma, bling_pedido_id, bling_nfe_id,
         order_items(product_id, product_name, quantity, unit_price, total_price, products(bling_codigo))
       `)
       .eq("id", orderId)
@@ -206,6 +206,11 @@ async function montarPedidoVenda(supabase: any, pedido: any) {
   if (faltando.length) throw new ErroBling(`produto não cadastrado no Bling: ${faltando.join(", ")}`)
 
   const hoje = hojeSaoPaulo()
+  // uma por vez: chamadas paralelas ao Bling podem renovar o token duas vezes (ver _shared/bling.ts)
+  const parcelas = []
+  for (const parte of partesDoPagamento(pedido)) {
+    parcelas.push({ dataVencimento: hoje, valor: parte.valor, formaPagamento: { id: await formaDePagamento(supabase, parte.forma) } })
+  }
   return {
     numeroLoja: String(pedido.order_number),
     data: hoje,
@@ -223,13 +228,23 @@ async function montarPedidoVenda(supabase: any, pedido: any) {
     })),
     desconto: { valor: reais(pedido.discount), unidade: "REAL" },
     transporte: { fretePorConta: 0, frete: reais(pedido.delivery_fee) },
-    parcelas: [{
-      dataVencimento: hoje,
-      valor: reais(pedido.total),
-      formaPagamento: { id: await formaDePagamento(supabase, pedido.payment_method) },
-    }],
+    parcelas,
     observacoes: `Pedido nº ${pedido.order_number} do site`,
   }
+}
+
+/**
+ * Pagamento dividido: sinal numa forma (sinal_forma) e o resto em payment_method viram duas
+ * parcelas. Sinal sem forma registrada (antigos) sai numa parcela só, como antes. Mesma regra de
+ * partesDoPagamento em src/utils/format.js.
+ */
+function partesDoPagamento(pedido: any): { forma: string; valor: number }[] {
+  const total = reais(pedido.total)
+  const sinal = reais(pedido.sinal_valor)
+  if (!(sinal > 0) || !pedido.sinal_forma) return [{ forma: pedido.payment_method, valor: total }]
+  const resto = reais(total - sinal)
+  if (pedido.sinal_forma === pedido.payment_method || resto <= 0) return [{ forma: pedido.sinal_forma, valor: total }]
+  return [{ forma: pedido.sinal_forma, valor: sinal }, { forma: pedido.payment_method, valor: resto }]
 }
 
 async function produtosPorCodigo(supabase: any, codigos: string[]) {

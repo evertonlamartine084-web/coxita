@@ -307,7 +307,7 @@ function htmlDaComanda(p) {
   ${Number(p.discount) > 0 ? linhaValor(`Desconto${p.coupon_code ? ` (${p.coupon_code})` : ''}`, `-${formatCurrency(p.discount)}`) : ''}
   ${entrega ? linhaValor('Entrega', formatCurrency(p.delivery_fee)) : ''}
   ${linhaValor('TOTAL', formatCurrency(p.total), 'total')}
-  ${sinal > 0 ? linhaValor('Sinal pago', `-${formatCurrency(sinal)}`) + linhaValor('A COBRAR', formatCurrency(aCobrar), 'total') : ''}
+  ${sinal > 0 ? linhaValor(`Sinal pago${p.sinal_forma ? ` (${ROTULO_PAGAMENTO[p.sinal_forma] ?? p.sinal_forma})` : ''}`, `-${formatCurrency(sinal)}`) + linhaValor('A COBRAR', formatCurrency(aCobrar), 'total') : ''}
   <hr>
   <div><b>Pagamento:</b> ${esc(ROTULO_PAGAMENTO[p.payment_method] ?? p.payment_method)}</div>
   <div class="faixa">${pago ? 'JÁ PAGO' : `COBRAR ${sinal > 0 ? `${esc(formatCurrency(aCobrar))} ` : ''}${entrega ? 'NA ENTREGA' : 'NA RETIRADA'}`}</div>

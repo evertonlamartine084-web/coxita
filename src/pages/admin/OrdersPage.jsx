@@ -3,7 +3,7 @@ import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markM
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
-import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, CANAIS, janelaDeEntrega } from '../../utils/format'
+import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, rotuloDoPagamento, CANAIS, janelaDeEntrega } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -27,6 +27,9 @@ function linkWhatsApp(telefone) {
   const internacional = (telefone || '').trim().startsWith('+')
   return `https://wa.me/${internacional || (digitos.startsWith('55') && digitos.length >= 12) ? digitos : `55${digitos}`}`
 }
+
+/** Como o resto de uma encomenda com sinal pode entrar, na ordem dos botões. */
+const FORMAS_DO_RESTO = ['dinheiro', 'pix', 'credito', 'debito']
 
 const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancelado']
 
@@ -217,11 +220,11 @@ export default function OrdersPage() {
     }
   }
 
-  const confirmarRecebimento = async (orderId, { silencioso = false } = {}) => {
+  const confirmarRecebimento = async (orderId, { silencioso = false, formaDoResto = null } = {}) => {
     try {
-      await marcarPago(orderId)
+      const atualizado = await marcarPago(orderId, formaDoResto)
       if (!silencioso) toast.success('Pagamento marcado como recebido.')
-      if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, payment_status: 'pago' }))
+      if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, ...atualizado }))
       loadOrders()
     } catch (err) {
       toast.error(err.message || 'Não foi possível marcar como pago.')
@@ -450,7 +453,7 @@ export default function OrdersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell capitalize">{order.delivery_type}</td>
-                      <td className="px-4 py-3 hidden md:table-cell">{PAYMENT_LABELS[order.payment_method]}</td>
+                      <td className="px-4 py-3 hidden md:table-cell">{rotuloDoPagamento(order)}</td>
                       <td className="px-4 py-3 font-medium">
                         {formatCurrency(order.total)}
                         <SeloPagamento pedido={order} aoReceber={receberDaLista} />
@@ -671,19 +674,37 @@ export default function OrdersPage() {
             </div>
 
             <div className="border-t border-border pt-3">
-              <p className="text-sm"><strong>Pagamento:</strong> {PAYMENT_LABELS[selectedOrder.payment_method]}</p>
+              <p className="text-sm"><strong>Pagamento:</strong> {rotuloDoPagamento(selectedOrder)}</p>
               {selectedOrder.payment_status && (
                 <p className="text-sm text-text-light">
                   Situação: <strong>{PAYMENT_STATUS_LABELS[selectedOrder.payment_status] ?? selectedOrder.payment_status}</strong>
                 </p>
               )}
-              {selectedOrder.status !== 'cancelado' && !['pago', 'estornado'].includes(selectedOrder.payment_status) && (
+              {selectedOrder.status !== 'cancelado' && !['pago', 'estornado'].includes(selectedOrder.payment_status) && Number(selectedOrder.sinal_valor) > 0 && (
+                // com sinal, o resto pode entrar de outro jeito: o botão já diz qual
+                <div className="mt-2 text-sm">
+                  <p className="mb-1 text-xs text-text-light">Recebi o resto ({formatCurrency(faltaReceber(selectedOrder))}) no:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {FORMAS_DO_RESTO.map(forma => (
+                      <button
+                        key={forma}
+                        type="button"
+                        onClick={() => confirmarRecebimento(selectedOrder.id, { formaDoResto: forma })}
+                        className="cursor-pointer rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+                      >
+                        {PAYMENT_LABELS[forma]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedOrder.status !== 'cancelado' && !['pago', 'estornado'].includes(selectedOrder.payment_status) && !(Number(selectedOrder.sinal_valor) > 0) && (
                 <button
                   type="button"
                   onClick={() => confirmarRecebimento(selectedOrder.id)}
                   className="mt-2 cursor-pointer rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
                 >
-                  Recebi {formatCurrency(faltaReceber(selectedOrder))}{Number(selectedOrder.sinal_valor) > 0 ? ' (o resto)' : ''}
+                  Recebi {formatCurrency(faltaReceber(selectedOrder))}
                 </button>
               )}
               {selectedOrder.scheduled_for && (

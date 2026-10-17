@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getOrders, marcarPago } from '../../services/orders'
-import { formatCurrency, STATUS_COLORS, rotuloDoStatus, aReceber, faltaReceber, CANAIS } from '../../utils/format'
+import { formatCurrency, STATUS_COLORS, rotuloDoStatus, aReceber, faltaReceber, partesDoPagamento, CANAIS } from '../../utils/format'
 import toast from 'react-hot-toast'
 import Badge from '../../components/ui/Badge'
 import Loading from '../../components/ui/Loading'
@@ -207,10 +207,13 @@ function calcular(pedidos, periodo) {
     porCanal[canal].valor += Number(o.total)
     porCanal[canal].pedidos += 1
 
-    const chave = o.payment_method || 'outro'
-    porPagamento[chave] ??= { nome: PAGAMENTO[chave] ?? chave, valor: 0, pedidos: 0 }
-    porPagamento[chave].valor += Number(o.total)
-    porPagamento[chave].pedidos += 1
+    // pagamento dividido (sinal no Pix, resto no cartão): cada parte vai para a sua forma
+    for (const parte of partesDoPagamento(o)) {
+      const chave = parte.forma || 'outro'
+      porPagamento[chave] ??= { nome: PAGAMENTO[chave] ?? chave, valor: 0, pedidos: 0 }
+      porPagamento[chave].valor += parte.valor
+      porPagamento[chave].pedidos += 1
+    }
     for (const item of o.order_items ?? []) {
       for (const f of item.order_item_flavors ?? []) {
         porSabor[f.flavor_name] = (porSabor[f.flavor_name] ?? 0) + f.quantity * (item.quantity || 1)

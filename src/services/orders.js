@@ -335,10 +335,13 @@ export async function estornarPedido(orderId, valorCentavos = null) {
  * Marca o pagamento combinado na entrega (Pix na loja, dinheiro, maquininha) como recebido.
  * Pagamento pelo site se confirma sozinho pela Cielo; este é o que só a loja sabe.
  */
-export async function marcarPago(orderId) {
+export async function marcarPago(orderId, formaDoResto = null) {
+  // com sinal, quem recebe o resto diz como ele entrou: vira o payment_method do pedido
+  const campos = { payment_status: 'pago', paid_at: new Date().toISOString() }
+  if (formaDoResto) campos.payment_method = formaDoResto
   const { data, error } = await supabase
     .from('orders')
-    .update({ payment_status: 'pago', paid_at: new Date().toISOString() })
+    .update(campos)
     .eq('id', orderId)
     .select()
     .single()
@@ -346,11 +349,11 @@ export async function marcarPago(orderId) {
   return data
 }
 
-/** Registra o sinal da encomenda (0 apaga). O resto se cobra na entrega. */
-export async function registrarSinal(orderId, valor) {
+/** Registra o sinal da encomenda e como ele foi pago (0 apaga). O resto se cobra na entrega. */
+export async function registrarSinal(orderId, valor, forma = null) {
   const { data, error } = await supabase
     .from('orders')
-    .update({ sinal_valor: valor, sinal_em: valor > 0 ? new Date().toISOString() : null })
+    .update({ sinal_valor: valor, sinal_em: valor > 0 ? new Date().toISOString() : null, sinal_forma: valor > 0 ? forma : null })
     .eq('id', orderId)
     .select()
     .single()

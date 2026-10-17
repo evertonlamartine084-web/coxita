@@ -277,7 +277,7 @@ export function textoDoPedido(p) {
   // encomenda com sinal: só o que falta é cobrado na entrega
   const sinal = pago ? 0 : Number(p.sinal_valor || 0)
   const aCobrar = Math.max(0, Number(p.total) - sinal)
-  if (sinal > 0) linhas.push(`Sinal pago: -${formatCurrency(sinal)}`, `*A COBRAR: ${formatCurrency(aCobrar)}*`)
+  if (sinal > 0) linhas.push(`Sinal pago${p.sinal_forma ? ` (${ROTULO_PAGAMENTO[p.sinal_forma] ?? p.sinal_forma})` : ''}: -${formatCurrency(sinal)}`, `*A COBRAR: ${formatCurrency(aCobrar)}*`)
   linhas.push(`💳 ${ROTULO_PAGAMENTO[p.payment_method] ?? p.payment_method} — ${pago ? '✅ JÁ PAGO' : entrega ? 'cobrar na entrega' : 'cobrar na retirada'}`)
   if (!pago && p.payment_method === 'dinheiro' && Number(p.change_for) > 0) {
     linhas.push(`Troco para ${formatCurrency(p.change_for)} (levar ${formatCurrency(Number(p.change_for) - aCobrar)})`)

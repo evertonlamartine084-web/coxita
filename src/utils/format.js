@@ -115,6 +115,27 @@ export const PAYMENT_LABELS = {
 }
 
 /**
+ * Quanto entrou (ou vai entrar) em cada forma. Com sinal de forma conhecida, são duas partes:
+ * o sinal na forma dele e o resto em payment_method. Sinal antigo, sem forma, conta tudo em
+ * payment_method, como era antes de existir o pagamento dividido.
+ */
+export function partesDoPagamento(o) {
+  const total = Number(o.total) || 0
+  const sinal = Number(o.sinal_valor || 0)
+  if (!(sinal > 0) || !o.sinal_forma) return [{ forma: o.payment_method, valor: total }]
+  const resto = Math.round((total - sinal) * 100) / 100
+  if (o.sinal_forma === o.payment_method || resto <= 0) return [{ forma: o.sinal_forma, valor: total }]
+  return [{ forma: o.sinal_forma, valor: sinal }, { forma: o.payment_method, valor: resto }]
+}
+
+/** "Pix" ou, dividido, "Pix R$ 27,84 + Cartão de Crédito R$ 39,84". */
+export function rotuloDoPagamento(o, rotulos = PAYMENT_LABELS) {
+  const partes = partesDoPagamento(o)
+  if (partes.length === 1) return rotulos[partes[0].forma] ?? partes[0].forma
+  return partes.map(p => `${rotulos[p.forma] ?? p.forma} ${formatCurrency(p.valor)}`).join(' + ')
+}
+
+/**
  * Centavos nao bastam para custo de insumo: 1 g de massa de pastel custa
  * R$ 0,0119, e arredondar isso para R$ 0,01 erra 16% no custo do pastel.
  */
