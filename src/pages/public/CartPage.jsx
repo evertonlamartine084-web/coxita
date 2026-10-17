@@ -9,6 +9,7 @@ import { getProducts } from '../../services/products'
 import { getPrecoPorSabor } from '../../services/precoPorSabor'
 import { calcularDescontoAvista, rotuloDoDesconto } from '../../utils/descontoAvista'
 import CartItem from '../../components/cart/CartItem'
+import LevaJunto from '../../components/cart/LevaJunto'
 import Button from '../../components/ui/Button'
 import { formatCurrency } from '../../utils/format'
 import Seo from '../../components/ui/Seo'
@@ -97,6 +98,8 @@ export default function CartPage() {
           <CartItem key={item.lineId} item={item} />
         ))}
       </div>
+
+      <LevaJunto />
 
       {/* Summary */}
       <div className="bg-surface border-2 border-brown/20 p-5 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
