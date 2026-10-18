@@ -28,6 +28,8 @@ trocar(/<link rel="manifest" href="[^"]*"/, '<link rel="manifest" href="/painel.
 trocar(/<meta name="apple-mobile-web-app-title" content="[^"]*"/, '<meta name="apple-mobile-web-app-title" content="Painel"')
 html = html.replace(/<link rel="apple-touch-icon"([^>]*?)href="[^"]*"/g, '<link rel="apple-touch-icon"$1href="/painel-apple-180.png"')
 // o painel não tem nada para buscador
+// o painel não carrega a tag do Google (main.jsx): o preload do site só gastaria rede aqui
+html = html.replace(/<link rel="preconnect" href="https:\/\/www\.googletagmanager\.com"><link rel="preload" as="script" href="[^"]*">/, '')
 html = html.replace('</head>', '    <meta name="robots" content="noindex, nofollow" />\n  </head>')
 
 mkdirSync('dist/admin', { recursive: true })

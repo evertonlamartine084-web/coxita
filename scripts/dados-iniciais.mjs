@@ -69,7 +69,15 @@ try {
   const html = readFileSync(SAIDA, 'utf8')
   // </script> dentro de JSON fecharia a tag antes da hora e o resto viraria markup.
   const json = JSON.stringify(dados).replace(/</g, '\\u003c')
-  const bloco = `${MARCA}<script>window.__COXELLI__=${json}</script>`
+  // A tag do Google só começava a baixar depois do app inteiro (rastreio.js): em 4G fraco a
+  // visita do anúncio era registrada só ~7 s depois do clique, e quem saía antes não contava
+  // (18/10/2026: 26 cliques no Ads, poucas sessões no GA4). O preload baixa junto com a página;
+  // o rastreio.js continua injetando o script e o navegador reaproveita o download.
+  const tag = String(dados.settings.google_tag_id || dados.settings.google_ads_id || '').trim()
+  const preload = /^(G|AW)-[A-Z0-9-]+$/i.test(tag)
+    ? `<link rel="preconnect" href="https://www.googletagmanager.com"><link rel="preload" as="script" href="https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(tag)}">`
+    : ''
+  const bloco = `${MARCA}${preload}<script>window.__COXELLI__=${json}</script>`
 
   writeFileSync(SAIDA, html.replace('</head>', `${bloco}</head>`))
 
