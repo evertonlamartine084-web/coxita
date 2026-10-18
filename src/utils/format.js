@@ -1,3 +1,5 @@
+import { ehAVista } from './descontoAvista'
+
 export function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -98,6 +100,41 @@ export const aReceber = (o) =>
 
 /** Quanto falta cobrar: o total menos o sinal já recebido. */
 export const faltaReceber = (o) => Math.max(0, Number(o.total) - Number(o.sinal_valor || 0))
+
+const centavos = (v) => Math.round(v * 100) / 100
+
+/**
+ * Pedido com preço de Pix, sinal pago à vista e o resto no cartão (caso da Emilly, 18/10/2026):
+ * o desconto do Pix vale só para a parte que entrou no Pix. O resto volta ao preço cheio, na
+ * mesma proporção: sinal de R$ 75 num pedido de R$ 141,40 (R$ 153,40 no cartão) pagou 53% dele,
+ * então faltam 47% de R$ 153,40 = R$ 72,04, e não os R$ 66,40 do Pix.
+ *
+ * Devolve o resto e os campos que o pedido passa a ter (total, desconto e desconto à vista
+ * reduzidos à parte do Pix), ou null quando não muda nada: resto também à vista, pedido sem
+ * desconto de Pix ou sinal pago no cartão. Sinal antigo sem forma conta como payment_method.
+ */
+export function restoSemDesconto(o, formaDoResto) {
+  const sinal = Number(o.sinal_valor || 0)
+  const total = Number(o.total) || 0
+  const avista = Number(o.discount_avista || 0)
+  const formaDoSinal = o.sinal_forma || o.payment_method
+  if (!formaDoResto || ehAVista(formaDoResto) || !(sinal > 0) || !(avista > 0) || !(total > sinal)) return null
+  if (!ehAVista(formaDoSinal)) return null
+  const avistaDoSinal = centavos(avista * (sinal / total))
+  const novoTotal = centavos(total + avista - avistaDoSinal)
+  return {
+    resto: centavos(novoTotal - sinal),
+    campos: {
+      total: novoTotal,
+      discount: centavos(Number(o.discount || 0) - avista + avistaDoSinal),
+      discount_avista: avistaDoSinal,
+      sinal_forma: formaDoSinal,
+    },
+  }
+}
+
+/** Quanto falta se o resto entrar nesta forma (no cartão, sem o desconto do Pix). */
+export const faltaReceberNo = (o, forma) => restoSemDesconto(o, forma)?.resto ?? faltaReceber(o)
 
 /** Por onde o pedido chegou. O site grava 'site' sozinho; o painel escolhe entre os outros. */
 export const CANAIS = {

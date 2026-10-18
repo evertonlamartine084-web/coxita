@@ -3,7 +3,7 @@ import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markM
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
-import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, rotuloDoPagamento, CANAIS, janelaDeEntrega } from '../../utils/format'
+import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, faltaReceberNo, restoSemDesconto, rotuloDoPagamento, CANAIS, janelaDeEntrega } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -224,7 +224,9 @@ export default function OrdersPage() {
 
   const confirmarRecebimento = async (orderId, { silencioso = false, formaDoResto = null } = {}) => {
     try {
-      const atualizado = await marcarPago(orderId, formaDoResto)
+      const pedido = orders.find(o => o.id === orderId) ?? (selectedOrder?.id === orderId ? selectedOrder : null)
+      const ajuste = pedido ? restoSemDesconto(pedido, formaDoResto)?.campos ?? null : null
+      const atualizado = await marcarPago(orderId, formaDoResto, ajuste)
       if (!silencioso) toast.success('Pagamento marcado como recebido.')
       if (selectedOrder?.id === orderId) setSelectedOrder(prev => ({ ...prev, ...atualizado }))
       loadOrders()
@@ -685,7 +687,7 @@ export default function OrdersPage() {
               {selectedOrder.status !== 'cancelado' && !['pago', 'estornado'].includes(selectedOrder.payment_status) && Number(selectedOrder.sinal_valor) > 0 && (
                 // com sinal, o resto pode entrar de outro jeito: o botão já diz qual
                 <div className="mt-2 text-sm">
-                  <p className="mb-1 text-xs text-text-light">Recebi o resto ({formatCurrency(faltaReceber(selectedOrder))}) no:</p>
+                  <p className="mb-1 text-xs text-text-light">Recebi o resto no:</p>
                   <div className="flex flex-wrap gap-1.5">
                     {FORMAS_DO_RESTO.map(forma => (
                       <button
@@ -694,7 +696,7 @@ export default function OrdersPage() {
                         onClick={() => confirmarRecebimento(selectedOrder.id, { formaDoResto: forma })}
                         className="cursor-pointer rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
                       >
-                        {PAYMENT_LABELS[forma]}
+                        {PAYMENT_LABELS[forma]} · {formatCurrency(faltaReceberNo(selectedOrder, forma))}
                       </button>
                     ))}
                   </div>

@@ -335,9 +335,11 @@ export async function estornarPedido(orderId, valorCentavos = null) {
  * Marca o pagamento combinado na entrega (Pix na loja, dinheiro, maquininha) como recebido.
  * Pagamento pelo site se confirma sozinho pela Cielo; este é o que só a loja sabe.
  */
-export async function marcarPago(orderId, formaDoResto = null) {
-  // com sinal, quem recebe o resto diz como ele entrou: vira o payment_method do pedido
-  const campos = { payment_status: 'pago', paid_at: new Date().toISOString() }
+export async function marcarPago(orderId, formaDoResto = null, ajuste = null) {
+  // com sinal, quem recebe o resto diz como ele entrou: vira o payment_method do pedido.
+  // `ajuste` são os campos de restoSemDesconto (utils/format): resto no cartão de um pedido com
+  // preço de Pix, que perde o desconto na parte que não foi paga no Pix
+  const campos = { ...(ajuste ?? {}), payment_status: 'pago', paid_at: new Date().toISOString() }
   if (formaDoResto) campos.payment_method = formaDoResto
   const { data, error } = await supabase
     .from('orders')

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { registrarSinal } from '../../services/orders'
-import { formatCurrency, faltaReceber, PAYMENT_LABELS } from '../../utils/format'
+import { formatCurrency, faltaReceber, restoSemDesconto, PAYMENT_LABELS } from '../../utils/format'
 
 const metade = (total) => Math.round(Number(total) * 50) / 100
 
@@ -46,7 +46,13 @@ export default function SinalDoPedido({ pedido, aoMudar }) {
           {pedido.sinal_forma && <> · {PAYMENT_LABELS[pedido.sinal_forma] ?? pedido.sinal_forma}</>}
           {pedido.sinal_em && <span className="text-text-light"> em {new Date(pedido.sinal_em).toLocaleDateString('pt-BR')}</span>}
         </p>
-        <p><strong>Falta cobrar na entrega:</strong> {formatCurrency(faltaReceber(pedido))}</p>
+        <p>
+          <strong>Falta cobrar na entrega:</strong> {formatCurrency(faltaReceber(pedido))}
+          {restoSemDesconto(pedido, 'credito') && (
+            // o desconto do Pix vale só para o que entrou no Pix: no cartão o resto é maior
+            <> no {PAYMENT_LABELS[pedido.sinal_forma || pedido.payment_method] ?? 'Pix'} · <strong>{formatCurrency(restoSemDesconto(pedido, 'credito').resto)} no cartão</strong></>
+          )}
+        </p>
         <button type="button" onClick={() => setEditando(true)} className="mt-1 cursor-pointer text-xs font-semibold text-primary hover:underline">
           Corrigir sinal
         </button>
