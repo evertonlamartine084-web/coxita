@@ -99,7 +99,9 @@ export default function OrdersPage() {
   // Buscando, o agendado aparece em qualquer aba: quem procura a Nadja não sabe que ela está lá
   const buscando = busca.trim() !== ''
   const pedidosVisiveis = filter === AGENDADOS
+    // na aba dos agendados, a ordem é a da entrega: o próximo a sair fica em cima
     ? orders.filter(o => ehAgendadoEmAberto(o) && casaComBusca(o, busca))
+      .sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))
     : orders.filter(o => (buscando || !ehAgendadoEmAberto(o)) && casaComBusca(o, busca))
 
   const loadOrders = useCallback((showLoading = false) => {
