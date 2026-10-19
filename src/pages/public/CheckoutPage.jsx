@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { cepNaZonaNorte } from '../../content/entrega'
-import { comecouCheckout, fezPedido } from '../../services/rastreio'
+import { comecouCheckout, fezPedido, passoDoCheckout } from '../../services/rastreio'
 import { useCartStore } from '../../store/cartStore'
 import { useLoyaltyStore } from '../../store/loyaltyStore'
 import { createOrder, getPedidosPorTokens } from '../../services/orders'
@@ -31,6 +31,13 @@ import toast from 'react-hot-toast'
 import Seo from '../../components/ui/Seo'
 
 const formatarKm = (km) => `${Number(km).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`
+
+/** Nome curto do campo para o evento checkout_erro_* (aparece assim no GA4). */
+const CAMPO_DO_ERRO = {
+  customer_name: 'nome', customer_phone: 'telefone', customer_cpf: 'cpf', address_cep: 'cep',
+  address: 'endereco', neighborhood: 'bairro', address_number: 'numero',
+  scheduled_time: 'horario', scheduled_date: 'data', min_order: 'minimo',
+}
 
 const initialForm = {
   customer_name: '',
@@ -194,6 +201,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (finalizando.current || !items.length) return
     if (form.customer_phone.replace(/\D/g, '').length < 10) return
+    passoDoCheckout('contato', {}, { umaVez: true })
     const t = setTimeout(() => {
       salvarCarrinho({ nome: form.customer_name.trim(), telefone: form.customer_phone.trim(), items, subtotal: getSubtotal() })
     }, 2000)
@@ -248,6 +256,12 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.delivery_type, cepDigitos, numeroEndereco, recotar])
 
+  // Resultado do frete no funil: CEP fora da Zona Norte é a suspeita nº 1 de desistência
+  useEffect(() => {
+    const passo = { ok: 'frete_ok', 'fora-zona': 'cep_fora_zona', fora: 'fora_do_raio', erro: 'frete_erro' }[cotacao.status]
+    if (passo) passoDoCheckout(passo, {}, { umaVez: true })
+  }, [cotacao.status])
+
   // a taxa do resumo é sempre a da cotação; sem cotação válida, zero (e o envio fica bloqueado)
   useEffect(() => {
     setDeliveryFee(form.delivery_type === 'entrega' && cotacao.status === 'ok' ? Number(cotacao.taxa) : 0)
@@ -289,6 +303,8 @@ export default function CheckoutPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
+    if (name === 'delivery_type') passoDoCheckout(value, {}, { umaVez: true })
+    if (name === 'payment_method') passoDoCheckout(`pagamento_${value}`, {}, { umaVez: true })
     setForm(f => {
       // entrega é sempre com horário marcado; voltar para retirada volta ao "Agora"
       if (name === 'delivery_type' && value === 'entrega') return { ...f, delivery_type: value, order_type: 'agendado', scheduled_date: '', scheduled_time: '' }
@@ -348,6 +364,8 @@ export default function CheckoutPage() {
       errs.min_order = `Pedido mínimo: ${formatCurrency(minOrder)}`
     }
     setErrors(errs)
+    // qual campo barrou o envio: checkout_erro_cep, checkout_erro_horario...
+    for (const campo of Object.keys(errs)) passoDoCheckout(`erro_${CAMPO_DO_ERRO[campo] ?? campo}`, {}, { umaVez: true })
     return Object.keys(errs).length === 0
   }
 
@@ -361,6 +379,7 @@ export default function CheckoutPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
+    passoDoCheckout('enviar')
 
     setSubmitting(true)
     try {
@@ -440,6 +459,7 @@ export default function CheckoutPage() {
       // Pagamento online: abre a cobrança AQUI, sem redirect. O carrinho só é limpo quando o
       // pagamento fecha — se o cliente desistir no meio, ele não perde o que montou.
       if (form.payment_method === 'cartao') {
+        passoDoCheckout('cartao_aberto')
         setPagamento({ modo: 'cartao', order })
         return
       }
@@ -447,9 +467,11 @@ export default function CheckoutPage() {
       if (form.payment_method === 'pix_online') {
         try {
           const pix = await gerarPix(order.id)
+          passoDoCheckout('pix_gerado')
           setPagamento({ modo: 'pix', order, pix })
         } catch (err) {
           console.error('Erro ao gerar Pix:', err)
+          passoDoCheckout('pix_falhou')
           toast.error('Não foi possível gerar o Pix. Escolha outra forma de pagamento.')
         }
         return
@@ -459,6 +481,7 @@ export default function CheckoutPage() {
     } catch (err) {
       console.error(err)
       const msg = String(err?.message ?? '')
+      passoDoCheckout('falha_envio', { motivo: msg.slice(0, 90) })
       if (msg.includes('horario-') || msg.includes('entrega-sem-horario')) {
         // outro cliente pegou o horário primeiro (ou ele passou): atualiza a lista e pede outro
         setForm(f => ({ ...f, scheduled_date: '', scheduled_time: '' }))
@@ -483,11 +506,13 @@ export default function CheckoutPage() {
     try {
       const r = await pagarComCartao(pagamento.order.id, cartao, parcelas)
       if (r.ok) {
+        passoDoCheckout('cartao_aprovado')
         toast.success('Pagamento aprovado!')
         concluir(pagamento.order)
       } else {
         // a recusa é do banco emissor, não um erro nosso: o pedido continua de pé e a pessoa
         // pode tentar outro cartão sem refazer nada
+        passoDoCheckout('cartao_recusado')
         toast.error(r.mensagem || 'Pagamento não autorizado. Tente outro cartão.')
       }
     } catch (err) {
@@ -499,6 +524,7 @@ export default function CheckoutPage() {
   }
 
   const aoPixConfirmado = () => {
+    passoDoCheckout('pix_pago')
     toast.success('Pagamento confirmado!')
     concluir(pagamento.order)
   }

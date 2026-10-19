@@ -171,6 +171,23 @@ export function fezPedido(pedido, itens) {
   }
 }
 
+/**
+ * Passos do checkout, para achar onde a pessoa desiste (19/10/2026: 28 começaram e 8 pediram).
+ * Cada passo é um evento com nome próprio (checkout_cep_fora_zona, checkout_erro_horario...),
+ * que aparece direto em Relatórios → Eventos sem precisar cadastrar dimensão no GA4. Só vai
+ * para o Google; a Meta fica com os eventos padrão. `umaVez` evita contar o mesmo passo a
+ * cada re-render.
+ */
+const passosContados = new Set()
+export function passoDoCheckout(nome, params = {}, { umaVez = false } = {}) {
+  const evento_ = `checkout_${nome}`
+  if (umaVez) {
+    if (passosContados.has(evento_)) return
+    passosContados.add(evento_)
+  }
+  evento(evento_, params)
+}
+
 /** Contato pelo WhatsApp: encomenda gourmet, orçamento de evento, entrega fora da Zona Norte. */
 export function contatoWhatsApp(origem) {
   evento('generate_lead', { method: 'whatsapp', lead_source: origem })
