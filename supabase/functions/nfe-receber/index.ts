@@ -119,8 +119,11 @@ Deno.serve(async (req) => {
 
     // chaves lidas no painel pelo código de barras, esperando o robô
     if (corpo.acao === "pedidas") {
+      // a Receita pode levar um tempo para liberar o XML depois da ciência: nova tentativa a cada 5 min, por ~2 h
+      const cincoMin = new Date(Date.now() - 5 * 60_000).toISOString()
       const { data } = await db.from("nfe_pedidas").select("chave, tentativas")
-        .in("status", ["pendente", "buscando"]).lt("tentativas", 6).order("criada_em").limit(10)
+        .in("status", ["pendente", "buscando"]).lt("tentativas", 25)
+        .or(`tentativas.eq.0,atualizada_em.lt.${cincoMin}`).order("criada_em").limit(10)
       return json({ chaves: data ?? [] })
     }
     if (corpo.acao === "pedida_resultado") {
@@ -128,7 +131,7 @@ Deno.serve(async (req) => {
       const { data: atual } = await db.from("nfe_pedidas").select("tentativas").eq("chave", chave).maybeSingle()
       await db.from("nfe_pedidas").update({
         status: corpo.status, mensagem: corpo.mensagem ?? null,
-        tentativas: (atual?.tentativas ?? 0) + 1, atualizada_em: new Date().toISOString(),
+        tentativas: (atual?.tentativas ?? 0) + (corpo.status === "buscando" ? 0 : 1), atualizada_em: new Date().toISOString(),
       }).eq("chave", chave)
       return json({ ok: true })
     }
