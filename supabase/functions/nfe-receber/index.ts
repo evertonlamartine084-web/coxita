@@ -117,6 +117,22 @@ Deno.serve(async (req) => {
       return json({ ok: true })
     }
 
+    // chaves lidas no painel pelo código de barras, esperando o robô
+    if (corpo.acao === "pedidas") {
+      const { data } = await db.from("nfe_pedidas").select("chave, tentativas")
+        .in("status", ["pendente", "buscando"]).lt("tentativas", 6).order("criada_em").limit(10)
+      return json({ chaves: data ?? [] })
+    }
+    if (corpo.acao === "pedida_resultado") {
+      const chave = String(corpo.chave ?? "").replace(/\D/g, "")
+      const { data: atual } = await db.from("nfe_pedidas").select("tentativas").eq("chave", chave).maybeSingle()
+      await db.from("nfe_pedidas").update({
+        status: corpo.status, mensagem: corpo.mensagem ?? null,
+        tentativas: (atual?.tentativas ?? 0) + 1, atualizada_em: new Date().toISOString(),
+      }).eq("chave", chave)
+      return json({ ok: true })
+    }
+
     if (corpo.acao === "nfe") {
       const xml = String(corpo.xml ?? "")
       if (!/<infNFe/.test(xml)) return json({ erro: "isso não é o XML de uma NF-e" }, 400)
@@ -124,6 +140,8 @@ Deno.serve(async (req) => {
       if (!nota.chave_acesso || !nota.itens.length) return json({ erro: "XML sem chave ou sem itens" }, 400)
 
       const { data: existe } = await db.from("compras").select("id, conferida").eq("chave_acesso", nota.chave_acesso).maybeSingle()
+      await db.from("nfe_pedidas").update({ status: "recebida", mensagem: null, atualizada_em: new Date().toISOString() })
+        .eq("chave", nota.chave_acesso)
       if (existe) return json({ ok: true, ja_existia: true, compra_id: existe.id, conferida: existe.conferida })
 
       // nome curto da loja já escolhido antes, e bloco lembrado por item

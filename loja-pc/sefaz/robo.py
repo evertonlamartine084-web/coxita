@@ -172,6 +172,56 @@ def entregar(xml, nsu=None):
             return e.code, {"erro": corpo[:300].decode("utf-8", "replace")}
 
 
+def chamar_nuvem(corpo):
+    req = urllib.request.Request(f"{SUPABASE_URL}/functions/v1/nfe-receber", data=json.dumps(corpo).encode(),
+                                 headers={"Content-Type": "application/json", "x-robo-segredo": ROBO_SEGREDO})
+    return json.loads(urllib.request.urlopen(req, timeout=30).read() or b"{}")
+
+
+def atender_pedidas(estado):
+    """Chaves lidas no painel pelo código de barras: ciência + XML, e o resultado volta para o painel."""
+    try:
+        pedidas = chamar_nuvem({"acao": "pedidas"}).get("chaves", [])
+    except Exception as e:
+        log("pedidas: falhou ao perguntar à nuvem:", e)
+        return
+    for p in pedidas:
+        chave = p["chave"]
+        log(f"pedida pelo painel: {chave}")
+        try:
+            chamar_nuvem({"acao": "pedida_resultado", "chave": chave, "status": "buscando"})
+            if chave[20:22] == "65":
+                chamar_nuvem({"acao": "pedida_resultado", "chave": chave, "status": "nao_encontrada",
+                              "mensagem": "É cupom de consumidor (NFC-e). Leia pelo QR code."})
+                continue
+            r = ciencia_da_operacao(chave)
+            log(f"  ciência: {r['cStat']} {r['xMotivo']}")
+            if r["cStat"] not in ("135", "573", "650"):
+                chamar_nuvem({"acao": "pedida_resultado", "chave": chave, "status": "nao_encontrada",
+                              "mensagem": f"A Receita recusou a ciência ({r['cStat']}): {r['xMotivo']}. "
+                                          "Em geral é nota emitida para outro CPF/CNPJ."})
+                continue
+            d = dist_dfe(f"<consChNFe><chNFe>{chave}</chNFe></consChNFe>")
+            completos = [x for x in d["docs"] if x["schema"].startswith("procNFe")]
+            if completos:
+                st, resp = entregar(completos[0]["xml"])
+                log(f"  entregue: {st}")
+                if chave not in estado["entregues"] and st == 200:
+                    estado["entregues"].append(chave)
+            else:
+                chamar_nuvem({"acao": "pedida_resultado", "chave": chave, "status": "pendente",
+                              "mensagem": f"Ciência registrada; a Receita ainda não liberou o XML ({d['cStat']} {d['xMotivo']}). "
+                                          "Tento de novo em alguns minutos."})
+        except Exception as e:
+            log("  erro:", e)
+            try:
+                chamar_nuvem({"acao": "pedida_resultado", "chave": chave, "status": "erro", "mensagem": str(e)[:200]})
+            except Exception:
+                pass
+        time.sleep(2)
+    gravar_estado(estado)
+
+
 def pulso(estado, nota=""):
     try:
         req = urllib.request.Request(f"{SUPABASE_URL}/functions/v1/nfe-receber",
@@ -276,17 +326,23 @@ def main():
         pulso(estado, resultado)
         log("ciclo único:", resultado)
         return
+    proximo_ciclo = 0
     while True:
-        try:
-            resultado = ciclo(estado)
-            pulso(estado, resultado)
-            espera = 3700 if resultado == "656" else INTERVALO
-        except Exception as e:
-            log("erro no ciclo:", e)
-            traceback.print_exc()
-            espera = 600
-        log(f"próximo ciclo em {espera // 60} min")
-        time.sleep(espera)
+        # a cada minuto: chaves pedidas pelo painel (código de barras)
+        atender_pedidas(estado)
+        # a cada INTERVALO (ou 1 h depois de um 656): a listagem geral do CNPJ
+        if time.time() >= proximo_ciclo:
+            try:
+                resultado = ciclo(estado)
+                pulso(estado, resultado)
+                espera = 3700 if resultado == "656" else INTERVALO
+            except Exception as e:
+                log("erro no ciclo:", e)
+                traceback.print_exc()
+                espera = 600
+            proximo_ciclo = time.time() + espera
+            log(f"próxima listagem em {espera // 60} min")
+        time.sleep(60)
 
 
 if __name__ == "__main__":

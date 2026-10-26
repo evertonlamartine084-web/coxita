@@ -4,7 +4,8 @@ import { HiCamera, HiPhotograph, HiLink, HiTrash, HiRefresh, HiExternalLink } fr
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import { formatCurrency } from '../../utils/format'
-import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, CATEGORIAS } from '../../services/compras'
+import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, pedirNfe, listarPedidas, apagarPedida, CATEGORIAS } from '../../services/compras'
+import LeitorDeChave from '../../components/admin/LeitorDeChave'
 
 /**
  * Compras pelo cupom de mercado.
@@ -17,7 +18,7 @@ import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra,
  * senão jsQR lendo os quadros do vídeo. Os dois rodam sem mandar imagem para lugar nenhum.
  */
 
-const ETAPAS = { INICIO: 'inicio', LENDO_QR: 'lendo_qr', ABRINDO: 'abrindo', CODIGO: 'codigo', CONFERIR: 'conferir', GRAVANDO: 'gravando' }
+const ETAPAS = { INICIO: 'inicio', LENDO_QR: 'lendo_qr', CHAVE: 'chave', ABRINDO: 'abrindo', CODIGO: 'codigo', CONFERIR: 'conferir', GRAVANDO: 'gravando' }
 
 export default function ComprasPage() {
   const [etapa, setEtapa] = useState(ETAPAS.INICIO)
@@ -32,6 +33,7 @@ export default function ComprasPage() {
   const [aberta, setAberta] = useState(null)
   const [pendente, setPendente] = useState(null)   // compra da Receita sendo conferida (id)
   const [robo, setRobo] = useState(null)
+  const [pedidas, setPedidas] = useState([])
 
   const carregar = useCallback(() => {
     listarCompras()
@@ -39,7 +41,31 @@ export default function ComprasPage() {
       .catch(() => toast.error('Erro ao carregar as compras.'))
       .finally(() => setCarregando(false))
     estadoDoRobo().then(setRobo).catch(() => {})
+    listarPedidas().then(setPedidas).catch(() => {})
   }, [])
+
+  // enquanto houver nota na fila do robô, olha de novo a cada 20 s
+  useEffect(() => {
+    if (!pedidas.some(p => p.status === 'pendente' || p.status === 'buscando')) return
+    const t = setTimeout(carregar, 20000)
+    return () => clearTimeout(t)
+  }, [pedidas, carregar])
+
+  const pedirChave = useCallback(async (chave) => {
+    setEtapa(ETAPAS.INICIO)
+    if (chave.slice(20, 22) === '65') {
+      toast.error('Essa é de cupom de consumidor (NFC-e). Use "Ler com a câmera" no QR code do cupom.', { duration: 7000 })
+      return
+    }
+    try {
+      const r = await pedirNfe(chave)
+      if (r.ja_lancada) toast(r.conferida ? 'Essa nota já foi lançada.' : 'Essa nota já chegou: está em "Chegaram da Receita".')
+      else toast.success('Nota pedida. O robô do PC da loja busca na Receita em até 1 minuto.', { duration: 6000 })
+      carregar()
+    } catch (e) {
+      toast.error(e.message || 'Não consegui pedir a nota.')
+    }
+  }, [carregar])
 
   // Compra que chegou pela Receita: abre na mesma tela de conferência do cupom
   const conferirPendente = (c) => {
@@ -149,8 +175,11 @@ export default function ComprasPage() {
             setLinkColado={setLinkColado}
             aoLer={abrir}
             aoCamera={() => { setErro(''); setEtapa(ETAPAS.LENDO_QR) }}
+            aoChave={() => { setErro(''); setEtapa(ETAPAS.CHAVE) }}
           />
         )}
+
+        {etapa === ETAPAS.CHAVE && <LeitorDeChave aoLer={pedirChave} aoCancelar={recomecar} />}
 
         {etapa === ETAPAS.LENDO_QR && (
           <LeitorDeQr aoLer={abrir} aoCancelar={recomecar} aoErro={(m) => { setErro(m); setEtapa(ETAPAS.INICIO) }} />
@@ -192,6 +221,24 @@ export default function ComprasPage() {
           <Conferencia nota={nota} itens={itens} erro={erro} trocarCategoria={trocarCategoria} trocarLoja={trocarLoja} aoGravar={gravar} aoCancelar={recomecar} />
         )}
       </section>
+
+      {pedidas.length > 0 && (
+        <section className="mb-6">
+          <h2 className="font-display text-lg font-black uppercase text-brown mb-2">Notas pedidas pelo código de barras</h2>
+          <div className="space-y-1.5">
+            {pedidas.map(p => (
+              <div key={p.chave} className="bg-white border border-border rounded-xl px-3 py-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-mono text-xs text-text-warm flex-1 min-w-[14rem] break-all">{p.chave}</span>
+                <span className={`text-xs font-semibold ${p.status === 'nao_encontrada' || p.status === 'erro' ? 'text-danger' : 'text-amber-800'}`}>
+                  {{ pendente: 'na fila do robô', buscando: 'buscando na Receita…', nao_encontrada: 'não veio', erro: 'erro' }[p.status] ?? p.status}
+                </span>
+                <button type="button" onClick={() => apagarPedida(p.chave).then(carregar)} className="text-text-warm cursor-pointer" aria-label="Tirar da lista"><HiTrash /></button>
+                {p.mensagem && <p className="w-full text-xs text-text-warm">{p.mensagem}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {compras.some(c => c.conferida === false) && (
         <section className="mb-8">
@@ -285,7 +332,7 @@ export default function ComprasPage() {
   )
 }
 
-function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera }) {
+function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera, aoChave }) {
   const arquivoRef = useRef(null)
 
   const lerDaFoto = async (ev) => {
@@ -312,6 +359,10 @@ function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera }) {
         </Button>
         <input ref={arquivoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={lerDaFoto} />
       </div>
+      <button type="button" onClick={aoChave}
+        className="mt-3 w-full cursor-pointer rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm font-semibold text-brown hover:border-primary">
+        Nota grande, com código de barras (NF-e)? Toque aqui
+      </button>
       <form
         className="mt-4 flex gap-2"
         onSubmit={(e) => { e.preventDefault(); if (linkColado.trim()) aoLer(linkColado.trim()) }}

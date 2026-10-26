@@ -30,6 +30,32 @@ export const gravarCompra = (nota, itens, sessao_id) => chamar({ acao: 'gravar',
 export const confirmarPendente = (compra_id, itens, emitente_nome) =>
   chamar({ acao: 'confirmar_pendente', compra_id, itens: itens.map(i => ({ ordem: i.ordem, categoria: i.categoria })), emitente_nome })
 
+/**
+ * Põe na fila do robô do PC da loja uma NF-e lida pelo código de barras. Se a chave já foi pedida
+ * antes e deu erro, volta para pendente.
+ */
+export async function pedirNfe(chave) {
+  const { data: ja } = await supabase.from('compras').select('id, conferida').eq('chave_acesso', chave).maybeSingle()
+  if (ja) return { ja_lancada: true, conferida: ja.conferida }
+  const { error } = await supabase.from('nfe_pedidas').upsert(
+    { chave, status: 'pendente', mensagem: null, tentativas: 0, atualizada_em: new Date().toISOString() },
+    { onConflict: 'chave' },
+  )
+  if (error) throw error
+  return { pedida: true }
+}
+
+export async function listarPedidas() {
+  const { data, error } = await supabase.from('nfe_pedidas').select('*')
+    .neq('status', 'recebida').order('criada_em', { ascending: false }).limit(20)
+  if (error) throw error
+  return data ?? []
+}
+
+export async function apagarPedida(chave) {
+  await supabase.from('nfe_pedidas').delete().eq('chave', chave)
+}
+
 /** Último sinal de vida do robô da Receita (PC da loja). */
 export async function estadoDoRobo() {
   const { data } = await supabase.from('settings').select('value').eq('key', 'nfe_robo_estado').maybeSingle()
