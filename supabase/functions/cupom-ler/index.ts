@@ -213,18 +213,26 @@ const brasileiro = (n: number, casas = 3) =>
 const UNIDADES_PESO = new Set(["KG", "KGS", "G", "GR", "L", "LT", "LTS", "ML", "M", "MT"])
 
 /**
- * Como cada item vira linha na planilha de itens (Nome | Quantidade | Unidade | Valor unitário):
- * a planilha entende "Quantidade" como o tamanho da embalagem ("1 kg", "900 ml"), "Unidade" como
- * quantas embalagens e "Valor unitário" como o preço de uma. O cupom não diz o tamanho da
- * embalagem, então: item pesado (kg, g, l, ml) vai como 1 embalagem do peso comprado, pelo total;
- * item por unidade vai como N embalagens de "1 un" ao preço unitário. A coluna E (total) tem
- * fórmula na planilha e fica como está.
+ * Como cada item vira linha na planilha de itens (Nome | Quantidade | Unidade | Valor unitário | Total):
+ * na planilha do dono, "Quantidade" é um texto descritivo ("1,348 kg", "900 ml"), "Unidade" é o
+ * número que multiplica e "Valor unitário" o preço daquela unidade — a linha "Cebola | 1,348 kg |
+ * 1,348 | 6,59" dá R$ 8,88. Então item pesado vai com o peso comprado e o preço do quilo; item por
+ * unidade vai como "1 un", N unidades, preço de cada. O total é fórmula, como nas linhas que o dono
+ * digita (=D*C): as linhas novas ficam além das que já vieram com fórmula no modelo.
  */
-function linhaDoItem(i: Item) {
+function linhaDoItem(i: Item, linha: number, colunas: { qtd: string; unit: string }) {
+  const formula = `=${colunas.unit}${linha}*${colunas.qtd}${linha}`
   if (UNIDADES_PESO.has(i.unidade)) {
-    return [i.nome, `${brasileiro(i.quantidade)} ${i.unidade.toLowerCase()}`, 1, Number(i.valor_total.toFixed(2))]
+    return [i.nome, `${brasileiro(i.quantidade)} ${i.unidade.toLowerCase()}`, Number(i.quantidade), Number(i.valor_unitario.toFixed(4)), formula]
   }
-  return [i.nome, "1 un", Number(i.quantidade), Number(i.valor_unitario.toFixed(2))]
+  return [i.nome, "1 un", Number(i.quantidade), Number(i.valor_unitario.toFixed(2)), formula]
+}
+
+/** `=SUM(E4:E54)` com o fim esticado até `ate`, se a soma do bloco parou antes das linhas novas. */
+function esticarSoma(formula: string | undefined, coluna: string, ate: number): string | null {
+  const m = formula?.match(new RegExp(`^=SUM\\(${coluna}(\\d+):${coluna}(\\d+)\\)$`, "i"))
+  if (!m) return null
+  return Number(m[2]) >= ate ? null : `=SUM(${coluna}${m[1]}:${coluna}${ate})`
 }
 
 async function gravarNaPlanilhaDeItens(token: string, planilhaId: string, nota: Nota, itens: Item[]) {
@@ -257,20 +265,53 @@ async function gravarNaPlanilhaDeItens(token: string, planilhaId: string, nota: 
   const data: { range: string; values: unknown[][] }[] = []
   const linhas = new Map<number, number>() // ordem do item → linha na planilha
   if (comida.length) {
-    data.push({ range: `${aspas(aba)}!A${linhaComida}:D${linhaComida + comida.length - 1}`, values: comida.map(linhaDoItem) })
+    data.push({
+      range: `${aspas(aba)}!A${linhaComida}:E${linhaComida + comida.length - 1}`,
+      values: comida.map((i, k) => linhaDoItem(i, linhaComida + k, { qtd: "C", unit: "D" })),
+    })
     comida.forEach((i, k) => linhas.set(i.ordem, linhaComida + k))
   }
   if (limpeza.length) {
-    data.push({ range: `${aspas(aba)}!G${linhaLimpeza}:J${linhaLimpeza + limpeza.length - 1}`, values: limpeza.map(linhaDoItem) })
+    data.push({
+      range: `${aspas(aba)}!G${linhaLimpeza}:K${linhaLimpeza + limpeza.length - 1}`,
+      values: limpeza.map((i, k) => linhaDoItem(i, linhaLimpeza + k, { qtd: "I", unit: "J" })),
+    })
     limpeza.forEach((i, k) => linhas.set(i.ordem, linhaLimpeza + k))
   }
+  // o "Valor total" do bloco (B2 / H2) é =SUM(E4:E54): se a linha nova passou do 54, estica a soma
+  const somas = await sheets(token, "GET", `${planilhaId}/values/${encodeURIComponent(`${aspas(aba)}!B2:H2`)}?valueRenderOption=FORMULA`)
+  const [b2, , , , , , h2] = (somas.values?.[0] ?? []) as string[]
+  const novaB2 = comida.length ? esticarSoma(b2, "E", linhaComida + comida.length - 1) : null
+  const novaH2 = limpeza.length ? esticarSoma(h2, "K", linhaLimpeza + limpeza.length - 1) : null
+  if (novaB2) data.push({ range: `${aspas(aba)}!B2`, values: [[novaB2]] })
+  if (novaH2) data.push({ range: `${aspas(aba)}!H2`, values: [[novaH2]] })
   if (data.length) {
     await sheets(token, "POST", `${planilhaId}/values:batchUpdate`, { valueInputOption: "USER_ENTERED", data })
   }
   return { aba, linhas }
 }
 
-async function gravarNaPlanilhaDeTotais(token: string, planilhaId: string, aba: string, nota: Nota, qtdItens: number) {
+/** O que a SEFAZ diz → o que o menu suspenso "Tipo de pagamento" da planilha aceita. */
+function tipoDePagamento(forma: string | null): string {
+  const f = (forma ?? "").toLowerCase()
+  if (!f) return ""
+  if (f.includes("pix")) return "PIX"
+  if (f.includes("dinheiro")) return "Dinheiro"
+  if (f.includes("débito") || f.includes("debito")) return "Cartão de débito"
+  if (f.includes("cart")) return "Cartão de crédito"
+  if (f.includes("transfer") || f.includes("dep")) return "Transferência bancária"
+  return forma ?? ""
+}
+
+async function gravarNaPlanilhaDeTotais(
+  token: string, planilhaId: string, aba: string, nota: Nota, qtdItens: number, sinal: "negativo" | "positivo",
+) {
+  const meta = await sheets(token, "GET", `${planilhaId}?fields=sheets(properties(title,sheetId,gridProperties.rowCount),tables(tableId,range))`)
+  const folha = (meta.sheets ?? []).find((s: any) => s.properties.title === aba)
+  if (!folha) throw new Error(`a planilha de totais não tem a aba "${aba}"`)
+  const sheetId: number = folha.properties.sheetId
+  const linhasDaGrade: number = folha.properties.gridProperties?.rowCount ?? 0
+
   const lidos = await sheets(token, "GET", `${planilhaId}/values/${encodeURIComponent(`${aspas(aba)}!A1:A`)}`)
   const colA: string[] = (lidos.values ?? []).map((l: string[]) => (l[0] ?? "").trim())
   let ultima = colA.length
@@ -281,11 +322,64 @@ async function gravarNaPlanilhaDeTotais(token: string, planilhaId: string, aba: 
   const mudouMes = anterior && (Number(anterior[2]) !== quando.mes || anterior[3] !== quando.ano)
   const linha = ultima + (mudouMes ? 2 : 1)
 
-  const descricao = `Compra de mercado: ${qtdItens} ${qtdItens === 1 ? "item" : "itens"}${nota.numero ? ` (cupom ${nota.numero})` : ""}`
+  const requests: unknown[] = []
+  // a aba de teste veio com a grade do tamanho exato da tabela: sem linha sobrando, a escrita falha
+  if (linha > linhasDaGrade) {
+    requests.push({ appendDimension: { sheetId, dimension: "ROWS", length: linha - linhasDaGrade + 50 } })
+  }
+  // a lista é uma tabela ("Classificação"), com menus suspensos e a soma do Caixa em cima dela:
+  // a linha nova precisa entrar no intervalo da tabela, senão fica fora do Caixa
+  const tabela = (folha.tables ?? []).find((t: any) => t.range?.startColumnIndex === 0 && (t.range?.endColumnIndex ?? 0) >= 6)
+  if (tabela && (tabela.range.endRowIndex ?? 0) < linha) {
+    requests.push({ updateTable: { table: { tableId: tabela.tableId, range: { ...tabela.range, sheetId, endRowIndex: linha } }, fields: "range" } })
+  }
+  if (requests.length) await sheets(token, "POST", `${planilhaId}:batchUpdate`, { requests })
+
+  const valor = Number(nota.total.toFixed(2))
+  const descricao = `Insumos: ${qtdItens} ${qtdItens === 1 ? "item" : "itens"}${nota.numero ? ` (cupom ${nota.numero})` : ""}`
   await sheets(token, "PUT", `${planilhaId}/values/${encodeURIComponent(`${aspas(aba)}!A${linha}:F${linha}`)}?valueInputOption=USER_ENTERED`, {
-    values: [[quando.texto, nota.emitente_nome, descricao, -Math.abs(Number(nota.total.toFixed(2))), nota.forma_pagamento ?? "", "Despesa"]],
+    values: [[quando.texto, nota.emitente_nome, descricao, sinal === "positivo" ? valor : -valor, tipoDePagamento(nota.forma_pagamento), "Despesa"]],
   })
   return linha
+}
+
+/**
+ * Escreve nas planilhas o que ainda falta de uma compra: itens sem `planilha_linha` e o total sem
+ * `planilha_totais_linha`. Serve para a primeira gravação e para "tentar de novo" depois de um erro.
+ */
+async function lancarNasPlanilhas(db: any, compraId: string) {
+  const { data: compra } = await db.from("compras").select("*").eq("id", compraId).single()
+  const { data: itensDb } = await db.from("compras_itens").select("*").eq("compra_id", compraId).order("ordem")
+  if (!compra || !itensDb) throw new Error("compra não encontrada")
+  const nota: Nota = compra
+  const itens: Item[] = itensDb
+
+  const { data: cfg } = await db.from("settings").select("key, value")
+    .in("key", ["planilha_itens_id", "planilha_totais_id", "planilha_totais_aba", "planilha_totais_sinal"])
+  const conf = Object.fromEntries((cfg ?? []).map((c: any) => [c.key, c.value]))
+  const token = await tokenDoGoogle()
+  const resultado: Record<string, unknown> = {}
+
+  const pendentes = itens.filter((i) => !(i as any).planilha_linha && i.categoria !== "outro")
+  if (conf.planilha_itens_id && pendentes.length) {
+    const { aba, linhas } = await gravarNaPlanilhaDeItens(token, conf.planilha_itens_id, nota, pendentes)
+    resultado.itens = { aba, lancados: linhas.size }
+    for (const [ordem, linha] of linhas) {
+      await db.from("compras_itens").update({ planilha_linha: linha }).eq("compra_id", compraId).eq("ordem", ordem)
+    }
+  } else if (conf.planilha_itens_id) {
+    resultado.itens = { lancados: 0, ja_estavam: true }
+  }
+  if (conf.planilha_totais_id && !compra.planilha_totais_linha) {
+    const linha = await gravarNaPlanilhaDeTotais(
+      token, conf.planilha_totais_id, conf.planilha_totais_aba || "2026", nota, itens.length,
+      conf.planilha_totais_sinal === "positivo" ? "positivo" : "negativo",
+    )
+    resultado.totais = { linha }
+    await db.from("compras").update({ planilha_totais_linha: linha, planilha_erro: null }).eq("id", compraId)
+  }
+  await db.from("compras").update({ planilha_erro: null }).eq("id", compraId)
+  return resultado
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -404,23 +498,9 @@ Deno.serve(async (req) => {
       )
 
       // planilhas: erro aqui não desfaz o lançamento no painel; fica registrado para tentar de novo
-      const planilhas: Record<string, unknown> = {}
+      let planilhas: Record<string, unknown> = {}
       try {
-        const { data: cfg } = await db.from("settings").select("key, value").in("key", ["planilha_itens_id", "planilha_totais_id", "planilha_totais_aba"])
-        const conf = Object.fromEntries((cfg ?? []).map((c: any) => [c.key, c.value]))
-        const token = await tokenDoGoogle()
-        if (conf.planilha_itens_id) {
-          const { aba, linhas } = await gravarNaPlanilhaDeItens(token, conf.planilha_itens_id, nota, itens)
-          planilhas.itens = { aba, lancados: linhas.size }
-          for (const [ordem, linha] of linhas) {
-            await db.from("compras_itens").update({ planilha_linha: linha }).eq("compra_id", compra.id).eq("ordem", ordem)
-          }
-        }
-        if (conf.planilha_totais_id) {
-          const linha = await gravarNaPlanilhaDeTotais(token, conf.planilha_totais_id, conf.planilha_totais_aba || "2026", nota, itens.length)
-          planilhas.totais = { linha }
-          await db.from("compras").update({ planilha_totais_linha: linha }).eq("id", compra.id)
-        }
+        planilhas = await lancarNasPlanilhas(db, compra.id)
       } catch (e) {
         planilhas.erro = (e as Error).message
         await db.from("compras").update({ planilha_erro: planilhas.erro }).eq("id", compra.id)
@@ -429,6 +509,17 @@ Deno.serve(async (req) => {
       if (corpo.sessao_id) await db.from("cupom_sessoes").delete().eq("id", corpo.sessao_id)
       await db.rpc("limpar_cupom_sessoes").then(() => {}, () => {})
       return json({ compra_id: compra.id, planilhas })
+    }
+
+    // ------------------------------------------------------------ replanilhar
+    if (corpo.acao === "replanilhar") {
+      if (!corpo.compra_id) throw new Erro("compra_id?")
+      try {
+        return json({ compra_id: corpo.compra_id, planilhas: await lancarNasPlanilhas(db, corpo.compra_id) })
+      } catch (e) {
+        await db.from("compras").update({ planilha_erro: (e as Error).message }).eq("id", corpo.compra_id)
+        throw new Erro(`Planilha: ${(e as Error).message}`, 502)
+      }
     }
 
     throw new Erro("ação desconhecida")

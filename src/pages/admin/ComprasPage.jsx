@@ -4,7 +4,7 @@ import { HiCamera, HiPhotograph, HiLink, HiTrash, HiRefresh, HiExternalLink } fr
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import { formatCurrency } from '../../utils/format'
-import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, CATEGORIAS } from '../../services/compras'
+import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, CATEGORIAS } from '../../services/compras'
 
 /**
  * Compras pelo cupom de mercado.
@@ -97,6 +97,17 @@ export default function ComprasPage() {
   const trocarCategoria = (ordem, categoria) =>
     setItens(lista => lista.map(i => (i.ordem === ordem ? { ...i, categoria } : i)))
 
+  const tentarPlanilha = async (c) => {
+    try {
+      const r = await replanilhar(c.id)
+      const p = r.planilhas ?? {}
+      toast.success(`Planilhas ok: ${p.itens?.lancados ?? 0} itens${p.totais?.linha ? `, total na linha ${p.totais.linha}` : ''}.`)
+      carregar()
+    } catch (e) {
+      toast.error(e.message, { duration: 8000 }); carregar()
+    }
+  }
+
   const apagar = async (c) => {
     if (!window.confirm(`Apagar a compra de ${c.emitente_nome} (${formatCurrency(c.total)}) do painel? A planilha não muda.`)) return
     try { await apagarCompra(c.id); toast.success('Apagada do painel.'); carregar() } catch { toast.error('Não consegui apagar.') }
@@ -185,7 +196,14 @@ export default function ComprasPage() {
               </button>
               {aberta === c.id && (
                 <div className="px-4 pb-4 border-t border-border">
-                  {c.planilha_erro && <p className="text-xs text-danger mt-2">Planilha: {c.planilha_erro}</p>}
+                  {c.planilha_erro && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-danger flex-1 min-w-[12rem]">Planilha: {c.planilha_erro}</p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => tentarPlanilha(c)}>
+                        <HiRefresh className="mr-1" /> Tentar a planilha de novo
+                      </Button>
+                    </div>
+                  )}
                   <table className="w-full text-sm mt-2">
                     <tbody>
                       {c.compras_itens.map(i => (

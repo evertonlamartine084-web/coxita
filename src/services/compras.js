@@ -26,6 +26,9 @@ export const confirmarCodigo = (sessao_id, codigo) => chamar({ acao: 'confirmar'
 /** Grava no painel e nas planilhas. Devolve { compra_id, planilhas }. */
 export const gravarCompra = (nota, itens, sessao_id) => chamar({ acao: 'gravar', nota, itens, sessao_id })
 
+/** Tenta de novo a gravação nas planilhas de uma compra que ficou com erro. */
+export const replanilhar = (compra_id) => chamar({ acao: 'replanilhar', compra_id })
+
 export async function listarCompras(limite = 60) {
   const { data, error } = await supabase
     .from('compras')
