@@ -1,4 +1,4 @@
--- Promo "cento + refri 1L" por R$ 33 no Pix (out/2026), num botão do painel (04/10/2026).
+-- Promo "cento + refri 1L" por R$ 34 no Pix (era R$ 33 até 24/10) (out/2026), num botão do painel (04/10/2026).
 --
 -- Cliente pede um cento pelo site e avisa que é da promo: a loja aperta o botão no pedido e
 -- cada cento escolhido vira "Promo Cento + Refri 1L" (R$ 33, já preço de Pix, sem desconto

@@ -29,7 +29,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
   const [settings, setSettings] = useState(() => peekSettings() ?? {})
   const [itens, setItens] = useState([])
   const [montando, setMontando] = useState(null) // produto que está tendo os sabores escolhidos
-  // promo "cento + refri 1L por R$ 33": produto desativado (não aparece no site), lançado só aqui
+  // promo "cento + refri 1L por R$ 34": produto desativado (não aparece no site), lançado só aqui
   const [promo, setPromo] = useState(null)
   const [refriPromo, setRefriPromo] = useState('guarana')
   const [salvando, setSalvando] = useState(false)

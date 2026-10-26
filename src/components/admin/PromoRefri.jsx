@@ -10,7 +10,7 @@ const REFRIS = [
 ]
 
 /**
- * Botão da promo "cento + refri 1L por R$ 33" no pedido.
+ * Botão da promo "cento + refri 1L por R$ 34" no pedido.
  *
  * O cliente pede o cento pelo site e avisa que é da promo; aqui a loja escolhe quais centos
  * entram e qual refri vai com cada um. Funciona também em pedido já entregue.
@@ -46,7 +46,7 @@ export default function PromoRefri({ pedido, aoAplicar }) {
     return (
       <button type="button" onClick={() => setAberto(true)}
         className="mt-2 w-full cursor-pointer rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100">
-        🥤 É da promo? Cento + refri 1L por R$ 33
+        🥤 É da promo? Cento + refri 1L por R$ 34
       </button>
     )
   }
@@ -68,7 +68,7 @@ export default function PromoRefri({ pedido, aoAplicar }) {
           </select>
         </div>
       ))}
-      <p className="text-xs text-amber-900/80">Cada cento marcado vira R$ 33,00 (já preço de Pix) e ganha 1 refri de 1L a R$ 0,00.</p>
+      <p className="text-xs text-amber-900/80">Cada cento marcado vira R$ 34,00 (já preço de Pix) e ganha 1 refri de 1L a R$ 0,00.</p>
       <div className="flex gap-2">
         <button type="button" onClick={aplicar} disabled={salvando}
           className="flex-1 cursor-pointer rounded-lg bg-primary px-3 py-2 font-semibold text-white hover:bg-primary-dark disabled:opacity-60">
