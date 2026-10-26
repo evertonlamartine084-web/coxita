@@ -537,6 +537,41 @@ Deno.serve(async (req) => {
       return json({ compra_id: compra.id, planilhas })
     }
 
+    // ------------------------------------------------------ confirmar_pendente
+    // Compra que chegou pela Receita (robô do PC da loja) e esperava a conferência dos blocos:
+    // grava categorias e nome da loja, marca como conferida e lança nas planilhas.
+    if (corpo.acao === "confirmar_pendente") {
+      const { data: compra } = await db.from("compras").select("id, conferida, emitente_cnpj, emitente_nome_sefaz").eq("id", corpo.compra_id).maybeSingle()
+      if (!compra) throw new Erro("compra não encontrada", 404)
+      if (compra.conferida) throw new Erro("Essa compra já foi conferida.", 409)
+      const nome = String(corpo.emitente_nome ?? "").trim()
+      const escolhas: { ordem: number; categoria: Item["categoria"] }[] = corpo.itens ?? []
+      for (const e of escolhas) {
+        if (!["comida", "limpeza", "outro"].includes(e.categoria)) continue
+        await db.from("compras_itens").update({ categoria: e.categoria }).eq("compra_id", compra.id).eq("ordem", e.ordem)
+      }
+      const { data: itensDb } = await db.from("compras_itens").select("nome, categoria").eq("compra_id", compra.id)
+      if (itensDb?.length) {
+        await db.from("compras_categorias").upsert(
+          itensDb.map((i: any) => ({ nome: normalizarNome(i.nome), categoria: i.categoria, atualizado_em: new Date().toISOString() })),
+          { onConflict: "nome" },
+        )
+      }
+      if (nome) {
+        await lembrarApelido(db, compra.emitente_cnpj, nome, compra.emitente_nome_sefaz ?? undefined)
+        await db.from("compras").update({ emitente_nome: nome }).eq("id", compra.id)
+      }
+      await db.from("compras").update({ conferida: true }).eq("id", compra.id)
+      let planilhas: Record<string, unknown> = {}
+      try {
+        planilhas = await lancarNasPlanilhas(db, compra.id)
+      } catch (e) {
+        planilhas.erro = (e as Error).message
+        await db.from("compras").update({ planilha_erro: planilhas.erro }).eq("id", compra.id)
+      }
+      return json({ compra_id: compra.id, planilhas })
+    }
+
     // ------------------------------------------------------------ replanilhar
     if (corpo.acao === "replanilhar") {
       if (!corpo.compra_id) throw new Erro("compra_id?")

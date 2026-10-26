@@ -26,13 +26,23 @@ export const confirmarCodigo = (sessao_id, codigo) => chamar({ acao: 'confirmar'
 /** Grava no painel e nas planilhas. Devolve { compra_id, planilhas }. */
 export const gravarCompra = (nota, itens, sessao_id) => chamar({ acao: 'gravar', nota, itens, sessao_id })
 
+/** Compra que veio da Receita e esperava conferência: grava blocos e nome da loja e lança nas planilhas. */
+export const confirmarPendente = (compra_id, itens, emitente_nome) =>
+  chamar({ acao: 'confirmar_pendente', compra_id, itens: itens.map(i => ({ ordem: i.ordem, categoria: i.categoria })), emitente_nome })
+
+/** Último sinal de vida do robô da Receita (PC da loja). */
+export async function estadoDoRobo() {
+  const { data } = await supabase.from('settings').select('value').eq('key', 'nfe_robo_estado').maybeSingle()
+  try { return data?.value ? JSON.parse(data.value) : null } catch { return null }
+}
+
 /** Tenta de novo a gravação nas planilhas de uma compra que ficou com erro. */
 export const replanilhar = (compra_id) => chamar({ acao: 'replanilhar', compra_id })
 
 export async function listarCompras(limite = 60) {
   const { data, error } = await supabase
     .from('compras')
-    .select('*, compras_itens(id, ordem, nome, quantidade, unidade, valor_unitario, valor_total, categoria, planilha_linha)')
+    .select('id, chave_acesso, numero, emitente_nome, emitente_nome_sefaz, emitente_cnpj, emitida_em, total, forma_pagamento, qtd_itens, url_qrcode, planilha_totais_linha, planilha_erro, origem, conferida, created_at, compras_itens(id, ordem, nome, quantidade, unidade, valor_unitario, valor_total, categoria, planilha_linha)')
     .order('emitida_em', { ascending: false, nullsFirst: false })
     .limit(limite)
   if (error) throw error

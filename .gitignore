@@ -31,3 +31,5 @@ dist-ssr
 # Artefatos do Playwright MCP (screenshots e snapshots de sessao)
 .playwright-mcp/
 loja-pc/evolution/chave.env
+loja-pc/sefaz/chave.env
+loja-pc/sefaz/*.pfx

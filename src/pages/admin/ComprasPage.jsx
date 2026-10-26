@@ -4,7 +4,7 @@ import { HiCamera, HiPhotograph, HiLink, HiTrash, HiRefresh, HiExternalLink } fr
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import { formatCurrency } from '../../utils/format'
-import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, CATEGORIAS } from '../../services/compras'
+import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, CATEGORIAS } from '../../services/compras'
 
 /**
  * Compras pelo cupom de mercado.
@@ -30,17 +30,33 @@ export default function ComprasPage() {
   const [compras, setCompras] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [aberta, setAberta] = useState(null)
+  const [pendente, setPendente] = useState(null)   // compra da Receita sendo conferida (id)
+  const [robo, setRobo] = useState(null)
 
   const carregar = useCallback(() => {
     listarCompras()
       .then(setCompras)
       .catch(() => toast.error('Erro ao carregar as compras.'))
       .finally(() => setCarregando(false))
+    estadoDoRobo().then(setRobo).catch(() => {})
   }, [])
+
+  // Compra que chegou pela Receita: abre na mesma tela de conferência do cupom
+  const conferirPendente = (c) => {
+    setPendente(c.id)
+    setNota({
+      emitente_nome: c.emitente_nome, emitente_nome_sefaz: c.emitente_nome_sefaz, emitente_cnpj: c.emitente_cnpj,
+      emitida_em: c.emitida_em, total: Number(c.total), forma_pagamento: c.forma_pagamento, numero: c.numero,
+    })
+    setItens(c.compras_itens.map(i => ({ ...i, quantidade: Number(i.quantidade), valor_unitario: Number(i.valor_unitario), valor_total: Number(i.valor_total) })))
+    setErro('')
+    setEtapa(ETAPAS.CONFERIR)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   useEffect(() => { carregar() }, [carregar])
 
   const recomecar = () => {
-    setEtapa(ETAPAS.INICIO); setErro(''); setSessao(null); setCodigo(''); setNota(null); setItens([]); setLinkColado('')
+    setEtapa(ETAPAS.INICIO); setErro(''); setSessao(null); setCodigo(''); setNota(null); setItens([]); setLinkColado(''); setPendente(null)
   }
 
   // 1. com a URL do QR code em mãos, abre a consulta na SEFAZ
@@ -84,7 +100,9 @@ export default function ComprasPage() {
   const gravar = async () => {
     setEtapa(ETAPAS.GRAVANDO); setErro('')
     try {
-      const r = await gravarCompra(nota, itens, sessao?.sessao_id)
+      const r = pendente
+        ? await confirmarPendente(pendente, itens, nota.emitente_nome)
+        : await gravarCompra(nota, itens, sessao?.sessao_id)
       const p = r.planilhas ?? {}
       if (p.erro) toast.error(`Lançado no painel, mas a planilha falhou: ${p.erro}`, { duration: 8000 })
       else toast.success(`Lançado: ${p.itens?.lancados ?? 0} itens na aba "${p.itens?.aba ?? ''}" e o total na linha ${p.totais?.linha ?? '?'}.`, { duration: 6000 })
@@ -175,12 +193,41 @@ export default function ComprasPage() {
         )}
       </section>
 
-      <h2 className="font-display text-xl font-black uppercase text-brown mb-3">Lançadas</h2>
+      {compras.some(c => c.conferida === false) && (
+        <section className="mb-8">
+          <h2 className="font-display text-xl font-black uppercase text-brown mb-1">Chegaram da Receita, para conferir</h2>
+          <p className="text-xs text-text-warm mb-3">Notas de empresa emitidas para o CNPJ da Coxelli. Confira os blocos e lance.</p>
+          <div className="space-y-2">
+            {compras.filter(c => c.conferida === false).map(c => (
+              <div key={c.id} className="bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[12rem]">
+                  <p className="font-semibold text-brown">{c.emitente_nome}</p>
+                  <p className="text-xs text-text-warm">
+                    {c.emitida_em ? new Date(c.emitida_em).toLocaleDateString('pt-BR') : 'sem data'} · {c.qtd_itens} {c.qtd_itens === 1 ? 'item' : 'itens'}
+                    {c.forma_pagamento ? ` · ${c.forma_pagamento}` : ''}
+                  </p>
+                </div>
+                <span className="font-display font-extrabold text-brown">{formatCurrency(c.total)}</span>
+                <Button type="button" size="sm" onClick={() => conferirPendente(c)}>Conferir e lançar</Button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="font-display text-xl font-black uppercase text-brown">Lançadas</h2>
+        {robo?.visto_em && (
+          <span className="text-[11px] text-text-warm">
+            robô da Receita visto {new Date(robo.visto_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+          </span>
+        )}
+      </div>
       {carregando ? <Loading /> : compras.length === 0 ? (
         <p className="text-sm text-text-warm">Nenhuma compra lançada ainda.</p>
       ) : (
         <div className="space-y-2">
-          {compras.map(c => (
+          {compras.filter(c => c.conferida !== false).map(c => (
             <div key={c.id} className="bg-white rounded-xl border border-border">
               <button type="button" onClick={() => setAberta(aberta === c.id ? null : c.id)}
                 className="w-full text-left px-4 py-3 flex items-center gap-3 cursor-pointer">
@@ -190,6 +237,7 @@ export default function ComprasPage() {
                     {c.emitida_em ? new Date(c.emitida_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'sem data'}
                     {' · '}{c.qtd_itens} {c.qtd_itens === 1 ? 'item' : 'itens'}
                     {c.forma_pagamento ? ` · ${c.forma_pagamento}` : ''}
+                    {c.origem === 'nfe' ? ' · NF-e pela Receita' : ''}
                     {c.planilha_erro ? ' · ⚠️ planilha falhou' : c.planilha_totais_linha ? ' · planilhas ok' : ''}
                   </p>
                 </div>

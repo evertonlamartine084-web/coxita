@@ -1,0 +1,14 @@
+# Robô da Receita no PC da loja (ao lado da Evolution, no Docker do WSL). Ver robo.py.
+# Precisa de dois arquivos nesta pasta, fora do git: certificado.pfx (o A1 da Coxelli) e chave.env
+# (copie de chave.env.exemplo e preencha).
+services:
+  sefaz:
+    build: .
+    restart: always
+    env_file:
+      - chave.env
+    volumes:
+      - ./certificado.pfx:/app/certificado.pfx:ro
+      - sefaz_dados:/dados
+volumes:
+  sefaz_dados:
