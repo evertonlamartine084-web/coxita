@@ -44,6 +44,7 @@ export const importarPagina = {
   hubAnuncios: () => import('../pages/hub/HubAnuncios'),
   hubCrm: () => import('../pages/hub/HubCrm'),
   cupons: () => import('../pages/admin/CouponsPage'),
+  compras: () => import('../pages/admin/ComprasPage'),
 }
 
 const paginaPorRota = {
