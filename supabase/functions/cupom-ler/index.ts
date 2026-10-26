@@ -287,8 +287,29 @@ async function gravarNaPlanilhaDeItens(token: string, planilhaId: string, nota: 
   if (novaH2) data.push({ range: `${aspas(aba)}!H2`, values: [[novaH2]] })
   if (data.length) {
     await sheets(token, "POST", `${planilhaId}/values:batchUpdate`, { valueInputOption: "USER_ENTERED", data })
+    // as linhas novas herdam bordas e formato de moeda da linha de cima (as do modelo acabam)
+    const sheetId = abas.find((a) => a.title === aba)?.sheetId
+      ?? (await sheets(token, "GET", `${planilhaId}?fields=sheets.properties(title,sheetId)`)).sheets
+        .map((x: any) => x.properties).find((a: any) => a.title === aba)?.sheetId
+    if (sheetId !== undefined) {
+      const requests: unknown[] = []
+      if (comida.length && linhaComida > 4) requests.push(copiarFormato(sheetId, linhaComida - 1, linhaComida, comida.length, 0, 5))
+      if (limpeza.length && linhaLimpeza > 4) requests.push(copiarFormato(sheetId, linhaLimpeza - 1, linhaLimpeza, limpeza.length, 6, 11))
+      if (requests.length) await sheets(token, "POST", `${planilhaId}:batchUpdate`, { requests }).catch(() => {})
+    }
   }
   return { aba, linhas }
+}
+
+/** Pedido de batchUpdate que cola só a formatação da linha `de` (1-based) nas `quantas` linhas a partir de `para`. */
+function copiarFormato(sheetId: number, de: number, para: number, quantas: number, colIni: number, colFim: number) {
+  return {
+    copyPaste: {
+      source: { sheetId, startRowIndex: de - 1, endRowIndex: de, startColumnIndex: colIni, endColumnIndex: colFim },
+      destination: { sheetId, startRowIndex: para - 1, endRowIndex: para - 1 + quantas, startColumnIndex: colIni, endColumnIndex: colFim },
+      pasteType: "PASTE_FORMAT",
+    },
+  }
 }
 
 /** O que a SEFAZ diz → o que o menu suspenso "Tipo de pagamento" da planilha aceita. */
@@ -340,6 +361,9 @@ async function gravarNaPlanilhaDeTotais(
   await sheets(token, "PUT", `${planilhaId}/values/${encodeURIComponent(`${aspas(aba)}!A${linha}:F${linha}`)}?valueInputOption=USER_ENTERED`, {
     values: [[quando.texto, nota.emitente_nome, descricao, sinal === "positivo" ? valor : -valor, tipoDePagamento(nota.forma_pagamento), "Despesa"]],
   })
+  if (ultima > 1) {
+    await sheets(token, "POST", `${planilhaId}:batchUpdate`, { requests: [copiarFormato(sheetId, ultima, linha, 1, 0, 6)] }).catch(() => {})
+  }
   return linha
 }
 

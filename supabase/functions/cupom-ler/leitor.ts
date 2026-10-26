@@ -74,6 +74,7 @@ const FORMAS = /(Dinheiro|Cart[ãa]o de Cr[ée]dito|Cart[ãa]o de D[ée]bito|Cr[
 function lerLayoutRN(html: string): { itens: ItemLido[]; cabecalho: Partial<NotaLida> } | null {
   if (!/tbItensList_lblTbItensDescricao_0/.test(html)) return null
   const itens: ItemLido[] = []
+  const descontos: number[] = []
   for (let k = 0; k < 500; k++) {
     const nome = porId(html, `tbItensList_lblTbItensDescricao_${k}`)
     if (!nome) break
@@ -81,20 +82,21 @@ function lerLayoutRN(html: string): { itens: ItemLido[]; cabecalho: Partial<Nota
     const un = (porId(html, `tbItensList_lblTbItensUnidade_${k}`) || "UN").toUpperCase()
     const vlUnit = numero(porId(html, `tbItensList_lblTbItensValorUnid_${k}`))
     const desconto = numero(porId(html, `tbItensList_lblTbDesconto_${k}`))
-    let vlTotal = numero(porId(html, `tbItensList_lblTbItensValorTotal_${k}`))
-    // o "Vl. total" da SEFAZ é antes do desconto do item; o que saiu do bolso é depois
-    if (desconto > 0 && vlTotal > desconto) vlTotal = Number((vlTotal - desconto).toFixed(2))
+    const vlTotal = numero(porId(html, `tbItensList_lblTbItensValorTotal_${k}`))
     const codigo = porId(html, `tbItensList_lblTbItensCodigo_${k}`) || null
+    descontos.push(desconto)
     itens.push({
       ordem: itens.length + 1,
       codigo,
-      nome,
+      nome: nomeDoItem(nome),
       quantidade: qtd || 1,
       unidade: un,
       valor_unitario: vlUnit || (qtd ? Number((vlTotal / qtd).toFixed(4)) : vlTotal),
       valor_total: vlTotal || Number((vlUnit * (qtd || 1)).toFixed(2)),
     })
   }
+  const pago = numero(porId(html, "lblValorPago")) || numero(porId(html, "lblValorTotal"))
+  aplicarDescontos(itens, descontos, pago)
   const fantasia = porId(html, "lblNomeFantasia").replace(/^NOME FANTASIA:\s*/i, "").trim()
   const razao = porId(html, "lblRazaoSocialEmitente").replace(/^RAZ[ÃA]O SOCIAL:\s*/i, "").trim()
   const numeroSerie = porId(html, "lblNumeroSerie").match(/N[ÚU]MERO:\s*(\d+)\s*S[ÉE]RIE:\s*(\d+)/i)
@@ -152,6 +154,41 @@ function lerLayoutEncat(html: string): { itens: ItemLido[]; cabecalho: Partial<N
       forma_pagamento: texto.match(new RegExp(`Forma de pagamento\\s*:?\\s*${FORMAS.source}`, "i"))?.[1]?.trim() ?? null,
     },
   }
+}
+
+/**
+ * Desconto por item sem confiar cegamente na coluna "Desconto" da SEFAZ. No cupom do Nordestão de
+ * 24/10/2026 ela veio repetida nos dois itens (0,90 em cada) enquanto o valor pago só descontava
+ * 0,90 uma vez. Regra: se "total − desconto" por item fecha com o valor pago, usa; se o bruto já
+ * fecha, não há desconto; senão reparte a diferença entre os itens, proporcional ao valor, para a
+ * soma dos itens sempre bater com o que saiu do bolso.
+ */
+function aplicarDescontos(itens: ItemLido[], descontos: number[], pago: number) {
+  if (!itens.length || !pago) return
+  const bruto = itens.reduce((s, i) => s + i.valor_total, 0)
+  const liquido = itens.reduce((s, i, k) => s + i.valor_total - (descontos[k] || 0), 0)
+  const bate = (a: number, b: number) => Math.abs(a - b) <= 0.02
+  if (bate(bruto, pago)) return
+  if (bate(liquido, pago)) {
+    itens.forEach((i, k) => { i.valor_total = Number((i.valor_total - (descontos[k] || 0)).toFixed(2)) })
+    return
+  }
+  const diferenca = bruto - pago
+  if (diferenca <= 0 || diferenca > bruto) return
+  let repartido = 0
+  itens.forEach((i, k) => {
+    const parte = k === itens.length - 1 ? diferenca - repartido : Number((diferenca * (i.valor_total / bruto)).toFixed(2))
+    repartido += parte
+    i.valor_total = Number((i.valor_total - parte).toFixed(2))
+  })
+}
+
+/** "TOMATE BOMBOM NATURAL DA HORTA 180G" → "Tomate bombom natural da horta 180g", como o dono escreve. */
+export function nomeDoItem(s: string) {
+  const t = s.replace(/\s+/g, " ").trim()
+  if (!t || t !== t.toUpperCase()) return t
+  const baixo = t.toLowerCase()
+  return baixo.charAt(0).toUpperCase() + baixo.slice(1)
 }
 
 /** "ATACADO FAVORITO" → "Atacado Favorito" (nome de loja em caixa alta cansa a vista na lista) */
