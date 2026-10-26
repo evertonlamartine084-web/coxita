@@ -106,11 +106,13 @@ export function metaBairro(bairro) {
   const daCasa = bairro.slug === slugify(BAIRRO_DA_LOJA)
   return {
     caminho: `/salgados-em-${bairro.slug}`,
-    titulo: `Salgados em ${bairro.nome}, ${CIDADE}/${UF}`,
-    h1: `Salgados em ${bairro.nome}`,
+    // "Coxinha" no titulo de proposito: e a palavra que a pessoa digita
+    // ("coxinha em potengi", "coxinha perto de mim"), nao "salgados".
+    titulo: `Coxinha e salgados em ${bairro.nome} com entrega, ${CIDADE}/${UF}`,
+    h1: `Coxinha e salgados em ${bairro.nome}`,
     descricao: daCasa
-      ? `Salgaderia em ${bairro.nome}, ${CIDADE}/${UF} — é aqui que a Coxelli fica. Cento de salgados feito na hora: coxinha, bolinha de queijo, croquete e mais.`
-      : `Entrega de salgados em ${bairro.nome}, ${CIDADE}/${UF}. Cento, meio cento ou 25 unidades, fritos na hora e levados até a ${bairro.zona}.`,
+      ? `Salgaderia em ${bairro.nome}, ${CIDADE}/${UF} — é aqui que a Coxelli fica. Cento de salgados feito na hora: coxinha de frango, bolinha de queijo, croquete e mais.`
+      : `Entrega de coxinha e salgados em ${bairro.nome}, ${CIDADE}/${UF}. Cento, meio cento ou cento congelado, fritos na hora e levados até a ${bairro.zona}.`,
   }
 }
 
