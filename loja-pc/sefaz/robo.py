@@ -270,6 +270,12 @@ def main():
         gravar_estado(estado)
         return
     estado = ler_estado()
+    if len(sys.argv) > 1 and sys.argv[1] == "uma-vez":
+        # modo manual: um ciclo só (listar, dar ciência, baixar, entregar) e sair
+        resultado = ciclo(estado)
+        pulso(estado, resultado)
+        log("ciclo único:", resultado)
+        return
     while True:
         try:
             resultado = ciclo(estado)
