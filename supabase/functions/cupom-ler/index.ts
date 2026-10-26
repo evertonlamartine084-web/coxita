@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
+import { lerNota, decodificar, paginaDeErro, type ItemLido, type NotaLida } from "./leitor.ts"
 
 /**
  * cupom-ler — lê um cupom de compra (NFC-e) pelo QR code e lança nas planilhas e no painel.
@@ -38,60 +39,16 @@ const json = (b: unknown, s = 200) =>
 const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 const HOSTS_SEFAZ = ["nfce.sefaz.rn.gov.br", "nfce.set.rn.gov.br", "www.set.rn.gov.br", "set.rn.gov.br"]
 
-type Item = {
-  ordem: number
-  codigo: string | null
-  nome: string
-  quantidade: number
-  unidade: string
-  valor_unitario: number
-  valor_total: number
-  categoria: "comida" | "limpeza" | "outro"
-}
-type Nota = {
-  chave_acesso: string | null
-  numero: string | null
-  emitente_nome: string
-  emitente_cnpj: string | null
-  emitida_em: string | null
-  total: number
-  forma_pagamento: string | null
-  url_qrcode: string
-}
+type Item = ItemLido & { categoria: "comida" | "limpeza" | "outro" }
+type Nota = NotaLida
 
 // ---------------------------------------------------------------------------------------------
-// Texto e números como vêm da SEFAZ
+// Nomes de item (a leitura da página está em leitor.ts)
 // ---------------------------------------------------------------------------------------------
 
-function semTags(html: string) {
-  return decodificar(html.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
-}
 
-function decodificar(s: string) {
-  return s
-    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-}
 
-/** "1.234,56" → 1234.56 ; "0,048" → 0.048 */
-function numero(s: string | null | undefined): number {
-  if (!s) return 0
-  const limpo = s.replace(/[^\d,.-]/g, "")
-  if (!limpo) return 0
-  // formato brasileiro: ponto de milhar, vírgula decimal
-  const n = limpo.includes(",") ? limpo.replace(/\./g, "").replace(",", ".") : limpo
-  const v = Number(n)
-  return Number.isFinite(v) ? v : 0
-}
 
-/** "24/10/2026 08:05:50" → ISO em Fortaleza (-03:00) */
-function dataIso(s: string | null): string | null {
-  const m = s?.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/)
-  if (!m) return null
-  const [, d, mo, a, h = "00", mi = "00", se = "00"] = m
-  return `${a}-${mo}-${d}T${h}:${mi}:${se}-03:00`
-}
 
 function normalizarNome(nome: string) {
   return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim()
@@ -187,75 +144,7 @@ async function baixarCaptcha(urlPagina: string, cookie: string) {
   return `data:image/jpeg;base64,${btoa(bin)}`
 }
 
-// ---------------------------------------------------------------------------------------------
-// Leitura da página da nota
-// ---------------------------------------------------------------------------------------------
 
-function paginaDeErro(html: string) {
-  return /Nfe - Erro|um erro está impedindo|Ticket\s*\d+/i.test(html)
-}
-
-function lerNota(html: string, urlQr: string): { nota: Nota; itens: Omit<Item, "categoria">[] } {
-  const texto = semTags(html)
-
-  // Itens: cada um numa linha da tabela, com spans de classe fixa (txtTit, Rqtd, RUN, RvlUnit, valor)
-  const itens: Omit<Item, "categoria">[] = []
-  const linhas = html.match(/<tr[^>]*id="Item\s*\+?\s*\d+"[^>]*>[\s\S]*?<\/tr>/gi)
-    ?? html.match(/<tr[^>]*>[\s\S]*?class="txtTit"[\s\S]*?<\/tr>/gi)
-    ?? []
-  for (const tr of linhas) {
-    const pega = (classe: string) => {
-      const m = tr.match(new RegExp(`<span[^>]*class="${classe}"[^>]*>([\\s\\S]*?)<\\/span>`, "i"))
-      return m ? semTags(m[1]) : ""
-    }
-    const nome = pega("txtTit")
-    if (!nome) continue
-    const qtd = numero(pega("Rqtd").replace(/^.*?:/, ""))
-    const un = (pega("RUN").replace(/^.*?:/, "").trim() || "UN").toUpperCase()
-    const vlUnit = numero(pega("RvlUnit").replace(/^.*?:/, ""))
-    const vlTotal = numero(pega("valor"))
-    const codigo = pega("RCod").replace(/^.*?:/, "").replace(/[()]/g, "").trim() || null
-    itens.push({
-      ordem: itens.length + 1,
-      codigo,
-      nome,
-      quantidade: qtd || 1,
-      unidade: un,
-      valor_unitario: vlUnit || (qtd ? vlTotal / qtd : vlTotal),
-      valor_total: vlTotal || Number((vlUnit * (qtd || 1)).toFixed(2)),
-    })
-  }
-
-  const emitente = semTags(html.match(/<div[^>]*id="u20"[^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "")
-    || texto.match(/^(.*?)\s+CNPJ:/)?.[1]?.trim()
-    || "Fornecedor"
-  const cnpj = texto.match(/CNPJ:\s*([\d./-]{14,18})/i)?.[1] ?? null
-  const chave = texto.match(/Chave de acesso\s*:?\s*((?:\d[\s]*){44})/i)?.[1]?.replace(/\D/g, "")
-    ?? html.match(/chNFCe=(\d{44})/)?.[1]
-    ?? null
-  const numeroNota = texto.match(/N[úu]mero:\s*(\d+)\s*S[ée]rie:\s*(\d+)/i)
-  const emissao = texto.match(/Emiss[ãa]o:\s*(\d{2}\/\d{2}\/\d{4}(?:\s+\d{2}:\d{2}(?::\d{2})?)?)/i)?.[1] ?? null
-  const totalPagar = texto.match(/Valor a pagar\s*R\$\s*:?\s*([\d.,]+)/i)?.[1]
-    ?? texto.match(/Valor total\s*R\$\s*:?\s*([\d.,]+)/i)?.[1]
-  const pagamento = texto.match(/Forma de pagamento\s*:?\s*(Dinheiro|Cart[ãa]o de Cr[ée]dito|Cart[ãa]o de D[ée]bito|PIX|Pix|Vale[^0-9R$]*|Boleto|Cheque|Transfer[êe]ncia[^0-9R$]*|Outros?)/i)?.[1]?.trim()
-    ?? null
-
-  const total = numero(totalPagar) || Number(itens.reduce((s, i) => s + i.valor_total, 0).toFixed(2))
-
-  return {
-    nota: {
-      chave_acesso: chave,
-      numero: numeroNota ? `${numeroNota[1]}/${numeroNota[2]}` : null,
-      emitente_nome: emitente,
-      emitente_cnpj: cnpj,
-      emitida_em: dataIso(emissao),
-      total,
-      forma_pagamento: pagamento,
-      url_qrcode: urlQr,
-    },
-    itens,
-  }
-}
 
 // ---------------------------------------------------------------------------------------------
 // Planilhas do Google
