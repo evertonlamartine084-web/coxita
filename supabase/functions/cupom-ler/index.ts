@@ -493,9 +493,11 @@ Deno.serve(async (req) => {
 
     // ----------------------------------------------------------------- gravar
     if (corpo.acao === "gravar") {
-      const nota = corpo.nota as Nota
+      const nota = corpo.nota as Nota & { emitente_nome_sefaz?: string }
       const itens = (corpo.itens as Item[]).map((i, k) => ({ ...i, ordem: k + 1 }))
-      if (!nota?.emitente_nome || !itens.length) throw new Erro("Nota sem itens.")
+      if (!nota?.emitente_nome?.trim() || !itens.length) throw new Erro("Nota sem itens.")
+      nota.emitente_nome = nota.emitente_nome.trim()
+      await lembrarApelido(db, nota.emitente_cnpj, nota.emitente_nome, nota.emitente_nome_sefaz)
 
       if (nota.chave_acesso) {
         const { data: existe } = await db.from("compras").select("id, created_at").eq("chave_acesso", nota.chave_acesso).maybeSingle()
@@ -559,5 +561,31 @@ async function comCategorias(db: any, lido: { nota: Nota; itens: Omit<Item, "cat
   const { data } = await db.from("compras_categorias").select("nome, categoria").in("nome", nomes)
   const lembradas = new Map<string, string>((data ?? []).map((c: any) => [c.nome, c.categoria]))
   const itens: Item[] = lido.itens.map((i) => ({ ...i, categoria: sugerirCategoria(i.nome, lembradas) }))
-  return { nota: lido.nota, itens }
+  // nome curto da loja, escolhido pelo dono na primeira compra ("Nordestão" em vez da razão social)
+  const apelidos = await lerApelidos(db)
+  const cnpj = soDigitos(lido.nota.emitente_cnpj)
+  const nota = {
+    ...lido.nota,
+    emitente_nome_sefaz: lido.nota.emitente_nome,
+    emitente_nome: (cnpj && apelidos[cnpj]) || lido.nota.emitente_nome,
+  }
+  return { nota, itens }
+}
+
+const soDigitos = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "")
+
+/** `settings.compras_fornecedores`: { "<cnpj só dígitos>": "Nome curto" }. Em settings para não precisar de tabela nova. */
+async function lerApelidos(db: any): Promise<Record<string, string>> {
+  const { data } = await db.from("settings").select("value").eq("key", "compras_fornecedores").maybeSingle()
+  try { return data?.value ? JSON.parse(data.value) : {} } catch { return {} }
+}
+
+async function lembrarApelido(db: any, cnpj: string | null | undefined, nome: string, nomeSefaz: string | undefined) {
+  const d = soDigitos(cnpj)
+  const curto = nome.trim()
+  if (!d || !curto || curto === (nomeSefaz ?? "").trim()) return
+  const apelidos = await lerApelidos(db)
+  if (apelidos[d] === curto) return
+  apelidos[d] = curto
+  await db.from("settings").upsert({ key: "compras_fornecedores", value: JSON.stringify(apelidos) }, { onConflict: "key" })
 }

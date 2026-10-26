@@ -96,6 +96,7 @@ export default function ComprasPage() {
 
   const trocarCategoria = (ordem, categoria) =>
     setItens(lista => lista.map(i => (i.ordem === ordem ? { ...i, categoria } : i)))
+  const trocarLoja = (nome) => setNota(n => ({ ...n, emitente_nome: nome }))
 
   const tentarPlanilha = async (c) => {
     try {
@@ -170,7 +171,7 @@ export default function ComprasPage() {
         )}
 
         {etapa === ETAPAS.CONFERIR && nota && (
-          <Conferencia nota={nota} itens={itens} erro={erro} trocarCategoria={trocarCategoria} aoGravar={gravar} aoCancelar={recomecar} />
+          <Conferencia nota={nota} itens={itens} erro={erro} trocarCategoria={trocarCategoria} trocarLoja={trocarLoja} aoGravar={gravar} aoCancelar={recomecar} />
         )}
       </section>
 
@@ -283,13 +284,26 @@ function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera }) {
   )
 }
 
-function Conferencia({ nota, itens, erro, trocarCategoria, aoGravar, aoCancelar }) {
+function Conferencia({ nota, itens, erro, trocarCategoria, trocarLoja, aoGravar, aoCancelar }) {
   const somaComida = itens.filter(i => i.categoria === 'comida').reduce((s, i) => s + Number(i.valor_total), 0)
   const somaLimpeza = itens.filter(i => i.categoria === 'limpeza').reduce((s, i) => s + Number(i.valor_total), 0)
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-4">
-        <p className="font-display font-extrabold text-brown text-lg">{nota.emitente_nome}</p>
+        <div>
+          <input
+            value={nota.emitente_nome}
+            onChange={e => trocarLoja(e.target.value)}
+            aria-label="Nome da loja"
+            className="font-display font-extrabold text-brown text-lg bg-transparent border-b-2 border-dashed border-border focus:border-primary outline-none min-w-[10rem] max-w-full"
+          />
+          {nota.emitente_nome_sefaz && nota.emitente_nome_sefaz !== nota.emitente_nome && (
+            <p className="text-[11px] text-text-warm">na nota: {nota.emitente_nome_sefaz}</p>
+          )}
+          {nota.emitente_nome_sefaz && nota.emitente_nome_sefaz === nota.emitente_nome && (
+            <p className="text-[11px] text-text-warm">Pode encurtar o nome da loja; o painel lembra para a próxima.</p>
+          )}
+        </div>
         <p className="text-sm text-text-warm">
           {nota.emitida_em ? new Date(nota.emitida_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'sem data'}
           {nota.forma_pagamento ? ` · ${nota.forma_pagamento}` : ''}
