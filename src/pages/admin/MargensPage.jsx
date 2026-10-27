@@ -27,6 +27,23 @@ import InsumoModal from '../../components/admin/InsumoModal'
  * preço pago nele. Pacote de sabor à escolha mostra a margem do pior sabor, que é a que manda.
  */
 
+/** Tamanhos na ordem da tabela; o que não é pacote (gourmet por unidade) fica no fim. */
+const TAMANHOS = [200, 100, 50, 25]
+
+/** Como a cozinha separa o que vende: o que sai frito, o que sai congelado e os finos. */
+const TIPOS = [
+  { chave: 'frito', rotulo: 'Fritos' },
+  { chave: 'congelado', rotulo: 'Congelados' },
+  { chave: 'gourmet', rotulo: 'Gourmet' },
+]
+
+function tipoDoProduto(produto) {
+  const slug = produto.categories?.slug ?? ''
+  if (slug === 'congelados') return 'congelado'
+  if (slug.startsWith('gourmet')) return 'gourmet'
+  return 'frito'
+}
+
 /** Preço de insumo mais velho que isto aparece marcado: provavelmente mudou. */
 const DIAS_PRECO_VELHO = 45
 
@@ -79,6 +96,7 @@ export default function MargensPage() {
     [fichas, sabores, custos, params],
   )
   const [verInativos, setVerInativos] = useState(false)
+  const [tipo, setTipo] = useState('frito')
 
   if (carregando) return <Loading />
 
@@ -149,7 +167,24 @@ export default function MargensPage() {
             <input type="checkbox" checked={verInativos} onChange={(e) => setVerInativos(e.target.checked)} />
             Mostrar também os produtos fora do ar
           </label>
-          <TabelaProdutos contas={verInativos ? daCozinha : noAr} onAbrir={setProdutoAberto} />
+          <div className="mb-3 flex flex-wrap gap-2">
+            {TIPOS.map(t => (
+              <button
+                key={t.chave}
+                type="button"
+                onClick={() => setTipo(t.chave)}
+                className={`px-3 py-1.5 rounded-full border-2 text-sm font-semibold transition-colors ${
+                  tipo === t.chave ? 'border-brown bg-brown text-white' : 'border-border text-text-light hover:text-brown'
+                }`}
+              >
+                {t.rotulo}
+              </button>
+            ))}
+          </div>
+          <TabelaProdutos
+            contas={(verInativos ? daCozinha : noAr).filter(c => tipoDoProduto(c.produto) === tipo)}
+            onAbrir={setProdutoAberto}
+          />
         </>
       )}
 
@@ -200,9 +235,6 @@ function Cartao({ rotulo, valor, detalhe, alerta }) {
     </div>
   )
 }
-
-/** Tamanhos na ordem da tabela; o que não é pacote (gourmet por unidade) fica no fim. */
-const TAMANHOS = [200, 100, 50, 25]
 
 function TabelaProdutos({ contas, onAbrir }) {
   const [aberto, setAberto] = useState(null)
