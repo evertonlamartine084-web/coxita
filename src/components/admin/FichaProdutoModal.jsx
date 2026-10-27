@@ -179,7 +179,7 @@ export default function FichaProdutoModal({ produto, sabores = [], insumos, cust
           <Linha
             rotulo="Custo fixo rateado"
             valor={formatCurrencyFine(conta.custoFixoUnidade, 4)}
-            detalhe={custoFixo === '' ? 'aluguel, luz, gás — vem das configurações' : 'aluguel, luz, gás — o deste produto'}
+            detalhe={custoFixo === '' ? 'despesas fixas da planilha ÷ unidades vendidas, recalculado todo dia 1' : 'valor próprio deste produto'}
           />
           <Linha
             rotulo="Custo por unidade"

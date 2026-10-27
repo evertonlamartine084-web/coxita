@@ -565,7 +565,11 @@ function PainelPreco({ params, onSalvo }) {
   const campos = [
     { chave: 'default_margin', label: 'Margem desejada (%)', ajuda: 'Vale para o produto que não tem margem própria.' },
     { chave: 'tax_percent', label: 'Imposto sobre a venda (%)', ajuda: 'O que sai de imposto em cada pedido.' },
-    { chave: 'fixed_cost_per_unit', label: 'Custo fixo por unidade (R$)', ajuda: 'Aluguel, luz, gás e afins rateados por unidade vendida.' },
+    {
+      chave: 'fixed_cost_per_unit',
+      label: 'Custo fixo por unidade (R$)',
+      ajuda: 'Recalculado sozinho todo dia 1: despesas fixas da planilha de insumos ÷ unidades vendidas. Mudar aqui vale até lá.',
+    },
     { chave: 'fee_credit', label: 'Taxa do crédito (%)', ajuda: 'O que a maquininha desconta.' },
     { chave: 'fee_debit', label: 'Taxa do débito (%)' },
     { chave: 'fee_pix', label: 'Taxa do pix (%)', ajuda: 'Normalmente zero.' },
@@ -605,6 +609,9 @@ function PainelPreco({ params, onSalvo }) {
               onChange={(e) => setForm(f => ({ ...f, [campo.chave]: e.target.value }))}
             />
             {campo.ajuda && <p className="text-xs text-text-light mt-1">{campo.ajuda}</p>}
+            {campo.chave === 'fixed_cost_per_unit' && params.custo_fixo_conta && (
+              <ContaDoCustoFixo conta={params.custo_fixo_conta} />
+            )}
           </div>
         ))}
       </div>
@@ -612,5 +619,26 @@ function PainelPreco({ params, onSalvo }) {
         {salvando ? 'Salvando...' : 'Salvar parâmetros'}
       </Button>
     </form>
+  )
+}
+
+/** De onde saiu o custo fixo por unidade: a última conta do rateio (pricing_params.custo_fixo_conta). */
+function ContaDoCustoFixo({ conta }) {
+  const meses = conta.detalhe?.meses ?? []
+  return (
+    <div className="mt-2 rounded-lg bg-cream border border-border px-3 py-2 text-xs text-text-light">
+      <p>
+        {formatCurrency(conta.despesas_mes)} de despesas fixas por mês ÷{' '}
+        {Number(conta.unidades).toLocaleString('pt-BR')} unidades vendidas ({conta.mes_das_unidades})
+        {conta.por_unidade != null && <> = <strong className="text-brown">{formatCurrencyFine(conta.por_unidade, 4)}</strong> por unidade</>}
+        {conta.mantido && ' — pouca venda no mês, ficou o valor anterior'}
+      </p>
+      {meses.map(m => (
+        <p key={m.aba} className="mt-1">
+          {m.aba}: {m.itens.map(i => `${i.nome} ${formatCurrency(i.valor)}`).join(' · ')}
+        </p>
+      ))}
+      <p className="mt-1">Conta de {new Date(conta.em).toLocaleDateString('pt-BR')}.</p>
+    </div>
   )
 }
