@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { HiSearch, HiX } from 'react-icons/hi'
 import { formatCurrency } from '../../utils/format'
+import AvulsoPorUnidade from './AvulsoPorUnidade'
 
 /**
  * Escolha do produto no "Novo pedido": abas por categoria, busca e um botão por produto.
@@ -15,9 +16,11 @@ const ORDEM = ['Salgados', 'Pastéis', 'Congelados', 'Doces', 'Bebidas', 'Gourme
 
 const semAcento = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-export default function EscolherProduto({ produtos, aoEscolher, ehIfood = false }) {
+// `aoAdicionarUnidade`: quando vem, aparece a opção "Por unidade" (70 churros, 30 coxinhas)
+export default function EscolherProduto({ produtos, aoEscolher, aoAdicionarUnidade, ehIfood = false }) {
   const [busca, setBusca] = useState('')
   const [aba, setAba] = useState(null)
+  const [modo, setModo] = useState('pacotes')
 
   const grupos = useMemo(() => {
     const mapa = new Map()
@@ -41,8 +44,37 @@ export default function EscolherProduto({ produtos, aoEscolher, ehIfood = false 
     ? grupos.flatMap(g => g.produtos).filter(p => semAcento(`${p.name} ${p.pack_size ?? ''} ${familia(p)}`).includes(termo))
     : grupos.find(g => g.nome === abaAtual)?.produtos ?? []
 
+  const alternar = aoAdicionarUnidade && (
+    <div className="grid grid-cols-2 rounded-lg bg-gray-100 p-1 text-sm font-semibold" role="tablist" aria-label="Como vender">
+      {[['pacotes', 'Pacotes'], ['unidade', 'Por unidade']].map(([valor, rotulo]) => (
+        <button
+          key={valor}
+          type="button"
+          role="tab"
+          aria-selected={modo === valor}
+          onClick={() => setModo(valor)}
+          className={`cursor-pointer rounded-md py-1.5 transition-colors ${
+            modo === valor ? 'bg-white text-brown shadow-sm' : 'text-text-light hover:text-brown'
+          }`}
+        >
+          {rotulo}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (modo === 'unidade' && aoAdicionarUnidade) {
+    return (
+      <div className="space-y-2">
+        {alternar}
+        <AvulsoPorUnidade produtos={produtos} aoAdicionar={aoAdicionarUnidade} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
+      {alternar}
       <div className="relative">
         <HiSearch className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
         <input
@@ -61,7 +93,7 @@ export default function EscolherProduto({ produtos, aoEscolher, ehIfood = false 
       </div>
 
       {!termo && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Categorias">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Categorias">
           {grupos.map(g => (
             <button
               key={g.nome}

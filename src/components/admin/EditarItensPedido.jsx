@@ -7,7 +7,6 @@ import { formatCurrency } from '../../utils/format'
 import { getSettings, peekSettings } from '../../services/settings'
 import { calcularDescontoAvista } from '../../utils/descontoAvista'
 import FlavorPicker from '../product/FlavorPicker'
-import AvulsoPorUnidade from './AvulsoPorUnidade'
 import EscolherProduto from './EscolherProduto'
 import { fracaoDoPacote } from '../../utils/pacote'
 
@@ -104,7 +103,7 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
   }
 
   const adicionarPorUnidade = (item) => setItens(atual => [...atual, {
-    product_id: item.product_id, product_name: item.product_name, quantity: 1, unit_price: item.price,
+    product_id: item.product_id, product_name: item.product_name, quantity: item.quantity ?? 1, unit_price: item.price,
     flavors: item.flavors.map(f => ({ flavor_id: f.id, flavor_name: f.name, quantity: f.quantity })),
   }])
 
@@ -193,10 +192,8 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
         <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
           <HiPlus className="size-4 shrink-0" /> Adicionar item
         </p>
-        <EscolherProduto produtos={produtos} aoEscolher={adicionar} />
+        <EscolherProduto produtos={produtos} aoEscolher={adicionar} aoAdicionarUnidade={adicionarPorUnidade} />
       </div>
-
-      <AvulsoPorUnidade produtos={produtos} aoAdicionar={adicionarPorUnidade} />
 
       <div className="space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
         <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>

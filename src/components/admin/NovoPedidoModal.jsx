@@ -8,7 +8,6 @@ import { cotarEntrega } from '../../services/entrega'
 import { calcularDescontoAvista, ehAVista } from '../../utils/descontoAvista'
 import { formatCurrency, mascararTelefone, CANAIS } from '../../utils/format'
 import FlavorPicker from '../product/FlavorPicker'
-import AvulsoPorUnidade from './AvulsoPorUnidade'
 import EscolherProduto from './EscolherProduto'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
@@ -129,7 +128,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
 
   const adicionarPorUnidade = (item) => setItens(atual => [...atual, {
     id: item.product_id, name: item.product_name, price: item.price, cash_price: item.cash_price,
-    quantity: 1, flavors: item.flavors,
+    quantity: item.quantity ?? 1, flavors: item.flavors,
   }])
 
   const definirQtd = (idx, valor) => {
@@ -327,7 +326,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
               <HiPlus className="size-4" /> Adicionar produto
             </p>
             <div className="mb-3">
-              <EscolherProduto produtos={produtos} aoEscolher={adicionar} ehIfood={ehIfood} />
+              <EscolherProduto produtos={produtos} aoEscolher={adicionar} aoAdicionarUnidade={adicionarPorUnidade} ehIfood={ehIfood} />
             </div>
 
             <div className="mb-2">
@@ -345,7 +344,6 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
                   </select>
                 </div>
               )}
-              <AvulsoPorUnidade produtos={produtos} aoAdicionar={adicionarPorUnidade} />
             </div>
 
             {itens.length === 0 ? (
