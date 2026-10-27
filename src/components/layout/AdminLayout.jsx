@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell, HiChartBar, HiChatAlt2, HiReceiptTax } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiArchive, HiDownload, HiMap, HiBell, HiChartBar, HiChatAlt2, HiReceiptTax } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -28,11 +28,11 @@ const navGrupos = [
     ],
   },
   {
-    // Categorias (/admin/categorias) fica fora do menu: muda quase nunca, a tela abre pelo endereço
+    // Categorias e Preços (a grade que reaplica a margem em todos os pacotes) ficam fora do menu:
+    // mudam quase nunca e abrem por atalhos na tela de Produtos
     titulo: 'Cardápio',
     itens: [
       { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
-      { to: '/admin/precos', icon: HiCurrencyDollar, label: 'Preços' },
       { to: '/admin/margens', icon: HiCalculator, label: 'Margens' },
     ],
   },

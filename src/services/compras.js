@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { invalidar } from './cache'
 
 /**
  * Compras pelo cupom: a leitura da SEFAZ e a gravação nas planilhas ficam na função `cupom-ler`
@@ -74,7 +75,7 @@ export const enviarXmlNfe = (xml) => chamar({ acao: 'xml', xml })
 export async function listarCompras(limite = 60) {
   const { data, error } = await supabase
     .from('compras')
-    .select('id, chave_acesso, numero, emitente_nome, emitente_nome_sefaz, emitente_cnpj, emitida_em, total, forma_pagamento, qtd_itens, url_qrcode, planilha_totais_linha, planilha_erro, origem, conferida, observacao, created_at, compras_itens(id, ordem, nome, quantidade, unidade, valor_unitario, valor_total, categoria, planilha_linha)')
+    .select('id, chave_acesso, numero, emitente_nome, emitente_nome_sefaz, emitente_cnpj, emitida_em, total, forma_pagamento, qtd_itens, url_qrcode, planilha_totais_linha, planilha_erro, origem, conferida, observacao, created_at, compras_itens(id, ordem, nome, quantidade, unidade, valor_unitario, valor_total, categoria, planilha_linha, supply_id)')
     .order('emitida_em', { ascending: false, nullsFirst: false })
     .limit(limite)
   if (error) throw error
@@ -91,3 +92,54 @@ export const CATEGORIAS = [
   { valor: 'limpeza', rotulo: 'Limpeza e embalagens' },
   { valor: 'outro', rotulo: 'Fora da planilha' },
 ]
+
+// ---------------------------------------------------------------------------
+// Item da compra -> insumo da tela de Margens
+// ---------------------------------------------------------------------------
+
+/** O mesmo que normalizar_item_compra() no banco (supabase/sql/margens-pelas-compras.sql). */
+export const chaveDoItem = (nome) => (nome || '').trim().replace(/\s+/g, ' ').toLowerCase()
+
+/**
+ * Quanto do insumo vem numa embalagem, lido do nome do item: "Req reke minas bisn 1,8kg" dá 1,8
+ * para um insumo em kg, "CHIMICHURRI 200g" dá 0,2. Null quando o nome não diz.
+ */
+export function quantidadeNoNome(nome, unidadeDoInsumo) {
+  if (unidadeDoInsumo === 'un') return 1
+  const m = /(\d+(?:[.,]\d+)?)\s*(kg|g|gr|l|lt|ml)\b/i.exec(nome || '')
+  if (!m) return null
+  const valor = Number(m[1].replace(',', '.'))
+  const medida = m[2].toLowerCase()
+  const miudo = medida === 'g' || medida === 'gr' || medida === 'ml'
+  if (unidadeDoInsumo === 'kg' || unidadeDoInsumo === 'L') return miudo ? valor / 1000 : valor
+  if (unidadeDoInsumo === 'g' || unidadeDoInsumo === 'ml') return miudo ? valor : valor * 1000
+  return null
+}
+
+/** Item vendido a peso: o valor unitário do cupom já é o preço do kg. */
+export const vendidoAPeso = (item) => /^kg/i.test(item?.unidade || '')
+
+/**
+ * Liga o item ao insumo, para esta compra e as próximas com o mesmo nome. O gatilho do banco põe o
+ * preço desta compra no insumo, se ela for mais nova que o preço que ele tem.
+ */
+export async function ligarAoInsumo(item, supplyId, quantidadePorEmbalagem) {
+  const { error } = await supabase.from('compras_vinculos').upsert({
+    chave: chaveDoItem(item.nome),
+    supply_id: supplyId,
+    quantidade_por_embalagem: quantidadePorEmbalagem,
+  })
+  if (error) throw error
+  const { error: erroItens } = await supabase.from('compras_itens').update({ supply_id: supplyId }).eq('nome', item.nome)
+  if (erroItens) throw erroItens
+  invalidar('custos')
+}
+
+/** Desfaz a ligação. O preço que o insumo já pegou desta compra fica. */
+export async function desligarDoInsumo(item) {
+  const { error } = await supabase.from('compras_vinculos').delete().eq('chave', chaveDoItem(item.nome))
+  if (error) throw error
+  const { error: erroItens } = await supabase.from('compras_itens').update({ supply_id: null }).eq('nome', item.nome)
+  if (erroItens) throw erroItens
+  invalidar('custos')
+}

@@ -159,7 +159,13 @@ export function calcularProduto(produto, custos = new Map(), params = PARAMS_PAD
   const unidades = numero(produto?.pack_size) > 0 ? numero(produto.pack_size) : 1
 
   const imposto = numero(params?.tax_percent)
-  const custoFixoUnidade = numero(params?.fixed_cost_per_unit)
+  // O produto pode ter custo fixo próprio: o R$ 0,19 geral veio do pastel e, num salgadinho de
+  // R$ 0,07 de insumo, viraria quase o triplo do custo.
+  const custoFixoUnidade = produto?.custo_fixo_unidade === null || produto?.custo_fixo_unidade === undefined
+    ? numero(params?.fixed_cost_per_unit)
+    : numero(produto.custo_fixo_unidade)
+  // Caixa, saco e guardanapo: um por pacote, não por unidade.
+  const custoEmbalagem = numero(produto?.custo_embalagem)
   const margemAlvo = produto?.target_margin === null || produto?.target_margin === undefined
     ? numero(params?.default_margin)
     : numero(produto.target_margin)
@@ -170,7 +176,7 @@ export function calcularProduto(produto, custos = new Map(), params = PARAMS_PAD
 
   const custoInsumoUnidade = (custoFicha / rendimento) * (1 + perda / 100)
   const custoUnidade = custoInsumoUnidade + custoFixoUnidade
-  const custoTotal = custoUnidade * unidades
+  const custoTotal = custoUnidade * unidades + custoEmbalagem
 
   const lucroBruto = preco - custoTotal
 
@@ -230,6 +236,7 @@ export function calcularProduto(produto, custos = new Map(), params = PARAMS_PAD
     custoInsumoUnidade,
     custoFixoUnidade,
     custoUnidade,
+    custoEmbalagem,
     unidades,
     custoTotal,
     margemAlvo,
@@ -240,6 +247,42 @@ export function calcularProduto(produto, custos = new Map(), params = PARAMS_PAD
     piorCaso,
     ifood,
   }
+}
+
+/**
+ * Pacote em que o cliente escolhe o sabor: a conta sai por sabor, porque uma bolinha de carne
+ * custa mais que o dobro de uma coxinha e o preço do pacote é um só.
+ *
+ * Cada sabor tem a ficha de UMA unidade (flavors.supply_id, um recheio de rendimento 1). Ela entra
+ * na ficha do produto como mais uma linha, por unidade -- o que o produto tiver na própria ficha
+ * soma junto. O preço é o do sabor naquele tamanho, quando existe (pastéis, doces), senão o do
+ * pacote.
+ *
+ * @param produto  com flavor_group e, se for de sabor único, fixed_flavor_id
+ * @param sabores  [{ id, name, group_slug, active, supply_id, flavor_prices: [{ pack_size, price }] }]
+ * @returns [{ sabor, conta }], o pior sabor primeiro; vazio quando o produto não é de sabor
+ */
+export function calcularPorSabor(produto, sabores = [], custos = new Map(), params = PARAMS_PADRAO) {
+  if (!produto?.flavor_group && !produto?.fixed_flavor_id) return []
+  const doProduto = produto.fixed_flavor_id
+    ? sabores.filter(s => s.id === produto.fixed_flavor_id)
+    : sabores.filter(s => s.group_slug === produto.flavor_group && s.active)
+
+  return doProduto
+    .map(sabor => {
+      const precoDoSabor = (sabor.flavor_prices ?? []).find(p => Number(p.pack_size) === Number(produto.pack_size))
+      const linhas = [
+        ...(produto.product_recipe_items ?? []),
+        ...(sabor.supply_id ? [{ supply_id: sabor.supply_id, quantity: numero(produto.recipe_yield, 1) }] : []),
+      ]
+      const conta = calcularProduto(
+        { ...produto, price: precoDoSabor ? precoDoSabor.price : produto.price, product_recipe_items: linhas },
+        custos,
+        params,
+      )
+      return { sabor, conta, preco: numero(precoDoSabor ? precoDoSabor.price : produto.price) }
+    })
+    .sort((a, b) => (a.conta.piorCaso?.margem ?? Infinity) - (b.conta.piorCaso?.margem ?? Infinity))
 }
 
 /**

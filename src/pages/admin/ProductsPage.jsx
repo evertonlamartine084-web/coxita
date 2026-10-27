@@ -353,6 +353,7 @@ export default function ProductsPage() {
         <h1 className="text-2xl font-bold">Produtos</h1>
         <div className="flex items-center gap-4">
           <Link to="/admin/categorias" className="text-sm font-semibold text-gray-500 hover:text-brown">Categorias</Link>
+          <Link to="/admin/precos" className="text-sm font-semibold text-gray-500 hover:text-brown">Tabela de preços</Link>
           <Button onClick={openNew}>+ Novo Produto</Button>
         </div>
       </div>

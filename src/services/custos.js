@@ -33,11 +33,26 @@ export async function getFichas() {
     const { data, error } = await supabase
       .from('products')
       .select(`
-        id, name, price, preco_ifood, pack_size, active, sort_order,
-        recipe_yield, waste_percent, target_margin,
+        id, name, price, preco_ifood, pack_size, active, sort_order, so_painel,
+        recipe_yield, waste_percent, target_margin, custo_embalagem, custo_fixo_unidade,
+        flavor_group, fixed_flavor_id,
         categories(name, slug),
         product_recipe_items(id, supply_id, quantity)
       `)
+      .order('sort_order')
+    if (error) throw error
+    return data
+  })
+}
+
+export const CHAVE_SABORES = 'custos:sabores'
+
+/** Sabores com a ficha de uma unidade (supply_id) e o preço próprio por tamanho, quando tem. */
+export async function getSabores() {
+  return cached(CHAVE_SABORES, async () => {
+    const { data, error } = await supabase
+      .from('flavors')
+      .select('id, name, group_slug, active, sort_order, supply_id, flavor_prices(pack_size, price)')
       .order('sort_order')
     if (error) throw error
     return data

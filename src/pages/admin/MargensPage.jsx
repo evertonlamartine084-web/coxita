@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
-  getInsumos, getFichas, getParams, salvarParams,
+  getInsumos, getFichas, getParams, getSabores, salvarParams,
   deleteInsumo, insumoEstaEmUso,
 } from '../../services/custos'
 import {
-  custoPorInsumo, calcularProduto, faixaDaMargem, ROTULO_DA_FAIXA, PARAMS_PADRAO,
+  custoPorInsumo, calcularProduto, calcularPorSabor, faixaDaMargem, ROTULO_DA_FAIXA, PARAMS_PADRAO,
 } from '../../utils/margem'
 import {
   formatCurrency, formatCurrencyFine, formatPercent, formatQuantidade,
@@ -22,10 +22,22 @@ import InsumoModal from '../../components/admin/InsumoModal'
  * A tela responde uma pergunta por aba: quanto custa o que eu vendo
  * (Produtos), quanto custa o que eu compro (Insumos) e quanto tem que sobrar
  * (Preço). A conta inteira vive em src/utils/margem.js.
+ *
+ * O preço dos insumos anda sozinho: item de compra ligado a um insumo (tela de Compras) põe o
+ * preço pago nele. Pacote de sabor à escolha mostra a margem do pior sabor, que é a que manda.
  */
+
+/** Preço de insumo mais velho que isto aparece marcado: provavelmente mudou. */
+const DIAS_PRECO_VELHO = 45
+
+function diasDoPreco(insumo) {
+  if (!insumo.preco_em) return null
+  return Math.floor((Date.now() - new Date(`${insumo.preco_em}T12:00:00`).getTime()) / 864e5)
+}
 export default function MargensPage() {
   const [insumos, setInsumos] = useState([])
   const [fichas, setFichas] = useState([])
+  const [sabores, setSabores] = useState([])
   const [params, setParams] = useState(PARAMS_PADRAO)
   const [carregando, setCarregando] = useState(true)
   const [aba, setAba] = useState('produtos')
@@ -37,10 +49,11 @@ export default function MargensPage() {
   // o dono acabou de mudar.
   const carregar = async () => {
     try {
-      const [i, f, p] = await Promise.all([getInsumos(), getFichas(), getParams()])
+      const [i, f, p, sab] = await Promise.all([getInsumos(), getFichas(), getParams(), getSabores()])
       setInsumos(i)
       setFichas(f)
       setParams(p)
+      setSabores(sab)
     } catch (erro) {
       console.error(erro)
       toast.error('Erro ao carregar os custos.')
@@ -53,14 +66,27 @@ export default function MargensPage() {
 
   const custos = useMemo(() => custoPorInsumo(insumos), [insumos])
   const contas = useMemo(
-    () => fichas.map(produto => ({ produto, conta: calcularProduto(produto, custos, params) })),
-    [fichas, custos, params],
+    () => fichas.map(produto => {
+      const porSabor = calcularPorSabor(produto, sabores, custos, params)
+      // Com sabor à escolha, a linha do produto é a do pior sabor (calcularPorSabor ordena).
+      const pior = porSabor.find(s => s.conta.temFicha)
+      return {
+        produto, porSabor, piorSabor: pior?.sabor,
+        conta: pior ? pior.conta : calcularProduto(produto, custos, params),
+        preco: pior ? pior.preco : Number(produto.price),
+      }
+    }),
+    [fichas, sabores, custos, params],
   )
+  const [verInativos, setVerInativos] = useState(false)
 
   if (carregando) return <Loading />
 
-  const comFicha = contas.filter(c => c.conta.temFicha)
+  const noAr = contas.filter(c => c.produto.active)
+  const comFicha = noAr.filter(c => c.conta.temFicha)
   const emRisco = comFicha.filter(c => (c.conta.piorCaso?.margem ?? 0) < 20)
+  const comprados = insumos.filter(i => i.kind === 'insumo' && i.active !== false)
+  const precoVelho = comprados.filter(i => (diasDoPreco(i) ?? Infinity) > DIAS_PRECO_VELHO)
 
   return (
     <div>
@@ -71,19 +97,21 @@ export default function MargensPage() {
         )}
       </div>
       <p className="text-sm text-text-light mb-6">
-        Lance o que você pagou em cada coisa; o custo do produto e o preço saem da conta.
+        O custo de cada insumo vem da última compra ligada a ele (tela de Compras); o custo do produto e o preço saem da conta.
       </p>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <Cartao rotulo="Produtos com ficha" valor={`${comFicha.length} de ${fichas.length}`} />
+        <Cartao rotulo="Produtos no ar com conta" valor={`${comFicha.length} de ${noAr.length}`} />
         <Cartao
           rotulo="Margem desejada"
           valor={formatPercent(params.default_margin, 0)}
           detalhe={`imposto ${formatPercent(params.tax_percent, 2)}`}
         />
         <Cartao
-          rotulo="Custo fixo por unidade"
-          valor={formatCurrencyFine(params.fixed_cost_per_unit, 2)}
+          rotulo="Insumos com preço velho"
+          valor={String(precoVelho.length)}
+          detalhe={`sem compra nos últimos ${DIAS_PRECO_VELHO} dias`}
+          alerta={precoVelho.length > 0}
         />
         <Cartao
           rotulo="Margem apertada"
@@ -114,7 +142,13 @@ export default function MargensPage() {
       </div>
 
       {aba === 'produtos' && (
-        <TabelaProdutos contas={contas} onAbrir={setProdutoAberto} />
+        <>
+          <label className="mb-3 flex items-center gap-2 text-sm text-text-light">
+            <input type="checkbox" checked={verInativos} onChange={(e) => setVerInativos(e.target.checked)} />
+            Mostrar também os produtos fora do ar
+          </label>
+          <TabelaProdutos contas={verInativos ? contas : noAr} onAbrir={setProdutoAberto} />
+        </>
       )}
 
       {aba === 'insumos' && (
@@ -134,6 +168,7 @@ export default function MargensPage() {
       {produtoAberto && (
         <FichaProdutoModal
           produto={produtoAberto}
+          sabores={sabores}
           insumos={insumos}
           custos={custos}
           params={params}
@@ -165,6 +200,7 @@ function Cartao({ rotulo, valor, detalhe, alerta }) {
 }
 
 function TabelaProdutos({ contas, onAbrir }) {
+  const [aberto, setAberto] = useState(null)
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -181,64 +217,98 @@ function TabelaProdutos({ contas, onAbrir }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {contas.map(({ produto, conta }) => {
+            {contas.map(({ produto, conta, porSabor, piorSabor, preco: precoDaLinha }) => {
               const faixa = ROTULO_DA_FAIXA[faixaDaMargem(conta.piorCaso?.margem)]
+              const variosSabores = porSabor.length > 1
+              const expandido = aberto === produto.id
               return (
-                <tr key={produto.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{produto.name}</p>
-                    <p className="text-xs text-text-light">
-                      {produto.categories?.name || 'Sem categoria'}
-                      {conta.unidades > 1 && ` · pacote de ${conta.unidades}`}
-                      {!produto.active && ' · inativo'}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(produto.price)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {conta.temFicha ? (
-                      <>
-                        {formatCurrency(conta.custoTotal)}
-                        {conta.unidades > 1 && (
-                          <span className="block text-xs text-text-light">
-                            {formatCurrencyFine(conta.custoUnidade, 3)}/un
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-text-light">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums hidden sm:table-cell">
-                    {conta.temFicha ? formatCurrency(conta.piorCaso?.lucro ?? 0) : <span className="text-text-light">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${faixa.classe}`}>
-                      {conta.temFicha ? formatPercent(conta.piorCaso?.margem) : faixa.texto}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {conta.ifood ? (
-                      <>
-                        <span className="block text-xs text-text-light">{formatCurrency(conta.ifood.preco)} no app</span>
-                        {conta.temFicha ? (
-                          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${ROTULO_DA_FAIXA[faixaDaMargem(conta.ifood.margem)].classe}`}>
-                            sobra {formatCurrency(conta.ifood.lucro)} · {formatPercent(conta.ifood.margem)}
-                          </span>
-                        ) : (
-                          <span className="block text-xs">recebe {formatCurrency(conta.ifood.recebe)}</span>
-                        )}
-                      </>
-                    ) : <span className="text-text-light">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => onAbrir(produto)}
-                      className="text-primary hover:underline text-sm font-semibold"
-                    >
-                      {conta.temFicha ? 'Ficha' : 'Montar ficha'}
-                    </button>
-                  </td>
-                </tr>
+                <Fragment key={produto.id}>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{produto.name}</p>
+                      <p className="text-xs text-text-light">
+                        {produto.categories?.name || 'Sem categoria'}
+                        {conta.unidades > 1 && ` · pacote de ${conta.unidades}`}
+                        {!produto.active && ' · fora do ar'}
+                      </p>
+                      {variosSabores && (
+                        <button
+                          type="button"
+                          onClick={() => setAberto(expandido ? null : produto.id)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          {expandido ? 'esconder sabores' : `pior sabor: ${piorSabor?.name ?? '—'} · ver os ${porSabor.length}`}
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(precoDaLinha)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {conta.temFicha ? (
+                        <>
+                          {formatCurrency(conta.custoTotal)}
+                          {conta.unidades > 1 && (
+                            <span className="block text-xs text-text-light">
+                              {formatCurrencyFine(conta.custoUnidade, 3)}/un
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-text-light">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums hidden sm:table-cell">
+                      {conta.temFicha ? formatCurrency(conta.piorCaso?.lucro ?? 0) : <span className="text-text-light">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${faixa.classe}`}>
+                        {conta.temFicha ? formatPercent(conta.piorCaso?.margem) : faixa.texto}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {conta.ifood ? (
+                        <>
+                          <span className="block text-xs text-text-light">{formatCurrency(conta.ifood.preco)} no app</span>
+                          {conta.temFicha ? (
+                            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${ROTULO_DA_FAIXA[faixaDaMargem(conta.ifood.margem)].classe}`}>
+                              sobra {formatCurrency(conta.ifood.lucro)} · {formatPercent(conta.ifood.margem)}
+                            </span>
+                          ) : (
+                            <span className="block text-xs">recebe {formatCurrency(conta.ifood.recebe)}</span>
+                          )}
+                        </>
+                      ) : <span className="text-text-light">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => onAbrir(produto)}
+                        className="text-primary hover:underline text-sm font-semibold"
+                      >
+                        {conta.temFicha ? 'Ficha' : 'Montar ficha'}
+                      </button>
+                    </td>
+                  </tr>
+                  {expandido && porSabor.map(({ sabor, conta: c, preco }) => (
+                    <tr key={sabor.id} className="bg-cream/40 text-xs">
+                      <td className="pl-8 pr-4 py-2">{sabor.name}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{formatCurrency(preco)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {c.temFicha ? `${formatCurrency(c.custoTotal)} · ${formatCurrencyFine(c.custoUnidade, 3)}/un` : '—'}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums hidden sm:table-cell">
+                        {c.temFicha ? formatCurrency(c.piorCaso?.lucro ?? 0) : '—'}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${ROTULO_DA_FAIXA[faixaDaMargem(c.piorCaso?.margem)].classe}`}>
+                          {c.temFicha ? formatPercent(c.piorCaso?.margem) : 'Sem ficha'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {c.ifood && c.temFicha ? formatPercent(c.ifood.margem) : ''}
+                      </td>
+                      <td />
+                    </tr>
+                  ))}
+                </Fragment>
               )
             })}
           </tbody>
@@ -250,7 +320,9 @@ function TabelaProdutos({ contas, onAbrir }) {
 
 function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
   const comprados = insumos.filter(i => i.kind === 'insumo')
-  const produzidos = insumos.filter(i => i.kind === 'recheio')
+  // Ficha de uma unidade de cada sabor (unidade "un") separada das massas e recheios em kg.
+  const produzidos = insumos.filter(i => i.kind === 'recheio' && i.unit !== 'un')
+  const porUnidade = insumos.filter(i => i.kind === 'recheio' && i.unit === 'un')
 
   const excluir = async (item) => {
     if (insumoEstaEmUso(item.id, insumos, fichas)) {
@@ -295,7 +367,10 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
           <h2 className="font-display font-extrabold uppercase text-sm tracking-wide text-brown">
             Comprados
           </h2>
-          <p className="text-xs text-text-light">O que veio da nota. Mudou o preço? Edite aqui e toda ficha se atualiza.</p>
+          <p className="text-xs text-text-light">
+            O preço muda sozinho quando um item de compra ligado a ele é lançado (tela de Compras → abra a compra → “ligar”).
+            Sem compra há mais de {DIAS_PRECO_VELHO} dias fica marcado: confira ou edite à mão.
+          </p>
         </header>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -304,6 +379,7 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
                 <th className="text-left px-4 py-2 font-semibold">Insumo</th>
                 <th className="text-right px-4 py-2 font-semibold">Paguei</th>
                 <th className="text-right px-4 py-2 font-semibold">Veio</th>
+                <th className="text-left px-4 py-2 font-semibold">Preço de</th>
                 <th className="text-right px-4 py-2 font-semibold">Custo</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -315,6 +391,7 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
                   <td className="px-4 py-3 text-right tabular-nums text-text-light">
                     {formatQuantidade(item.pack_quantity)} {item.unit}
                   </td>
+                  <OrigemDoPreco item={item} />
                 </Linha>
               ))}
             </tbody>
@@ -325,7 +402,7 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
       <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <header className="px-4 py-3 bg-gray-50 border-b border-gray-200">
           <h2 className="font-display font-extrabold uppercase text-sm tracking-wide text-brown">
-            Produzidos
+            Massas e recheios
           </h2>
           <p className="text-xs text-text-light">
             Recheios com receita própria. O custo por kg sai do lote dividido pelo que ele rende.
@@ -360,7 +437,55 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
           </table>
         </div>
       </section>
+
+      <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <header className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h2 className="font-display font-extrabold uppercase text-sm tracking-wide text-brown">
+            Ficha de cada sabor
+          </h2>
+          <p className="text-xs text-text-light">
+            Uma unidade de cada sabor: massa, recheio e o resto, em kg. É daqui que sai o custo dos pacotes.
+          </p>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wide text-text-light">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold">Sabor</th>
+                <th className="text-right px-4 py-2 font-semibold">Itens</th>
+                <th className="text-right px-4 py-2 font-semibold" />
+                <th className="text-right px-4 py-2 font-semibold">Custo</th>
+                <th className="px-4 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {porUnidade.map(item => (
+                <Linha key={item.id} item={item}>
+                  <td className="px-4 py-3 text-right tabular-nums text-text-light">
+                    {(item.supply_recipe_items ?? []).length}
+                  </td>
+                  <td />
+                </Linha>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
+  )
+}
+
+function OrigemDoPreco({ item }) {
+  const dias = diasDoPreco(item)
+  const velho = dias === null || dias > DIAS_PRECO_VELHO
+  return (
+    <td className="px-4 py-3 text-xs">
+      <span className={velho ? 'font-semibold text-amber-800' : 'text-text-light'}>
+        {item.preco_em ? new Date(`${item.preco_em}T12:00:00`).toLocaleDateString('pt-BR') : 'sem data'}
+        {velho && ' · confira'}
+      </span>
+      {item.preco_origem && <span className="block text-text-light">{item.preco_origem}</span>}
+    </td>
   )
 }
 

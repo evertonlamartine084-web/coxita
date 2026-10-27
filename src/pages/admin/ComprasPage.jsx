@@ -4,7 +4,8 @@ import { HiCamera, HiPhotograph, HiLink, HiTrash, HiRefresh, HiExternalLink, HiD
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import { formatCurrency } from '../../utils/format'
-import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, pedirNfe, listarPedidas, apagarPedida, enviarXmlNfe, CATEGORIAS } from '../../services/compras'
+import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, pedirNfe, listarPedidas, apagarPedida, enviarXmlNfe, CATEGORIAS, ligarAoInsumo, desligarDoInsumo, quantidadeNoNome, vendidoAPeso } from '../../services/compras'
+import { getInsumos } from '../../services/custos'
 import LeitorDeChave from '../../components/admin/LeitorDeChave'
 
 /**
@@ -34,6 +35,7 @@ export default function ComprasPage() {
   const [pendente, setPendente] = useState(null)   // compra da Receita sendo conferida (id)
   const [robo, setRobo] = useState(null)
   const [pedidas, setPedidas] = useState([])
+  const [insumos, setInsumos] = useState([])
 
   const carregar = useCallback(() => {
     listarCompras()
@@ -42,6 +44,7 @@ export default function ComprasPage() {
       .finally(() => setCarregando(false))
     estadoDoRobo().then(setRobo).catch(() => {})
     listarPedidas().then(setPedidas).catch(() => {})
+    getInsumos().then(lista => setInsumos(lista.filter(i => i.kind === 'insumo'))).catch(() => {})
   }, [])
 
   // enquanto houver nota na fila do robô, olha de novo a cada 20 s
@@ -321,7 +324,10 @@ export default function ComprasPage() {
                     <tbody>
                       {c.compras_itens.map(i => (
                         <tr key={i.id} className="border-b border-border/60 last:border-0">
-                          <td className="py-1.5 pr-2">{i.nome}</td>
+                          <td className="py-1.5 pr-2">
+                            {i.nome}
+                            {i.categoria === 'comida' && <InsumoDoItem item={i} insumos={insumos} aoMudar={carregar} />}
+                          </td>
                           <td className="py-1.5 pr-2 text-text-warm whitespace-nowrap">{Number(i.quantidade).toLocaleString('pt-BR')} {i.unidade}</td>
                           <td className="py-1.5 pr-2 text-xs text-text-warm whitespace-nowrap">{CATEGORIAS.find(k => k.valor === i.categoria)?.rotulo}</td>
                           <td className="py-1.5 text-right whitespace-nowrap">{formatCurrency(i.valor_total)}</td>
@@ -346,6 +352,89 @@ export default function ComprasPage() {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Liga um item de comida ao insumo da tela de Margens. Ligado uma vez, o mesmo item nas próximas
+ * compras já entra ligado e o custo do insumo segue o preço pago (gatilho no banco).
+ */
+function InsumoDoItem({ item, insumos, aoMudar }) {
+  const [editando, setEditando] = useState(false)
+  const [insumoId, setInsumoId] = useState('')
+  const [quantidade, setQuantidade] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const ligado = insumos.find(s => s.id === item.supply_id)
+  const escolhido = insumos.find(s => s.id === insumoId)
+  const aPeso = vendidoAPeso(item)
+
+  const escolher = (id) => {
+    setInsumoId(id)
+    const s = insumos.find(x => x.id === id)
+    const q = s ? quantidadeNoNome(item.nome, s.unit) : null
+    setQuantidade(q ? String(q).replace('.', ',') : '')
+  }
+
+  const salvar = async () => {
+    const q = aPeso ? 1 : Number(String(quantidade).replace(',', '.'))
+    if (!escolhido || !(q > 0)) return
+    setSalvando(true)
+    try {
+      await ligarAoInsumo(item, escolhido.id, q)
+      toast.success(`${escolhido.name}: custo atualizado pela compra.`)
+      setEditando(false)
+      aoMudar()
+    } catch (e) {
+      toast.error(e.message || 'Não consegui ligar.')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const desligar = async () => {
+    try {
+      await desligarDoInsumo(item)
+      aoMudar()
+    } catch (e) {
+      toast.error(e.message || 'Não consegui desligar.')
+    }
+  }
+
+  if (ligado && !editando) {
+    return (
+      <span className="mt-0.5 flex items-center gap-1.5 text-xs text-green-800">
+        <span>= {ligado.name}</span>
+        <button type="button" onClick={desligar} className="text-text-warm hover:text-danger cursor-pointer" aria-label="Desligar do insumo">✕</button>
+      </span>
+    )
+  }
+  if (!editando) {
+    return (
+      <button type="button" onClick={() => setEditando(true)} className="mt-0.5 block text-xs text-primary hover:underline cursor-pointer">
+        é insumo de receita? ligar
+      </button>
+    )
+  }
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+      <select value={insumoId} onChange={(e) => escolher(e.target.value)}
+        className="px-2 py-1 border-2 border-border rounded-lg bg-white">
+        <option value="">Qual insumo?</option>
+        {insumos.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+      {escolhido && !aPeso && (
+        <label className="flex items-center gap-1">
+          vem
+          <input value={quantidade} onChange={(e) => setQuantidade(e.target.value)} inputMode="decimal"
+            className="w-16 px-2 py-1 border-2 border-border rounded-lg" />
+          {escolhido.unit} na embalagem
+        </label>
+      )}
+      {escolhido && aPeso && <span className="text-text-warm">vendido a peso: o preço é o do kg</span>}
+      <button type="button" onClick={salvar} disabled={salvando || !escolhido || (!aPeso && !(Number(String(quantidade).replace(',', '.')) > 0))}
+        className="font-semibold text-primary disabled:opacity-40 cursor-pointer">ligar</button>
+      <button type="button" onClick={() => setEditando(false)} className="text-text-warm cursor-pointer">cancelar</button>
+    </span>
   )
 }
 
