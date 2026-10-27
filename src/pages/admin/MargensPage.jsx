@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
-  getInsumos, getFichas, getParams, getSabores, salvarParams,
+  getInsumos, getFichas, getParams, getSabores, getMixDeSabores, salvarParams,
   deleteInsumo, insumoEstaEmUso,
 } from '../../services/custos'
 import {
-  custoPorInsumo, calcularProduto, calcularPorSabor, faixaDaMargem, ROTULO_DA_FAIXA, PARAMS_PADRAO,
+  custoPorInsumo, calcularProduto, calcularPorSabor, margemPelaVenda, faixaDaMargem, ROTULO_DA_FAIXA, PARAMS_PADRAO,
 } from '../../utils/margem'
 import {
   formatCurrency, formatCurrencyFine, formatPercent, formatQuantidade,
@@ -44,6 +44,9 @@ function tipoDoProduto(produto) {
   return 'frito'
 }
 
+/** Janela de vendas que dá o peso de cada sabor na margem média. */
+const DIAS_DO_MIX = 30
+
 /** Preço de insumo mais velho que isto aparece marcado: provavelmente mudou. */
 const DIAS_PRECO_VELHO = 45
 
@@ -55,6 +58,7 @@ export default function MargensPage() {
   const [insumos, setInsumos] = useState([])
   const [fichas, setFichas] = useState([])
   const [sabores, setSabores] = useState([])
+  const [mix, setMix] = useState(new Map())
   const [params, setParams] = useState(PARAMS_PADRAO)
   const [carregando, setCarregando] = useState(true)
   const [aba, setAba] = useState('produtos')
@@ -66,7 +70,10 @@ export default function MargensPage() {
   // o dono acabou de mudar.
   const carregar = async () => {
     try {
-      const [i, f, p, sab] = await Promise.all([getInsumos(), getFichas(), getParams(), getSabores()])
+      const [i, f, p, sab, m] = await Promise.all([
+        getInsumos(), getFichas(), getParams(), getSabores(), getMixDeSabores(DIAS_DO_MIX).catch(() => new Map()),
+      ])
+      setMix(m)
       setInsumos(i)
       setFichas(f)
       setParams(p)
@@ -91,9 +98,10 @@ export default function MargensPage() {
         produto, porSabor, piorSabor: pior?.sabor,
         conta: pior ? pior.conta : calcularProduto(produto, custos, params),
         preco: pior ? pior.preco : Number(produto.price),
+        pelaVenda: porSabor.length > 1 ? margemPelaVenda(porSabor, mix) : null,
       }
     }),
-    [fichas, sabores, custos, params],
+    [fichas, sabores, custos, params, mix],
   )
   const [verInativos, setVerInativos] = useState(false)
   const [tipo, setTipo] = useState('frito')
@@ -183,6 +191,7 @@ export default function MargensPage() {
           </div>
           <TabelaProdutos
             contas={(verInativos ? daCozinha : noAr).filter(c => tipoDoProduto(c.produto) === tipo)}
+            mix={mix}
             onAbrir={setProdutoAberto}
           />
         </>
@@ -236,7 +245,7 @@ function Cartao({ rotulo, valor, detalhe, alerta }) {
   )
 }
 
-function TabelaProdutos({ contas, onAbrir }) {
+function TabelaProdutos({ contas, mix, onAbrir }) {
   const [aberto, setAberto] = useState(null)
   const grupos = [
     ...TAMANHOS.map(t => ({ titulo: `Pacotes de ${t}`, contas: contas.filter(c => Number(c.produto.pack_size) === t) })),
@@ -252,19 +261,23 @@ function TabelaProdutos({ contas, onAbrir }) {
               <th className="text-right px-4 py-3 font-medium">Preço</th>
               <th className="text-right px-4 py-3 font-medium">Custo</th>
               <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">Sobra no crédito</th>
-              <th className="text-right px-4 py-3 font-medium">Margem</th>
-              <th className="text-right px-4 py-3 font-medium" title="Preço do iFood menos 23% de comissão, 3,2% de transação e o imposto">No iFood</th>
+              <th
+                className="text-right px-4 py-3 font-medium"
+                title={`Com sabor à escolha: média pelo que vendeu nos últimos ${DIAS_DO_MIX} dias e, embaixo, o pior sabor (cliente que leva tudo do mais caro)`}
+              >
+                Margem
+              </th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           {grupos.map(grupo => (
             <tbody key={grupo.titulo} className="divide-y divide-gray-100">
               <tr className="bg-gray-100">
-                <th colSpan={7} className="text-left px-4 py-2 font-display font-extrabold uppercase text-xs tracking-wide text-brown">
+                <th colSpan={6} className="text-left px-4 py-2 font-display font-extrabold uppercase text-xs tracking-wide text-brown">
                   {grupo.titulo}
                 </th>
               </tr>
-              {grupo.contas.map(({ produto, conta, porSabor, piorSabor, preco: precoDaLinha }) => {
+              {grupo.contas.map(({ produto, conta, porSabor, piorSabor, preco: precoDaLinha, pelaVenda }) => {
                 const faixa = ROTULO_DA_FAIXA[faixaDaMargem(conta.piorCaso?.margem)]
                 const variosSabores = porSabor.length > 1
                 const expandido = aberto === produto.id
@@ -307,23 +320,23 @@ function TabelaProdutos({ contas, onAbrir }) {
                         {conta.temFicha ? formatCurrency(conta.piorCaso?.lucro ?? 0) : <span className="text-text-light">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${faixa.classe}`}>
-                          {conta.temFicha ? formatPercent(conta.piorCaso?.margem) : faixa.texto}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {conta.ifood ? (
+                        {pelaVenda ? (
                           <>
-                            <span className="block text-xs text-text-light">{formatCurrency(conta.ifood.preco)} no app</span>
-                            {conta.temFicha ? (
-                              <span className={`rounded-full px-2 py-1 text-xs font-semibold ${ROTULO_DA_FAIXA[faixaDaMargem(conta.ifood.margem)].classe}`}>
-                                sobra {formatCurrency(conta.ifood.lucro)} · {formatPercent(conta.ifood.margem)}
-                              </span>
-                            ) : (
-                              <span className="block text-xs">recebe {formatCurrency(conta.ifood.recebe)}</span>
-                            )}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${ROTULO_DA_FAIXA[faixaDaMargem(pelaVenda.margem)].classe}`}
+                              title={`Pelo que vendeu: ${pelaVenda.vendidos.toLocaleString('pt-BR')} unidades em ${DIAS_DO_MIX} dias`}
+                            >
+                              {formatPercent(pelaVenda.margem)} média
+                            </span>
+                            <span className="block mt-1.5 text-xs text-text-light whitespace-nowrap">
+                              pior {formatPercent(conta.piorCaso?.margem)}
+                            </span>
                           </>
-                        ) : <span className="text-text-light">—</span>}
+                        ) : (
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${faixa.classe}`}>
+                            {conta.temFicha ? formatPercent(conta.piorCaso?.margem) : faixa.texto}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -336,7 +349,10 @@ function TabelaProdutos({ contas, onAbrir }) {
                     </tr>
                     {expandido && porSabor.map(({ sabor, conta: c, preco }) => (
                       <tr key={sabor.id} className="bg-cream/40 text-xs">
-                        <td className="pl-8 pr-4 py-2">{sabor.name}</td>
+                        <td className="pl-8 pr-4 py-2">
+                          {sabor.name}
+                          <span className="text-text-light"> · {(mix.get(sabor.id) ?? 0).toLocaleString('pt-BR')} vendidos em {DIAS_DO_MIX} dias</span>
+                        </td>
                         <td className="px-4 py-2 text-right tabular-nums">{formatCurrency(preco)}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {c.temFicha ? `${formatCurrency(c.custoTotal)} · ${formatCurrencyFine(c.custoUnidade, 3)}/un` : '—'}
@@ -348,9 +364,6 @@ function TabelaProdutos({ contas, onAbrir }) {
                           <span className={`px-2 py-0.5 rounded-full font-semibold ${ROTULO_DA_FAIXA[faixaDaMargem(c.piorCaso?.margem)].classe}`}>
                             {c.temFicha ? formatPercent(c.piorCaso?.margem) : 'Sem ficha'}
                           </span>
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums">
-                          {c.ifood && c.temFicha ? formatPercent(c.ifood.margem) : ''}
                         </td>
                         <td />
                       </tr>

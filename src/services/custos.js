@@ -59,6 +59,27 @@ export async function getSabores() {
   })
 }
 
+/**
+ * Quantas unidades de cada sabor saíram nos últimos `dias`, pedidos cancelados fora. É o peso da
+ * margem média de um pacote de sabor à escolha. Map<flavor_id, unidades>.
+ */
+export async function getMixDeSabores(dias = 30) {
+  return cached(`custos:mix:${dias}`, async () => {
+    const desde = new Date(Date.now() - dias * 864e5).toISOString()
+    const { data, error } = await supabase
+      .from('order_item_flavors')
+      .select('flavor_id, quantity, order_items!inner(orders!inner(created_at, status))')
+      .gte('order_items.orders.created_at', desde)
+      .neq('order_items.orders.status', 'cancelado')
+    if (error) throw error
+    const mix = new Map()
+    for (const linha of data ?? []) {
+      mix.set(linha.flavor_id, (mix.get(linha.flavor_id) ?? 0) + Number(linha.quantity || 0))
+    }
+    return mix
+  })
+}
+
 export async function getParams() {
   return cached(CHAVE_PARAMS, async () => {
     const { data, error } = await supabase

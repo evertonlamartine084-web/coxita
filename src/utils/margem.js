@@ -286,6 +286,31 @@ export function calcularPorSabor(produto, sabores = [], custos = new Map(), para
 }
 
 /**
+ * Margem do pacote pelo que de fato sai: cada sabor pesa o quanto vendeu. Lucro e preço somados
+ * com o peso, e não a média das margens, para o pastel de preço maior pesar o que fatura.
+ *
+ * @param porSabor resultado de calcularPorSabor
+ * @param mix      Map<flavor_id, unidades vendidas>
+ * @param meio     'credito' por padrão, o mesmo meio da margem de pior caso
+ * @returns { margem, lucro, vendidos } ou null quando nenhum sabor do pacote vendeu
+ */
+export function margemPelaVenda(porSabor = [], mix = new Map(), meio = 'credito') {
+  let peso = 0
+  let lucro = 0
+  let receita = 0
+  for (const { sabor, conta, preco } of porSabor) {
+    const vendidos = mix.get(sabor.id) ?? 0
+    const linha = conta.porMeio.find(m => m.chave === meio)
+    if (!vendidos || !conta.temFicha || !linha) continue
+    peso += vendidos
+    lucro += vendidos * linha.lucro
+    receita += vendidos * preco
+  }
+  if (!peso || !receita) return null
+  return { margem: (lucro / receita) * 100, lucro: lucro / peso, vendidos: peso }
+}
+
+/**
  * Como ler a margem de olho. Os cortes vêm de salgado de festa: abaixo de 20%
  * o pedido não paga imprevisto (gás que acaba, entrega refeita), e acima de
  * 45% é margem confortável para o ramo.
