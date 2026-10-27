@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { lerNota, decodificar, paginaDeErro, type ItemLido, type NotaLida } from "./leitor.ts"
+import { ErroNfe, gravarNfe, lerNfe } from "../_shared/nfe.ts"
 
 /**
  * cupom-ler — lê um cupom de compra (NFC-e) pelo QR code e lança nas planilhas e no painel.
@@ -84,6 +85,8 @@ function validarUrl(url: string): URL {
   }
   return u
 }
+
+const CNPJ_COXELLI = "68484975000176"
 
 class Erro extends Error {
   status: number
@@ -428,6 +431,23 @@ Deno.serve(async (req) => {
   try { corpo = await req.json() } catch { return json({ erro: "corpo inválido" }, 400) }
 
   try {
+    // ------------------------------------------------------------------ xml
+    // XML de NF-e que o fornecedor mandou (nota com mais de 10 dias não sai mais pela Receita):
+    // entra como as do robô, esperando conferência na tela Compras
+    if (corpo.acao === "xml") {
+      const xml = String(corpo.xml ?? "")
+      if (!/<infNFe/.test(xml)) throw new Erro("Esse arquivo não é o XML de uma NF-e. Peça ao fornecedor o arquivo que termina em .xml.")
+      const nota = lerNfe(xml)
+      try {
+        const r = await gravarNfe(db, xml, "XML enviado pelo painel")
+        // nota no CPF de alguém ou em outro CNPJ entra do mesmo jeito, mas a tela avisa
+        return json({ ...r, outro_destinatario: nota.destinatario_cnpj !== CNPJ_COXELLI })
+      } catch (e) {
+        if (e instanceof ErroNfe) throw new Erro(e.message)
+        throw e
+      }
+    }
+
     // ------------------------------------------------------------------ abrir
     if (corpo.acao === "abrir") {
       const u = validarUrl(String(corpo.url ?? ""))

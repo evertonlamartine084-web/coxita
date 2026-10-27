@@ -65,10 +65,16 @@ export async function estadoDoRobo() {
 /** Tenta de novo a gravação nas planilhas de uma compra que ficou com erro. */
 export const replanilhar = (compra_id) => chamar({ acao: 'replanilhar', compra_id })
 
+/**
+ * XML de NF-e que o fornecedor mandou: entra como as notas do robô, esperando conferência.
+ * Devolve { compra_id, ja_existia, conferida, emitente, total, itens, outro_destinatario }.
+ */
+export const enviarXmlNfe = (xml) => chamar({ acao: 'xml', xml })
+
 export async function listarCompras(limite = 60) {
   const { data, error } = await supabase
     .from('compras')
-    .select('id, chave_acesso, numero, emitente_nome, emitente_nome_sefaz, emitente_cnpj, emitida_em, total, forma_pagamento, qtd_itens, url_qrcode, planilha_totais_linha, planilha_erro, origem, conferida, created_at, compras_itens(id, ordem, nome, quantidade, unidade, valor_unitario, valor_total, categoria, planilha_linha)')
+    .select('id, chave_acesso, numero, emitente_nome, emitente_nome_sefaz, emitente_cnpj, emitida_em, total, forma_pagamento, qtd_itens, url_qrcode, planilha_totais_linha, planilha_erro, origem, conferida, observacao, created_at, compras_itens(id, ordem, nome, quantidade, unidade, valor_unitario, valor_total, categoria, planilha_linha)')
     .order('emitida_em', { ascending: false, nullsFirst: false })
     .limit(limite)
   if (error) throw error

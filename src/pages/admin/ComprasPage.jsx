@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { HiCamera, HiPhotograph, HiLink, HiTrash, HiRefresh, HiExternalLink } from 'react-icons/hi'
+import { HiCamera, HiPhotograph, HiLink, HiTrash, HiRefresh, HiExternalLink, HiDocumentText } from 'react-icons/hi'
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import { formatCurrency } from '../../utils/format'
-import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, pedirNfe, listarPedidas, apagarPedida, CATEGORIAS } from '../../services/compras'
+import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, pedirNfe, listarPedidas, apagarPedida, enviarXmlNfe, CATEGORIAS } from '../../services/compras'
 import LeitorDeChave from '../../components/admin/LeitorDeChave'
 
 /**
@@ -59,12 +59,28 @@ export default function ComprasPage() {
     }
     try {
       const r = await pedirNfe(chave)
-      if (r.ja_lancada) toast(r.conferida ? 'Essa nota já foi lançada.' : 'Essa nota já chegou: está em "Chegaram da Receita".')
+      if (r.ja_lancada) toast(r.conferida ? 'Essa nota já foi lançada.' : 'Essa nota já chegou: está em "Para conferir".')
       else toast.success('Nota pedida. O robô do PC da loja busca na Receita em até 1 minuto.', { duration: 6000 })
       carregar()
     } catch (e) {
       toast.error(e.message || 'Não consegui pedir a nota.')
     }
+  }, [carregar])
+
+  // XML que o fornecedor mandou (nota velha demais para a Receita entregar pelo código de barras)
+  const enviarXmls = useCallback(async (arquivos) => {
+    for (const arquivo of arquivos) {
+      try {
+        const r = await enviarXmlNfe(await arquivo.text())
+        const resumo = `${r.emitente} · ${formatCurrency(r.total)} · ${r.itens} ${r.itens === 1 ? 'item' : 'itens'}`
+        if (r.ja_existia) toast(r.conferida ? `Essa nota já foi lançada (${resumo}).` : `Essa nota já está esperando conferência (${resumo}).`, { duration: 6000 })
+        else toast.success(`Nota recebida: ${resumo}. Confira em "Para conferir".`, { duration: 6000 })
+        if (r.outro_destinatario) toast('Atenção: essa nota não foi emitida para o CNPJ da Coxelli.', { icon: '⚠️', duration: 8000 })
+      } catch (e) {
+        toast.error(`${arquivo.name}: ${e.message || 'não consegui ler.'}`, { duration: 8000 })
+      }
+    }
+    carregar()
   }, [carregar])
 
   // Compra que chegou pela Receita: abre na mesma tela de conferência do cupom
@@ -176,6 +192,7 @@ export default function ComprasPage() {
             aoLer={abrir}
             aoCamera={() => { setErro(''); setEtapa(ETAPAS.LENDO_QR) }}
             aoChave={() => { setErro(''); setEtapa(ETAPAS.CHAVE) }}
+            aoXml={enviarXmls}
           />
         )}
 
@@ -242,8 +259,8 @@ export default function ComprasPage() {
 
       {compras.some(c => c.conferida === false) && (
         <section className="mb-8">
-          <h2 className="font-display text-xl font-black uppercase text-brown mb-1">Chegaram da Receita, para conferir</h2>
-          <p className="text-xs text-text-warm mb-3">Notas de empresa emitidas para o CNPJ da Coxelli. Confira os blocos e lance.</p>
+          <h2 className="font-display text-xl font-black uppercase text-brown mb-1">Para conferir</h2>
+          <p className="text-xs text-text-warm mb-3">Notas de empresa que chegaram pela Receita ou pelo XML do fornecedor. Confira os blocos e lance.</p>
           <div className="space-y-2">
             {compras.filter(c => c.conferida === false).map(c => (
               <div key={c.id} className="bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
@@ -284,7 +301,7 @@ export default function ComprasPage() {
                     {c.emitida_em ? new Date(c.emitida_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'sem data'}
                     {' · '}{c.qtd_itens} {c.qtd_itens === 1 ? 'item' : 'itens'}
                     {c.forma_pagamento ? ` · ${c.forma_pagamento}` : ''}
-                    {c.origem === 'nfe' ? ' · NF-e pela Receita' : ''}
+                    {c.origem === 'nfe' ? (c.observacao === 'XML enviado pelo painel' ? ' · XML do fornecedor' : ' · NF-e pela Receita') : ''}
                     {c.planilha_erro ? ' · ⚠️ planilha falhou' : c.planilha_totais_linha ? ' · planilhas ok' : ''}
                   </p>
                 </div>
@@ -332,8 +349,9 @@ export default function ComprasPage() {
   )
 }
 
-function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera, aoChave }) {
+function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera, aoChave, aoXml }) {
   const arquivoRef = useRef(null)
+  const xmlRef = useRef(null)
 
   const lerDaFoto = async (ev) => {
     const arquivo = ev.target.files?.[0]
@@ -363,6 +381,12 @@ function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera, aoChave }) {
         className="mt-3 w-full cursor-pointer rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm font-semibold text-brown hover:border-primary">
         Nota grande, com código de barras (NF-e)? Toque aqui
       </button>
+      <button type="button" onClick={() => xmlRef.current?.click()}
+        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm font-semibold text-brown hover:border-primary">
+        <HiDocumentText className="text-lg" /> O fornecedor mandou o XML da nota? Enviar arquivo
+      </button>
+      <input ref={xmlRef} type="file" accept=".xml,text/xml,application/xml" multiple className="hidden"
+        onChange={(e) => { const lista = [...(e.target.files ?? [])]; e.target.value = ''; if (lista.length) aoXml(lista) }} />
       <form
         className="mt-4 flex gap-2"
         onSubmit={(e) => { e.preventDefault(); if (linkColado.trim()) aoLer(linkColado.trim()) }}
