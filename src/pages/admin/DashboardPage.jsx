@@ -63,7 +63,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">Início</h1>
         <div role="tablist" aria-label="Período" className="flex w-full gap-1 rounded-lg bg-white p-1 shadow-sm ring-1 ring-border sm:w-auto">
           {PERIODOS.map(p => (
             <button

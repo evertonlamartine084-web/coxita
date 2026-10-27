@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiTag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell, HiChartBar, HiChatAlt2, HiReceiptTax } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiCurrencyDollar, HiArchive, HiDownload, HiMap, HiBell, HiChartBar, HiChatAlt2, HiReceiptTax } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -14,23 +14,46 @@ import { usePushDoPainel } from '../../hooks/usePushDoPainel'
 import { useAppDoPainel } from '../../hooks/useAppDoPainel'
 import { aCada } from '../../utils/aCada'
 
-const navItems = [
-  // com a barra: o app do painel tem escopo /admin/, e /admin sem barra fica FORA dele — o
-  // Chrome mostrava a faixa de "site externo" no topo toda vez que se abria o Dashboard
-  { to: '/admin/', icon: HiHome, label: 'Dashboard' },
-  { to: '/admin/pedidos', icon: HiClipboardList, label: 'Pedidos' },
-  { to: '/admin/atendimento', icon: HiChatAlt2, label: 'Atendimento' },
-  { to: '/admin/rotas', icon: HiMap, label: 'Rotas' },
-  { to: '/admin/clientes', icon: HiUsers, label: 'Clientes' },
-  { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
-  { to: '/admin/margens', icon: HiCalculator, label: 'Margens' },
-  { to: '/admin/precos', icon: HiCurrencyDollar, label: 'Preços' },
-  { to: '/admin/estoque', icon: HiArchive, label: 'Estoque' },
-  { to: '/admin/compras', icon: HiReceiptTax, label: 'Compras' },
-  { to: '/admin/categorias', icon: HiTag, label: 'Categorias' },
-  { to: '/admin/cupons', icon: HiTicket, label: 'Cupons' },
-  { to: '/admin/avaliacoes', icon: HiStar, label: 'Avaliações' },
-  { to: '/admin/configuracoes', icon: HiCog, label: 'Configurações' },
+const navGrupos = [
+  {
+    titulo: 'Dia a dia',
+    itens: [
+      // com a barra: o app do painel tem escopo /admin/, e /admin sem barra fica FORA dele — o
+      // Chrome mostrava a faixa de "site externo" no topo toda vez que se abria o Início
+      { to: '/admin/', icon: HiHome, label: 'Início' },
+      { to: '/admin/pedidos', icon: HiClipboardList, label: 'Pedidos' },
+      { to: '/admin/atendimento', icon: HiChatAlt2, label: 'Atendimento' },
+      { to: '/admin/rotas', icon: HiMap, label: 'Rotas' },
+      { to: '/admin/clientes', icon: HiUsers, label: 'Clientes' },
+    ],
+  },
+  {
+    // Categorias (/admin/categorias) fica fora do menu: muda quase nunca, a tela abre pelo endereço
+    titulo: 'Cardápio',
+    itens: [
+      { to: '/admin/produtos', icon: HiShoppingBag, label: 'Produtos' },
+      { to: '/admin/precos', icon: HiCurrencyDollar, label: 'Preços' },
+      { to: '/admin/margens', icon: HiCalculator, label: 'Margens' },
+    ],
+  },
+  {
+    titulo: 'Loja',
+    itens: [
+      { to: '/admin/estoque', icon: HiArchive, label: 'Estoque' },
+      { to: '/admin/compras', icon: HiReceiptTax, label: 'Compras' },
+    ],
+  },
+  {
+    titulo: 'Marketing',
+    itens: [
+      { to: '/admin/cupons', icon: HiTicket, label: 'Cupons' },
+      { to: '/admin/avaliacoes', icon: HiStar, label: 'Avaliações' },
+    ],
+  },
+  {
+    titulo: null,
+    itens: [{ to: '/admin/configuracoes', icon: HiCog, label: 'Configurações' }],
+  },
 ]
 
 /** Quanto antes do horário marcado o agendado faz o alarme tocar. */
@@ -560,36 +583,43 @@ export default function AdminLayout() {
             </button>
           </div>
         )}
-        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1.5">
-          {navItems.map(({ to, icon, label }) => {
-            const active = location.pathname === to || (to === '/admin/' && location.pathname === '/admin')
-            return (
-              <Link
-                key={to}
-                to={to}
-                onClick={() => {
-                  setSidebarOpen(false)
-                  if (to === '/admin/pedidos') setPendingCount(0)
-                }}
-                className={`flex items-center gap-3 px-3 py-3 border-2 no-underline font-semibold transition-colors ${
-                  active ? 'bg-secondary border-secondary text-brown shadow-[3px_3px_0_#3f6bb5]' : 'border-transparent text-cream/80 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                {createElement(icon, { size: 20 })}
-                <span className="flex-1">{label}</span>
-                {to === '/admin/atendimento' && zapNaoLidas > 0 && (
-                  <span className="bg-green-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
-                    {zapNaoLidas}
-                  </span>
-                )}
-                {to === '/admin/pedidos' && displayedPendingCount > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                    {displayedPendingCount}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          {navGrupos.map(({ titulo, itens }, i) => (
+            <div key={titulo ?? i} className="space-y-1.5">
+              {titulo && (
+                <p className="px-3 pb-0.5 font-display text-[11px] font-extrabold uppercase tracking-[0.16em] text-cream/45">{titulo}</p>
+              )}
+              {itens.map(({ to, icon, label }) => {
+                const active = location.pathname === to || (to === '/admin/' && location.pathname === '/admin')
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={() => {
+                      setSidebarOpen(false)
+                      if (to === '/admin/pedidos') setPendingCount(0)
+                    }}
+                    className={`flex items-center gap-3 px-3 py-3 border-2 no-underline font-semibold transition-colors ${
+                      active ? 'bg-secondary border-secondary text-brown shadow-[3px_3px_0_#3f6bb5]' : 'border-transparent text-cream/80 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {createElement(icon, { size: 20 })}
+                    <span className="flex-1">{label}</span>
+                    {to === '/admin/atendimento' && zapNaoLidas > 0 && (
+                      <span className="bg-green-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
+                        {zapNaoLidas}
+                      </span>
+                    )}
+                    {to === '/admin/pedidos' && displayedPendingCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                        {displayedPendingCount}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
         <div className="shrink-0 p-4 border-t border-white/15 bg-brown">
           <Link

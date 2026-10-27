@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getAllProducts, createProduct, updateProduct, deleteProduct, uploadProductImage } from '../../services/products'
 import { getAllCategories } from '../../services/categories'
 import { getAllFlavors, updateFlavor } from '../../services/flavors'
@@ -350,7 +351,10 @@ export default function ProductsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Produtos</h1>
-        <Button onClick={openNew}>+ Novo Produto</Button>
+        <div className="flex items-center gap-4">
+          <Link to="/admin/categorias" className="text-sm font-semibold text-gray-500 hover:text-brown">Categorias</Link>
+          <Button onClick={openNew}>+ Novo Produto</Button>
+        </div>
       </div>
 
       {/* Abas: uma por categoria que tem produto no ar, mais os que sairam */}
