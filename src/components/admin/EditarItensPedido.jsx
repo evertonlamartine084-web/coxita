@@ -8,6 +8,7 @@ import { getSettings, peekSettings } from '../../services/settings'
 import { calcularDescontoAvista } from '../../utils/descontoAvista'
 import FlavorPicker from '../product/FlavorPicker'
 import AvulsoPorUnidade from './AvulsoPorUnidade'
+import EscolherProduto from './EscolherProduto'
 import { fracaoDoPacote } from '../../utils/pacote'
 
 /** Depois de despachado não se mexe: o que a cozinha mandou é o que vale. */
@@ -188,18 +189,11 @@ export default function EditarItensPedido({ pedido, aoSalvar, aoCancelar }) {
         ))}
       </div>
 
-      <div className="flex items-center gap-2">
-        <HiPlus className="size-4 shrink-0 text-gray-400" />
-        <select
-          defaultValue=""
-          onChange={(e) => { adicionar(e.target.value); e.target.value = '' }}
-          className="flex-1 cursor-pointer rounded-lg border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-primary"
-        >
-          <option value="" disabled>Adicionar item…</option>
-          {produtos.filter(p => p.active).map(p => (
-            <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}</option>
-          ))}
-        </select>
+      <div>
+        <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+          <HiPlus className="size-4 shrink-0" /> Adicionar item
+        </p>
+        <EscolherProduto produtos={produtos} aoEscolher={adicionar} />
       </div>
 
       <AvulsoPorUnidade produtos={produtos} aoAdicionar={adicionarPorUnidade} />

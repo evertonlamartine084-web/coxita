@@ -9,6 +9,7 @@ import { calcularDescontoAvista, ehAVista } from '../../utils/descontoAvista'
 import { formatCurrency, mascararTelefone, CANAIS } from '../../utils/format'
 import FlavorPicker from '../product/FlavorPicker'
 import AvulsoPorUnidade from './AvulsoPorUnidade'
+import EscolherProduto from './EscolherProduto'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
 import Button from '../ui/Button'
@@ -322,18 +323,11 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
 
           {/* Itens */}
           <div className="rounded-lg border border-gray-200 p-3">
-            <div className="mb-2 flex items-center gap-2">
-              <HiPlus className="size-4 text-gray-500" />
-              <select
-                value=""
-                onChange={e => adicionar(e.target.value)}
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
-              >
-                <option value="">Adicionar produto…</option>
-                {produtos.filter(p => p.active).map(p => (
-                  <option key={p.id} value={p.id}>{p.name} — {formatCurrency(ehIfood && p.preco_ifood ? p.preco_ifood : p.price)}</option>
-                ))}
-              </select>
+            <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+              <HiPlus className="size-4" /> Adicionar produto
+            </p>
+            <div className="mb-3">
+              <EscolherProduto produtos={produtos} aoEscolher={adicionar} ehIfood={ehIfood} />
             </div>
 
             <div className="mb-2">
