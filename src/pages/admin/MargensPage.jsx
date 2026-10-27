@@ -82,7 +82,9 @@ export default function MargensPage() {
 
   if (carregando) return <Loading />
 
-  const noAr = contas.filter(c => c.produto.active)
+  // Refrigerante é revenda: o preço segue o de mercado e não tem ficha a acompanhar.
+  const daCozinha = contas.filter(c => c.produto.categories?.slug !== 'bebidas')
+  const noAr = daCozinha.filter(c => c.produto.active)
   const comFicha = noAr.filter(c => c.conta.temFicha)
   const emRisco = comFicha.filter(c => (c.conta.piorCaso?.margem ?? 0) < 20)
   const comprados = insumos.filter(i => i.kind === 'insumo' && i.active !== false)
@@ -147,7 +149,7 @@ export default function MargensPage() {
             <input type="checkbox" checked={verInativos} onChange={(e) => setVerInativos(e.target.checked)} />
             Mostrar também os produtos fora do ar
           </label>
-          <TabelaProdutos contas={verInativos ? contas : noAr} onAbrir={setProdutoAberto} />
+          <TabelaProdutos contas={verInativos ? daCozinha : noAr} onAbrir={setProdutoAberto} />
         </>
       )}
 
