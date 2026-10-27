@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 /**
  * Carrinho abandonado (CRM do hub). O checkout guarda o carrinho de quem já digitou o telefone;
  * se o pedido não fechar, o painel da loja manda uma mensagem no WhatsApp depois de 1 h, com o
- * link /carrinho?recuperar=<id> que devolve os itens. Ver supabase/crm.sql.
+ * link /carrinho?recuperar=<id> que devolve os itens. Ver supabase/sql/crm.sql.
  */
 
 const CHAVE = 'coxelli_carrinho_id'

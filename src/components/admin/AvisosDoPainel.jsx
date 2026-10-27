@@ -15,7 +15,7 @@ const minutos = (hhmm) => { const [h, m] = String(hhmm).split(':').map(Number); 
  * Faixa no topo do painel quando algo que trabalha sozinho parou: Bling (nota fiscal), a
  * impressora da loja (comanda) e o grupo do Zap. Em 02/10 o Bling caiu e ficou 6 dias assim sem
  * ninguém saber. Impressora e Zap só avisam no horário da loja: de noite o PC fica desligado.
- * Dados: status_integracoes() (supabase/avisos-painel.sql).
+ * Dados: status_integracoes() (supabase/sql/avisos-painel.sql).
  */
 export default function AvisosDoPainel() {
   const [status, setStatus] = useState(null)

@@ -6,7 +6,7 @@ import { supabase } from '../../services/supabase'
  * Horários de entrega do dia, de 30 em 30 min, como o checkout mostra. A loja fecha um horário
  * livre quando combina uma entrega por fora do site (WhatsApp, telefone) e reabre se desmarcar.
  * Bloqueio fica em entrega_bloqueios: some do checkout e o criar_pedido recusa
- * (supabase/entrega-bloqueios.sql). Horário com pedido de entrega não se mexe por aqui.
+ * (supabase/sql/entrega-bloqueios.sql). Horário com pedido de entrega não se mexe por aqui.
  */
 export default function BloqueioDeHorarios({ dia, abre, fecha, pedidos }) {
   const [bloqueios, setBloqueios] = useState(null)

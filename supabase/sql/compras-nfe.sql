@@ -1,6 +1,6 @@
 -- NF-e de compra pela Receita (26/10/2026): o robô do PC da loja (loja-pc/sefaz) entrega o XML à
 -- função `nfe-receber`, que grava a compra para CONFERÊNCIA no painel; só depois de conferida ela
--- vai para as planilhas. Ver supabase/compras-cupom.sql para o resto da estrutura.
+-- vai para as planilhas. Ver supabase/sql/compras-cupom.sql para o resto da estrutura.
 
 alter table compras add column if not exists origem text not null default 'nfce';      -- nfce (cupom) | nfe (Receita)
 alter table compras add column if not exists conferida boolean not null default true;  -- false = esperando a pessoa conferir os blocos

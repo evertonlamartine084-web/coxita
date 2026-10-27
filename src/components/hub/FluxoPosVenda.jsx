@@ -11,7 +11,7 @@ import { VARIAVEIS_POS_VENDA, mensagemDePosVenda, alertaDeNotaBaixa } from '../.
 /**
  * Funil de pós-venda (hub → CRM): pedir a nota → nota alta vai ao Google, nota baixa vira alerta
  * no grupo → convite para a segunda compra. Quem manda é o painel do PC da loja; as regras de
- * quem recebe estão em supabase/crm-pos-venda.sql.
+ * quem recebe estão em supabase/sql/crm-pos-venda.sql.
  */
 
 const ETAPAS = [

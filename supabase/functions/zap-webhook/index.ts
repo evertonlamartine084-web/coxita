@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 /**
  * Recebe da Evolution (PC da loja) cada mensagem que entra ou sai do WhatsApp da Coxelli e grava
- * em zap_conversas / zap_mensagens, para a aba Atendimento do painel (supabase/zap-atendimento.sql).
+ * em zap_conversas / zap_mensagens, para a aba Atendimento do painel (supabase/sql/zap-atendimento.sql).
  *
  * A Evolution se identifica pelo ?s= da URL, que tem de bater com zap_config.webhook_segredo. Quem
  * configura a URL na Evolution é o próprio painel do PC da loja (utils/zapDoGrupo.js).

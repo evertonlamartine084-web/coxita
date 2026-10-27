@@ -10,7 +10,7 @@
 # `fotos-e-cardapio`. Este script amarra ambiente a branch na mao.
 #
 # Depois de conectar o GitHub no painel da Vercel, ele vira redundante: `main`
-# e `homolog` passam a subir sozinhas no push. Ver AMBIENTES.md.
+# e `homolog` passam a subir sozinhas no push. Ver docs/AMBIENTES.md.
 set -euo pipefail
 
 ALVO="${1:-}"
@@ -51,7 +51,7 @@ case "$ALVO" in
     echo "Deploy: $url"
     npx vercel alias set "$url" "$DOMINIO_HOMOLOG" || {
       echo "O deploy subiu e responde em $url, mas o alias para $DOMINIO_HOMOLOG falhou." >&2
-      echo "Ver a secao DNS do AMBIENTES.md." >&2
+      echo "Ver a secao DNS do docs/AMBIENTES.md." >&2
       exit 1
     }
     ;;

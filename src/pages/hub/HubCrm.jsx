@@ -14,7 +14,7 @@ import { VARIAVEIS_CARRINHO, mensagemDeCarrinho, STATUS_CARRINHO } from '../../u
 /**
  * CRM: fluxos de mensagem automática no WhatsApp. Quem manda é o painel do PC da loja (pela
  * Evolution); aqui se liga, ajusta o texto e acompanha o resultado. O primeiro fluxo é o
- * carrinho abandonado (supabase/crm.sql).
+ * carrinho abandonado (supabase/sql/crm.sql).
  */
 
 const EXEMPLO = {

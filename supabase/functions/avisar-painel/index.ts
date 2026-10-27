@@ -5,7 +5,7 @@ import webpush from "npm:web-push@3.6.7"
  * Push de pedido novo para os aparelhos da loja (app do painel, inclusive no iPhone).
  *
  * Quem chama é o banco, no INSERT de pedido feito pelo site (gatilho em
- * supabase/painel-push.sql). Ele se identifica com o mesmo segredo que já divide com a emissão
+ * supabase/sql/painel-push.sql). Ele se identifica com o mesmo segredo que já divide com a emissão
  * de nota (EMISSAO_INTERNA_SEGREDO): é o canal "banco → função" do projeto.
  *
  * Os aparelhos ficam em `painel_push`, gravados pelo botão "Ativar notificações" do painel.

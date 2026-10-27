@@ -33,3 +33,6 @@ dist-ssr
 loja-pc/evolution/chave.env
 loja-pc/sefaz/chave.env
 loja-pc/sefaz/*.pfx
+
+# Artes de referencia (identidade visual, molduras); o que o site usa esta em public/
+materiais/

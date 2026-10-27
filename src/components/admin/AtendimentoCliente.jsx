@@ -8,7 +8,7 @@ import { formatCurrency, rotuloDoStatus, STATUS_COLORS, aReceber, faltaReceber, 
 /**
  * Cliente da conversa no Atendimento (14/10/2026): o pedido em aberto, com os botões que a
  * conversa pede (cobrar Pix, marcar pago, avançar o status), e a ficha com o histórico e o
- * "Repetir último pedido". Os pedidos vêm de pedidos_do_telefone (supabase/pedidos-do-telefone.sql).
+ * "Repetir último pedido". Os pedidos vêm de pedidos_do_telefone (supabase/sql/pedidos-do-telefone.sql).
  */
 
 const dia = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })

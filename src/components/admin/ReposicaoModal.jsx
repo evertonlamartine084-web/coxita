@@ -16,7 +16,7 @@ const MOTIVOS_REPOSICAO = [
 /**
  * Reposição: refaz, sem cobrança, o que saiu com problema no pedido. Escolhe os itens (com a
  * quantidade) e o motivo; o pedido novo vai para a cozinha como qualquer outro, a R$ 0,00
- * (supabase/reposicao.sql).
+ * (supabase/sql/reposicao.sql).
  */
 export default function ReposicaoModal({ pedido, aberto, aoFechar, aoCriar }) {
   const itens = pedido?.order_items ?? []

@@ -6,10 +6,6 @@
 # segundos de upload em todo deploy.
 
 .playwright-mcp
-Identidade visual
+materiais
 dist
 .vercel/output
-
-# Arte de referencia solta na raiz; o que o site usa esta em public/.
-install-prompt.png
-moldura.png

@@ -401,7 +401,7 @@ export default function CheckoutPage() {
         scheduled_for: form.order_type === 'agendado' ? new Date(`${form.scheduled_date}T${form.scheduled_time}`).toISOString() : null,
         subtotal: getSubtotal(),
         delivery_fee: deliveryFee,
-        // o banco confere a taxa por esta cotação (ver supabase/entrega-por-km.sql)
+        // o banco confere a taxa por esta cotação (ver supabase/sql/entrega-por-km.sql)
         cotacao_entrega: form.delivery_type === 'entrega' ? cotacao.id : null,
         discount: getDiscount(),
         discount_avista: getDescontoAvista(),

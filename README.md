@@ -1,16 +1,24 @@
-# React + Vite
+# Coxelli Salgados
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Site de encomendas (coxelli.com.br), painel da loja (`/admin`) e hub de números (`/hub`).
+React + Vite na Vercel; banco, login e funções no Supabase.
 
-Currently, two official plugins are available:
+## Pastas
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Pasta | O que tem |
+|---|---|
+| `src/` | o site, o painel e o hub |
+| `public/` | fotos e arquivos servidos como estão |
+| `supabase/functions/` | funções do Supabase (Cielo, Bling, Zap, compras, NF-e…) |
+| `supabase/sql/` | SQL aplicado à mão no banco, um arquivo por mudança |
+| `loja-pc/` | o que roda no PC da loja: Evolution (WhatsApp) e robô da SEFAZ |
+| `scripts/` | deploy, pré-renderização, sitemap e utilidades |
+| `docs/` | ambientes e deploy (`AMBIENTES.md`), créditos das imagens |
+| `materiais/` | artes de referência, fora do git e do deploy |
 
-## React Compiler
+## Comandos
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```sh
+npm run dev                    # site local (usa o banco de produção: não enviar checkout em teste)
+./scripts/deploy.sh producao   # publica em coxelli.com.br
+```

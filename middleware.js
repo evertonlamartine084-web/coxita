@@ -5,7 +5,7 @@
  * Liga e desliga pelo botao do painel (configuracao `site_em_manutencao` no
  * banco), sem deploy. A variavel EM_BREVE na Vercel continua valendo como
  * interruptor de emergencia: com ela, o site fica em manutencao seja qual for o
- * botao (ver AMBIENTES.md).
+ * botao (ver docs/AMBIENTES.md).
  *
  * O botao so vale para coxelli.com.br: homolog e as previews usam o mesmo
  * banco e continuam com o site completo, para a loja poder testar.

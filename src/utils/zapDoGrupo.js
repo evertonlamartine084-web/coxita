@@ -498,7 +498,7 @@ export async function resumoDasConversas(config = lerConfigZap()) {
 }
 
 /*
- * Atendimento no painel (aba Atendimento, supabase/zap-atendimento.sql). As mensagens chegam ao
+ * Atendimento no painel (aba Atendimento, supabase/sql/zap-atendimento.sql). As mensagens chegam ao
  * banco pela funcao zap-webhook, que a Evolution chama; o painel do PC da loja e quem configura
  * esse aviso na Evolution e quem envia as respostas digitadas em qualquer aparelho.
  */
