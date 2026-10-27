@@ -197,9 +197,14 @@ def atender_pedidas(estado):
             r = ciencia_da_operacao(chave)
             log(f"  ciência: {r['cStat']} {r['xMotivo']}")
             if r["cStat"] not in ("135", "573", "650"):
-                chamar_nuvem({"acao": "pedida_resultado", "chave": chave, "status": "nao_encontrada",
-                              "mensagem": f"A Receita recusou a ciência ({r['cStat']}): {r['xMotivo']}. "
-                                          "Em geral é nota emitida para outro CPF/CNPJ."})
+                if r["cStat"] == "596":
+                    motivo = ("A Receita só deixa pegar a nota pelo código de barras até 10 dias depois da emissão. "
+                              "Peça o XML ao fornecedor (por e-mail ou WhatsApp).")
+                elif r["cStat"] == "575":
+                    motivo = "Essa nota não foi emitida para o CNPJ da Coxelli (foi para outro CPF/CNPJ)."
+                else:
+                    motivo = f"A Receita recusou ({r['cStat']}): {r['xMotivo']}."
+                chamar_nuvem({"acao": "pedida_resultado", "chave": chave, "status": "nao_encontrada", "mensagem": motivo})
                 continue
             d = dist_dfe(f"<consChNFe><chNFe>{chave}</chNFe></consChNFe>")
             completos = [x for x in d["docs"] if x["schema"].startswith("procNFe")]
