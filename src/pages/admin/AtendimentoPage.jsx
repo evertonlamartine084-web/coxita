@@ -637,7 +637,17 @@ export default function AtendimentoPage() {
     if (!conversa) return
     const nome = window.prompt('Nome desta conversa:', conversa.nome ?? '')
     if (nome === null) return
-    const { error } = await supabase.from('zap_conversas').update({ nome: nome.trim() || null, nome_origem: nome.trim() ? 'manual' : null }).eq('chave', conversa.chave)
+    // Número escondido (@lid) não traz telefone: sem ele a ficha do cliente não acha os pedidos.
+    let telefone = conversa.telefone
+    if (!telefone && conversa.chave.endsWith('@lid')) {
+      const digitado = window.prompt('Telefone desta pessoa, com DDD (deixe vazio se não souber):', '')
+      const d = String(digitado ?? '').replace(/\D/g, '')
+      if (d.length === 10 || d.length === 11) telefone = `55${d}`
+      else if (d.length === 12 || d.length === 13) telefone = d
+    }
+    const { error } = await supabase.from('zap_conversas').update({
+      nome: nome.trim() || null, nome_origem: nome.trim() ? 'manual' : null, telefone: telefone ?? null,
+    }).eq('chave', conversa.chave)
     if (error) return toast.error('Não consegui renomear.')
     carregarConversas()
   }
