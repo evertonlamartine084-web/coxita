@@ -367,6 +367,8 @@ function InsumoDoItem({ item, insumos, aoMudar }) {
   const ligado = insumos.find(s => s.id === item.supply_id)
   const escolhido = insumos.find(s => s.id === insumoId)
   const aPeso = vendidoAPeso(item)
+  // "CX20" na nota de atacarejo: caixa com 20 peças. O banco multiplica; aqui se informa uma peça.
+  const pecas = Number(/^[a-z]+(\d+)$/i.exec(item.unidade || '')?.[1] || 1)
 
   const escolher = (id) => {
     setInsumoId(id)
@@ -427,7 +429,7 @@ function InsumoDoItem({ item, insumos, aoMudar }) {
           vem
           <input value={quantidade} onChange={(e) => setQuantidade(e.target.value)} inputMode="decimal"
             className="w-16 px-2 py-1 border-2 border-border rounded-lg" />
-          {escolhido.unit} na embalagem
+          {escolhido.unit} {pecas > 1 ? `em cada peça (a nota diz ${item.unidade}: ${pecas} peças)` : 'na embalagem'}
         </label>
       )}
       {escolhido && aPeso && <span className="text-text-warm">vendido a peso: o preço é o do kg</span>}

@@ -74,7 +74,11 @@ export function lerNfe(xml: string) {
       valor_total: liquido,
     }
   })
-  const nomeSefaz = desescapar(pega(emit, "xFant") || pega(emit, "xNome") || "Fornecedor")
+  // Nome fantasia de filial às vezes é só o número dela ("LOJA 06" no Mar Vermelho do Igapó): aí a
+  // razão social diz mais de quem vendeu.
+  const fantasia = desescapar(pega(emit, "xFant") ?? "")
+  const generica = /^(loja|lj|filial|unidade)\s*\d*$/i.test(fantasia.trim())
+  const nomeSefaz = (!generica && fantasia) || desescapar(pega(emit, "xNome") ?? "") || "Fornecedor"
   return {
     chave_acesso: chave,
     numero: pega(ide, "nNF") && pega(ide, "serie") ? `${Number(pega(ide, "nNF"))}/${Number(pega(ide, "serie"))}` : null,
