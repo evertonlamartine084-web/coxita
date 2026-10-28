@@ -1,5 +1,6 @@
 import { useOutletContext } from 'react-router-dom'
 import Loading from '../../components/ui/Loading'
+import AppInstallsCard from '../../components/admin/AppInstallsCard'
 import { Bloco, Cartao, Funil, GraficoDias, Ranking, SemDados } from '../../components/hub/HubUi'
 import { formatPercent } from '../../utils/format'
 import { variacao, normalizarData, diasDoPeriodo, formatarNumero, formatarDuracao, CANAIS_GA, APARELHOS } from '../../utils/hub'
@@ -94,6 +95,9 @@ export default function HubSite() {
           />
         </Bloco>
       </div>
+
+      {/* Veio do Início do painel: é número do site, não da operação do dia */}
+      <AppInstallsCard />
     </div>
   )
 }

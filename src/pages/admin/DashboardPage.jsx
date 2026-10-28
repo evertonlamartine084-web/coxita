@@ -5,7 +5,6 @@ import { formatCurrency, STATUS_COLORS, rotuloDoStatus, aReceber, faltaReceber, 
 import toast from 'react-hot-toast'
 import Badge from '../../components/ui/Badge'
 import Loading from '../../components/ui/Loading'
-import AppInstallsCard from '../../components/admin/AppInstallsCard'
 
 /**
  * Painel de números da loja.
@@ -103,27 +102,37 @@ export default function DashboardPage() {
         aoReceber={id => setPedidos(lista => lista.map(o => (o.id === id ? { ...o, payment_status: 'pago' } : o)))}
       />
 
+      {/* O que falta sair vem logo depois dos números: é o que importa no dia */}
+      <section className="grid gap-6 lg:grid-cols-2">
+        <ListaPedidos titulo="Próximos agendados" pedidos={agendados} mostrarAgenda
+          vazio="Nenhuma encomenda agendada." />
+        <ListaPedidos titulo="Pedidos de hoje" pedidos={deHoje} vazio="Nenhum pedido hoje ainda." />
+      </section>
+
       <Reposicoes pedidos={reposicoes} />
 
       <GraficoVendas barras={barras} porHora={periodo === 'hoje'} />
 
-      <section className="grid gap-6 lg:grid-cols-3">
-        <Ranking
-          titulo="De onde vieram"
-          subtitulo="Valor no período, por origem"
-          itens={canais}
-          formatar={v => formatCurrency(v)}
-          extra={item => `${item.pedidos} ${item.pedidos === 1 ? 'pedido' : 'pedidos'}`}
-          vazio="Nenhuma venda no período."
-        />
-        <Ranking
-          titulo="Como pagaram"
-          subtitulo="Valor no período"
-          itens={pagamentos}
-          formatar={v => formatCurrency(v)}
-          extra={item => `${item.pedidos} ${item.pedidos === 1 ? 'pedido' : 'pedidos'}`}
-          vazio="Nenhuma venda no período."
-        />
+      {/* Origem e pagamento têm poucas linhas: um embaixo do outro, ao lado dos sabores */}
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6">
+          <Ranking
+            titulo="De onde vieram"
+            subtitulo="Valor no período, por origem"
+            itens={canais}
+            formatar={v => formatCurrency(v)}
+            extra={item => `${item.pedidos} ${item.pedidos === 1 ? 'pedido' : 'pedidos'}`}
+            vazio="Nenhuma venda no período."
+          />
+          <Ranking
+            titulo="Como pagaram"
+            subtitulo="Valor no período"
+            itens={pagamentos}
+            formatar={v => formatCurrency(v)}
+            extra={item => `${item.pedidos} ${item.pedidos === 1 ? 'pedido' : 'pedidos'}`}
+            vazio="Nenhuma venda no período."
+          />
+        </div>
         <Ranking
           titulo="Sabores mais pedidos"
           subtitulo="Unidades no período"
@@ -132,14 +141,6 @@ export default function DashboardPage() {
           vazio="Nenhum sabor vendido no período."
         />
       </section>
-
-      <section className="grid gap-6 lg:grid-cols-2">
-        <ListaPedidos titulo="Próximos agendados" pedidos={agendados} mostrarAgenda
-          vazio="Nenhuma encomenda agendada." />
-        <ListaPedidos titulo="Pedidos de hoje" pedidos={deHoje} vazio="Nenhum pedido hoje ainda." />
-      </section>
-
-      <AppInstallsCard />
     </div>
   )
 }

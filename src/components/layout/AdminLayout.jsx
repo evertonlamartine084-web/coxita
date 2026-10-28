@@ -621,50 +621,58 @@ export default function AdminLayout() {
             </div>
           ))}
         </nav>
-        <div className="shrink-0 p-4 border-t border-white/15 bg-brown">
-          <Link
-            to="/hub"
-            className="mb-2 flex items-center gap-3 px-3 py-2.5 w-full border-2 border-secondary/60 text-secondary no-underline hover:bg-secondary hover:text-brown font-semibold transition-colors"
-          >
-            <HiChartBar size={20} />
-            <span>Hub de números</span>
-          </Link>
-          {appDoPainel.podeInstalar && (
-            <button
-              onClick={appDoPainel.instalar}
-              className="mb-2 flex items-center gap-3 px-3 py-2.5 w-full border-2 border-secondary text-secondary hover:bg-secondary hover:text-brown font-semibold transition-colors"
-            >
-              <HiDownload size={20} />
-              <span>Instalar o painel</span>
-            </button>
-          )}
-          {pushDoPainel.estado === 'desligado' && (
-            <button
-              onClick={() => pushDoPainel.ativar()
-                .then(() => toast.success('Pronto: este aparelho avisa quando chegar pedido.'))
-                .catch(() => toast.error('Não foi possível ativar as notificações.'))}
-              className="mb-2 flex items-center gap-3 px-3 py-2.5 w-full border-2 border-secondary text-secondary hover:bg-secondary hover:text-brown font-semibold transition-colors"
-            >
-              <HiBell size={20} />
-              <span>Ativar notificações</span>
-            </button>
-          )}
-          {pushDoPainel.estado === 'ativo' && (
-            <p className="mb-2 flex items-center gap-2 px-3 text-xs text-cream/70"><HiBell size={16} /> Notificações ligadas neste aparelho</p>
-          )}
+        {/* Rodapé numa linha só: com um botão por linha ele comia metade da altura e escondia o menu. */}
+        <div className="shrink-0 px-4 py-3 border-t border-white/15 bg-brown">
           {pushDoPainel.estado === 'bloqueado' && (
-            <p className="mb-2 px-3 text-xs text-cream/70">Notificações bloqueadas. Libere nos Ajustes do aparelho para o Painel.</p>
+            <p className="mb-2 px-1 text-xs text-cream/70">Notificações bloqueadas. Libere nos Ajustes do aparelho para o Painel.</p>
           )}
           {pushDoPainel.estado === 'abrir-app' && (
-            <p className="mb-2 px-3 text-xs text-cream/70">Para receber aviso de pedido no iPhone, abra o painel pelo app instalado na Tela de Início.</p>
+            <p className="mb-2 px-1 text-xs text-cream/70">Para receber aviso de pedido no iPhone, abra o painel pelo app instalado na Tela de Início.</p>
           )}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 text-cream/70 hover:text-white w-full border-2 border-transparent hover:border-white/20 transition-colors"
-          >
-            <HiLogout size={20} />
-            <span>Sair</span>
-          </button>
+          <div className="flex gap-2">
+            <Link
+              to="/hub"
+              className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 border-2 border-secondary/60 text-secondary no-underline hover:bg-secondary hover:text-brown text-sm font-semibold transition-colors"
+            >
+              <HiChartBar size={18} className="shrink-0" />
+              <span className="truncate">Hub de números</span>
+            </Link>
+            {appDoPainel.podeInstalar && (
+              <button
+                onClick={appDoPainel.instalar}
+                title="Instalar o painel"
+                aria-label="Instalar o painel"
+                className="shrink-0 p-2 border-2 border-secondary text-secondary hover:bg-secondary hover:text-brown transition-colors"
+              >
+                <HiDownload size={18} />
+              </button>
+            )}
+            {pushDoPainel.estado === 'desligado' && (
+              <button
+                onClick={() => pushDoPainel.ativar()
+                  .then(() => toast.success('Pronto: este aparelho avisa quando chegar pedido.'))
+                  .catch(() => toast.error('Não foi possível ativar as notificações.'))}
+                title="Ativar notificações de pedido neste aparelho"
+                aria-label="Ativar notificações"
+                className="shrink-0 p-2 border-2 border-secondary text-secondary hover:bg-secondary hover:text-brown transition-colors"
+              >
+                <HiBell size={18} />
+              </button>
+            )}
+            {pushDoPainel.estado === 'ativo' && (
+              <span title="Notificações ligadas neste aparelho" className="shrink-0 p-2 border-2 border-transparent text-cream/60">
+                <HiBell size={18} />
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              title="Sair"
+              aria-label="Sair"
+              className="shrink-0 p-2 border-2 border-transparent text-cream/70 hover:text-white hover:border-white/20 transition-colors"
+            >
+              <HiLogout size={18} />
+            </button>
+          </div>
         </div>
       </aside>
 

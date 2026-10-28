@@ -43,6 +43,15 @@ export default function PromoRefri({ pedido, aoAplicar }) {
   }
 
   if (!aberto) {
+    // Pedido já entregue: o cliente às vezes avisa depois, então o botão fica, mas pequeno.
+    if (pedido.status === 'entregue') {
+      return (
+        <button type="button" onClick={() => setAberto(true)}
+          className="mt-1 cursor-pointer text-xs font-semibold text-amber-800 hover:underline">
+          🥤 Era da promo? Aplicar cento + refri
+        </button>
+      )
+    }
     return (
       <button type="button" onClick={() => setAberto(true)}
         className="mt-2 w-full cursor-pointer rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100">

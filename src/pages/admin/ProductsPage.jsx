@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAllProducts, createProduct, updateProduct, deleteProduct, uploadProductImage } from '../../services/products'
 import { getAllCategories } from '../../services/categories'
@@ -24,6 +24,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([])
   // Aba aberta: slug da categoria, 'todos' ou 'inativos'.
   const [aba, setAba] = useState('todos')
+  const [verArquivados, setVerArquivados] = useState(false)
   // Familia aberta para editar preco por tamanho.
   const [familia, setFamilia] = useState(null)
   const [precosFamilia, setPrecosFamilia] = useState({})
@@ -121,13 +122,15 @@ export default function ProductsPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Tem certeza que deseja excluir este produto?')) return
+    if (!confirm('Tem certeza que deseja excluir este produto? Para só tirar do cardápio, use o botão de ligar e desligar.')) return false
     try {
       await deleteProduct(id)
       toast.success('Produto excluído!')
       load()
+      return true
     } catch {
-      toast.error('Erro ao excluir.')
+      toast.error('Não deu para excluir. Produto que já teve pedido não pode sair do histórico: desligue em vez de excluir.')
+      return false
     }
   }
 
@@ -167,7 +170,9 @@ export default function ProductsPage() {
   // cardapio de proposito, e misturar os dois e o que fazia esta tela virar
   // uma lista de 53 linhas onde nao dava para ver o que esta no ar.
   const ativos = products.filter(p => p.active)
-  const inativos = products.filter(p => !p.active)
+  // Arquivado (pacote antigo, bebida que nunca vendeu) não enche a aba "Fora do cardápio"
+  const inativos = products.filter(p => !p.active && !p.arquivado)
+  const arquivados = products.filter(p => !p.active && p.arquivado)
 
   const abas = [
     { id: 'todos', label: 'Todos', total: ativos.length },
@@ -182,7 +187,7 @@ export default function ProductsPage() {
   ]
 
   const visiveis =
-    aba === 'inativos' ? inativos
+    aba === 'inativos' ? (verArquivados ? [...inativos, ...arquivados] : inativos)
     : aba === 'todos' ? ativos
     : ativos.filter(p => p.categories?.slug === aba)
 
@@ -211,6 +216,11 @@ export default function ProductsPage() {
     porChave.get(chave).tamanhos.push(p)
   }
   for (const f of familias) f.tamanhos.sort((a, b) => a.pack_size - b.pack_size)
+  // Produto avulso agrupado por categoria, na ordem do cardápio: antes vinha Coca, Quiche, Sprite...
+  const ordemDaCategoria = new Map(categories.map((c, i) => [c.id, i]))
+  avulsos.sort((a, b) =>
+    (ordemDaCategoria.get(a.category_id) ?? 99) - (ordemDaCategoria.get(b.category_id) ?? 99)
+    || a.name.localeCompare(b.name, 'pt-BR'))
 
   // Os sabores que o pacote aceita. Serve para a secao "preco por sabor" do
   // modal, que precisa existir mesmo onde ainda nao ha preco proprio nenhum --
@@ -451,6 +461,15 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {aba === 'inativos' && arquivados.length > 0 && (
+        <p className="mb-3 text-sm text-text-light">
+          {verArquivados ? 'Mostrando também os arquivados (esmaecidos).' : `Mais ${arquivados.length} arquivados: pacotes antigos e bebidas que nunca venderam.`}{' '}
+          <button type="button" onClick={() => setVerArquivados(v => !v)} className="text-primary hover:underline">
+            {verArquivados ? 'Esconder arquivados' : 'Ver arquivados'}
+          </button>
+        </p>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {cards.length === 0 && avulsos.length === 0 ? (
           <p className="text-text-light text-center py-8">
@@ -469,42 +488,50 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {avulsos.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {p.image_url ? (
-                          <img src={p.image_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">🍗</div>
-                        )}
-                        <div>
-                          <p className="font-medium">{p.name}</p>
-                          <span className="text-xs text-text-light">
-                            {p.pack_size ? `${p.pack_size} un` : 'unidade'}
-                            {p.featured && ' · ⭐ destaque'}
-                          </span>
+                {avulsos.map((p, i) => (
+                  <Fragment key={p.id}>
+                    {(i === 0 || avulsos[i - 1].category_id !== p.category_id) && (
+                      <tr className="bg-gray-50">
+                        <th colSpan={5} className="text-left px-4 py-2 text-xs font-bold uppercase tracking-wide text-text-light">
+                          {p.categories?.name || 'Sem categoria'}
+                        </th>
+                      </tr>
+                    )}
+                    <tr className={`hover:bg-gray-50 ${p.arquivado && !p.active ? 'opacity-60' : ''}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {p.image_url ? (
+                            <img src={p.image_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">🍗</div>
+                          )}
+                          <div>
+                            <p className="font-medium">{p.name}</p>
+                            <span className="text-xs text-text-light">
+                              {p.pack_size ? `${p.pack_size} un` : 'unidade'}
+                              {p.featured && ' · ⭐ destaque'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-text-light">{p.categories?.name || '-'}</td>
-                    <td className="px-4 py-3 font-medium">{formatCurrency(p.price)}</td>
-                    <td className="px-4 py-3 hidden sm:table-cell text-text-light">
-                      {p.cash_price ? formatCurrency(p.cash_price) : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-3 justify-end items-center">
-                        <Interruptor
-                          ligado={p.active}
-                          disabled={trocando === p.id}
-                          onClick={() => alternarAtivo(p)}
-                          label={`${p.name} no cardápio`}
-                        />
-                        <button onClick={() => openEdit(p)} className="text-primary hover:underline text-sm">Editar</button>
-                        <button onClick={() => handleDelete(p.id)} className="text-danger hover:underline text-sm">Excluir</button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell text-text-light">{p.categories?.name || '-'}</td>
+                      <td className="px-4 py-3 font-medium">{formatCurrency(p.price)}</td>
+                      <td className="px-4 py-3 hidden sm:table-cell text-text-light">
+                        {p.cash_price ? formatCurrency(p.cash_price) : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-3 justify-end items-center">
+                          <Interruptor
+                            ligado={p.active}
+                            disabled={trocando === p.id}
+                            onClick={() => alternarAtivo(p)}
+                            label={`${p.name} no cardápio`}
+                          />
+                          <button onClick={() => openEdit(p)} className="text-primary hover:underline text-sm">Editar</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -708,6 +735,16 @@ export default function ProductsPage() {
           <Button type="submit" className="w-full" disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
+          {/* Excluir fica aqui dentro: na lista, colado no "Editar", era fácil clicar sem querer */}
+          {editing && (
+            <button
+              type="button"
+              onClick={async () => { if (await handleDelete(editing.id)) setModalOpen(false) }}
+              className="w-full text-center text-sm text-danger hover:underline"
+            >
+              Excluir este produto
+            </button>
+          )}
         </form>
       </Modal>
     </div>

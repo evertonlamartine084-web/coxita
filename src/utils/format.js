@@ -147,6 +147,7 @@ export const CANAIS = {
 export const PAYMENT_LABELS = {
   dinheiro: 'Dinheiro',
   pix: 'Pix',
+  pix_online: 'Pix pelo site',
   credito: 'Cartão de Crédito',
   debito: 'Cartão de Débito',
 }

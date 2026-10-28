@@ -36,6 +36,25 @@ const STATUSES = ['pendente', 'em_preparo', 'saiu_entrega', 'entregue', 'cancela
 // Aba dos pedidos com data marcada. Não é um status: o pedido agendado tem o seu próprio
 // (pendente, em preparo…), e ficar na fila de hoje só atrapalha quem está olhando o que sai agora.
 const AGENDADOS = 'agendados'
+// Aba de abertura: o que ainda falta sair hoje, quem espera há mais tempo em cima.
+const EM_ABERTO = 'abertos'
+const STATUS_EM_ABERTO = ['pendente', 'em_preparo', 'saiu_entrega']
+
+/** "27/10, 16:26"; o ano só aparece quando não é o deste ano. */
+function dataCurta(iso) {
+  const d = new Date(iso)
+  const mesmoAno = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', ...(mesmoAno ? {} : { year: 'numeric' }), hour: '2-digit', minute: '2-digit',
+  })
+}
+
+/** Data marcada do agendado, com o dia da semana: "dom. 01/11, 10:00". */
+function dataMarcada(iso) {
+  const d = new Date(iso)
+  const dia = d.toLocaleDateString('pt-BR', { weekday: 'short' })
+  return `${dia} ${dataCurta(iso)}`
+}
 
 /** Está marcado para outro momento e ainda não foi resolvido. */
 const ehAgendadoEmAberto = (o) =>
@@ -70,7 +89,7 @@ function casaComBusca(pedido, busca) {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
-  const [filter, setFilter] = useState('')
+  const [filter, setFilter] = useState(EM_ABERTO)
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
@@ -86,6 +105,8 @@ export default function OrdersPage() {
   const [newOrderIds, setNewOrderIds] = useState([])
   const prevOrderIdsRef = useRef(null)
   const [chatMessages, setChatMessages] = useState([])
+  // id do pedido em que o chat vazio foi aberto à mão
+  const [chatFechadoDe, setChatFechadoDe] = useState(null)
   const [adminMessage, setAdminMessage] = useState('')
   const [sendingAdminMsg, setSendingAdminMsg] = useState(false)
   const adminChatEndRef = useRef(null)
@@ -93,20 +114,24 @@ export default function OrdersPage() {
   const adminShouldScrollRef = useRef(false)
 
   // "agendados" filtra aqui, não no banco: o banco só conhece status
-  const statusDoFiltro = filter === AGENDADOS ? null : (filter || null)
+  const statusDoFiltro = filter === AGENDADOS || filter === EM_ABERTO ? null : (filter || null)
   const agendadosEmAberto = orders.filter(ehAgendadoEmAberto).length
   // Agendado fica só na aba dele até ser entregue ou cancelado; aí volta para as abas de sempre
   // Buscando, o agendado aparece em qualquer aba: quem procura a Nadja não sabe que ela está lá
   const buscando = busca.trim() !== ''
+  const emAberto = orders.filter(o => STATUS_EM_ABERTO.includes(o.status) && !ehAgendadoEmAberto(o))
   const pedidosVisiveis = filter === AGENDADOS
     // na aba dos agendados, a ordem é a da entrega: o próximo a sair fica em cima
     ? orders.filter(o => ehAgendadoEmAberto(o) && casaComBusca(o, busca))
       .sort((a, b) => new Date(a.scheduled_for) - new Date(b.scheduled_for))
-    : orders.filter(o => (buscando || !ehAgendadoEmAberto(o)) && casaComBusca(o, busca))
+    : filter === EM_ABERTO && !buscando
+      // fila do dia: quem pediu primeiro sai primeiro
+      ? [...emAberto].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      : orders.filter(o => (buscando || !ehAgendadoEmAberto(o)) && casaComBusca(o, busca))
 
   const loadOrders = useCallback((showLoading = false) => {
     if (showLoading) setLoading(true)
-    getOrders(filter === AGENDADOS ? null : (filter || null))
+    getOrders(filter === AGENDADOS || filter === EM_ABERTO ? null : (filter || null))
       .then(data => {
         if (prevOrderIdsRef.current !== null) {
           const prevIds = prevOrderIdsRef.current
@@ -366,6 +391,14 @@ export default function OrdersPage() {
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-4 mb-4">
         <button
+          onClick={() => setFilter(EM_ABERTO)}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${
+            filter === EM_ABERTO ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-text'
+          }`}
+        >
+          Em aberto{emAberto.length > 0 ? ` (${emAberto.length})` : ''}
+        </button>
+        <button
           onClick={() => setFilter('')}
           className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${
             !filter ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-text'
@@ -398,7 +431,11 @@ export default function OrdersPage() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {pedidosVisiveis.length === 0 ? (
             <p className="text-text-light text-center py-8">
-              {buscando ? `Nenhum pedido com "${busca.trim()}"${filter ? ' nesta aba' : ''}.` : 'Nenhum pedido encontrado.'}
+              {buscando
+                ? `Nenhum pedido com "${busca.trim()}"${filter && filter !== EM_ABERTO ? ' nesta aba' : ''}.`
+                : filter === EM_ABERTO
+                  ? <>Nada em aberto agora.{agendadosEmAberto > 0 && <> <button onClick={() => setFilter(AGENDADOS)} className="text-primary hover:underline">Ver os {agendadosEmAberto} agendados</button></>}</>
+                  : 'Nenhum pedido encontrado.'}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -411,7 +448,7 @@ export default function OrdersPage() {
                     <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Pagamento</th>
                     <th className="text-left px-4 py-3 font-medium">Total</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
-                    <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">Data</th>
+                    <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">{filter === AGENDADOS ? 'Para quando' : 'Data'}</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -473,7 +510,14 @@ export default function OrdersPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell text-text-light">{formatDate(order.created_at)}</td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-text-light whitespace-nowrap">
+                        {ehAgendadoEmAberto(order) ? (
+                          <>
+                            <span className="font-semibold text-blue-700">{dataMarcada(order.scheduled_for)}</span>
+                            <span className="block text-xs">feito {dataCurta(order.created_at)}</span>
+                          </>
+                        ) : dataCurta(order.created_at)}
+                      </td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setSelectedOrder(order)}
@@ -500,7 +544,7 @@ export default function OrdersPage() {
       <Modal
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        title={`Pedido #${selectedOrder?.order_number}${selectedOrder?.codigo_cliente ? ` · cliente: ${selectedOrder.codigo_cliente}` : ''}`}
+        title={`Pedido #${selectedOrder?.order_number}${selectedOrder?.codigo_cliente ? ` · código ${selectedOrder.codigo_cliente}` : ''}`}
       >
         {selectedOrder && (
           <div className="space-y-4">
@@ -842,64 +886,76 @@ export default function OrdersPage() {
               )}
             </div>
 
-            {/* Chat */}
+            {/* Chat da página do pedido: quase todo pedido vem do Zap e nunca usa; vazio, fica fechado */}
             <div className="border-t border-border pt-3">
-              <h4 className="font-medium mb-2 flex items-center gap-2">
-                Chat
-                {chatMessages.filter(m => m.sender_type === 'customer' && !m.read_at).length > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                    {chatMessages.filter(m => m.sender_type === 'customer' && !m.read_at).length} nova(s)
-                  </span>
-                )}
-              </h4>
-              <div className="h-52 overflow-y-auto bg-gray-50 rounded-xl p-3 space-y-2 mb-2 border border-gray-100">
-                {chatMessages.length === 0 ? (
-                  <p className="text-center text-text-light text-xs py-8">Nenhuma mensagem ainda</p>
-                ) : (
-                  chatMessages.map(msg => (
-                    <div key={msg.id} className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] px-3 py-2 text-sm ${
-                        msg.sender_type === 'admin'
-                          ? 'bg-primary text-white rounded-2xl rounded-br-sm'
-                          : 'bg-white border border-gray-200 text-text rounded-2xl rounded-bl-sm shadow-sm'
-                      }`}>
-                        {msg.sender_type === 'customer' && (
-                          <p className="text-[10px] font-bold text-primary mb-0.5">{selectedOrder.customer_name}</p>
-                        )}
-                        <p className="leading-relaxed">{msg.message}</p>
-                        <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'admin' ? 'text-white/60' : 'text-text-light'}`}>
-                          <span className="text-[10px]">
-                            {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          {msg.sender_type === 'admin' && (
-                            <span className={`text-[11px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
-                              {msg.read_at ? '✓✓' : '✓'}
-                            </span>
+              {chatMessages.length === 0 && chatFechadoDe !== selectedOrder.id ? (
+                <button
+                  type="button"
+                  onClick={() => setChatFechadoDe(selectedOrder.id)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  💬 Escrever para o cliente na página de acompanhamento
+                </button>
+              ) : (
+                <>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  Chat
+                  {chatMessages.filter(m => m.sender_type === 'customer' && !m.read_at).length > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {chatMessages.filter(m => m.sender_type === 'customer' && !m.read_at).length} nova(s)
+                    </span>
+                  )}
+                </h4>
+                <div className="h-52 overflow-y-auto bg-gray-50 rounded-xl p-3 space-y-2 mb-2 border border-gray-100">
+                  {chatMessages.length === 0 ? (
+                    <p className="text-center text-text-light text-xs py-8">Nenhuma mensagem ainda</p>
+                  ) : (
+                    chatMessages.map(msg => (
+                      <div key={msg.id} className={`flex ${msg.sender_type === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[75%] px-3 py-2 text-sm ${
+                          msg.sender_type === 'admin'
+                            ? 'bg-primary text-white rounded-2xl rounded-br-sm'
+                            : 'bg-white border border-gray-200 text-text rounded-2xl rounded-bl-sm shadow-sm'
+                        }`}>
+                          {msg.sender_type === 'customer' && (
+                            <p className="text-[10px] font-bold text-primary mb-0.5">{selectedOrder.customer_name}</p>
                           )}
+                          <p className="leading-relaxed">{msg.message}</p>
+                          <div className={`flex items-center gap-1 justify-end mt-1 ${msg.sender_type === 'admin' ? 'text-white/60' : 'text-text-light'}`}>
+                            <span className="text-[10px]">
+                              {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {msg.sender_type === 'admin' && (
+                              <span className={`text-[11px] ${msg.read_at ? 'text-blue-300' : 'text-white/40'}`}>
+                                {msg.read_at ? '✓✓' : '✓'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
-                <div ref={adminChatEndRef} />
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={adminMessage}
-                  onChange={e => setAdminMessage(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSendAdminMessage()}
-                  placeholder="Responder..."
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary transition-colors"
-                />
-                <button
-                  onClick={handleSendAdminMessage}
-                  disabled={!adminMessage.trim() || sendingAdminMsg}
-                  className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  Enviar
-                </button>
-              </div>
+                    ))
+                  )}
+                  <div ref={adminChatEndRef} />
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={adminMessage}
+                    onChange={e => setAdminMessage(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSendAdminMessage()}
+                    placeholder="Responder..."
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary transition-colors"
+                  />
+                  <button
+                    onClick={handleSendAdminMessage}
+                    disabled={!adminMessage.trim() || sendingAdminMsg}
+                    className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    Enviar
+                  </button>
+                </div>
+                </>
+              )}
             </div>
           </div>
         )}
