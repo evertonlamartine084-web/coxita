@@ -60,23 +60,46 @@ export async function getSabores() {
 }
 
 /**
- * Quantas unidades de cada sabor saíram nos últimos `dias`, pedidos cancelados fora. É o peso da
- * margem média de um pacote de sabor à escolha. Map<flavor_id, unidades>.
+ * Unidades vendidas nos últimos `dias`, por produto e sabor, pedidos cancelados fora. Dá o peso de
+ * cada sabor na margem média e quanto de cada insumo saiu no mês.
+ * [{ product_id, flavor_id, unidades }]
  */
-export async function getMixDeSabores(dias = 30) {
-  return cached(`custos:mix:${dias}`, async () => {
+export async function getVendasDeSabores(dias = 30) {
+  return cached(`custos:vendas:${dias}`, async () => {
     const desde = new Date(Date.now() - dias * 864e5).toISOString()
     const { data, error } = await supabase
       .from('order_item_flavors')
-      .select('flavor_id, quantity, order_items!inner(orders!inner(created_at, status))')
+      .select('flavor_id, quantity, order_items!inner(product_id, orders!inner(created_at, status))')
       .gte('order_items.orders.created_at', desde)
       .neq('order_items.orders.status', 'cancelado')
     if (error) throw error
-    const mix = new Map()
+    const porChave = new Map()
     for (const linha of data ?? []) {
-      mix.set(linha.flavor_id, (mix.get(linha.flavor_id) ?? 0) + Number(linha.quantity || 0))
+      const chave = `${linha.order_items.product_id}|${linha.flavor_id}`
+      const atual = porChave.get(chave) ?? { product_id: linha.order_items.product_id, flavor_id: linha.flavor_id, unidades: 0 }
+      atual.unidades += Number(linha.quantity || 0)
+      porChave.set(chave, atual)
     }
-    return mix
+    return [...porChave.values()]
+  })
+}
+
+/** Unidades por sabor, somando os produtos. Map<flavor_id, unidades> */
+export function mixDosSabores(vendas = []) {
+  const mix = new Map()
+  for (const v of vendas) mix.set(v.flavor_id, (mix.get(v.flavor_id) ?? 0) + v.unidades)
+  return mix
+}
+
+/** Todo preço já pago por insumo (insumo_precos), em R$ por kg, L ou un. Poucas centenas de linhas. */
+export async function getHistoricoDePrecos() {
+  return cached('custos:historico', async () => {
+    const { data, error } = await supabase
+      .from('insumo_precos')
+      .select('id, supply_id, em, preco, loja, origem, descricao, compra_item_id')
+      .order('em', { ascending: false })
+    if (error) throw error
+    return data ?? []
   })
 }
 

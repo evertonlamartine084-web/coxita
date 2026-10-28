@@ -143,3 +143,10 @@ export async function desligarDoInsumo(item) {
   if (erroItens) throw erroItens
   invalidar('custos')
 }
+
+/** "Item do cupom é tal insumo": [{ chave, supply_id, quantidade_por_embalagem }] */
+export async function listarVinculos() {
+  const { data, error } = await supabase.from('compras_vinculos').select('chave, supply_id, quantidade_por_embalagem')
+  if (error) throw error
+  return data ?? []
+}

@@ -4,8 +4,10 @@ import { HiCamera, HiPhotograph, HiLink, HiTrash, HiRefresh, HiExternalLink, HiD
 import Button from '../../components/ui/Button'
 import Loading from '../../components/ui/Loading'
 import { formatCurrency } from '../../utils/format'
-import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, pedirNfe, listarPedidas, apagarPedida, enviarXmlNfe, CATEGORIAS, ligarAoInsumo, desligarDoInsumo, quantidadeNoNome, vendidoAPeso } from '../../services/compras'
-import { getInsumos } from '../../services/custos'
+import { abrirCupom, confirmarCodigo, gravarCompra, listarCompras, apagarCompra, replanilhar, confirmarPendente, estadoDoRobo, pedirNfe, listarPedidas, apagarPedida, enviarXmlNfe, CATEGORIAS, ligarAoInsumo, desligarDoInsumo, quantidadeNoNome, vendidoAPeso, listarVinculos, chaveDoItem } from '../../services/compras'
+import { getInsumos, getHistoricoDePrecos } from '../../services/custos'
+import { historicoPorInsumo, compararItemDeCompra } from '../../utils/precosDosInsumos'
+import { invalidar } from '../../services/cache'
 import LeitorDeChave from '../../components/admin/LeitorDeChave'
 
 /**
@@ -36,6 +38,8 @@ export default function ComprasPage() {
   const [robo, setRobo] = useState(null)
   const [pedidas, setPedidas] = useState([])
   const [insumos, setInsumos] = useState([])
+  // Para o aviso de "veio mais caro": o que cada item do cupom é, e o que já se pagou por ele.
+  const [precos, setPrecos] = useState({ vinculos: new Map(), porInsumo: new Map() })
 
   const carregar = useCallback(() => {
     listarCompras()
@@ -45,6 +49,10 @@ export default function ComprasPage() {
     estadoDoRobo().then(setRobo).catch(() => {})
     listarPedidas().then(setPedidas).catch(() => {})
     getInsumos().then(lista => setInsumos(lista.filter(i => i.kind === 'insumo'))).catch(() => {})
+    invalidar('custos:historico')
+    Promise.all([listarVinculos(), getHistoricoDePrecos()])
+      .then(([v, h]) => setPrecos({ vinculos: new Map(v.map(x => [x.chave, x])), porInsumo: historicoPorInsumo(h) }))
+      .catch(() => {})
   }, [])
 
   // enquanto houver nota na fila do robô, olha de novo a cada 20 s
@@ -238,7 +246,7 @@ export default function ComprasPage() {
         )}
 
         {etapa === ETAPAS.CONFERIR && nota && (
-          <Conferencia nota={nota} itens={itens} erro={erro} trocarCategoria={trocarCategoria} trocarLoja={trocarLoja} aoGravar={gravar} aoCancelar={recomecar} />
+          <Conferencia nota={nota} itens={itens} erro={erro} insumos={insumos} precos={precos} trocarCategoria={trocarCategoria} trocarLoja={trocarLoja} aoGravar={gravar} aoCancelar={recomecar} />
         )}
       </section>
 
@@ -327,6 +335,7 @@ export default function ComprasPage() {
                           <td className="py-1.5 pr-2">
                             {i.nome}
                             {i.categoria === 'comida' && <InsumoDoItem item={i} insumos={insumos} aoMudar={carregar} />}
+                            <AvisoDePreco item={i} insumos={insumos} precos={precos} data={c.emitida_em} />
                           </td>
                           <td className="py-1.5 pr-2 text-text-warm whitespace-nowrap">{Number(i.quantidade).toLocaleString('pt-BR')} {i.unidade}</td>
                           <td className="py-1.5 pr-2 text-xs text-text-warm whitespace-nowrap">{CATEGORIAS.find(k => k.valor === i.categoria)?.rotulo}</td>
@@ -352,6 +361,29 @@ export default function ComprasPage() {
         </div>
       )}
     </div>
+  )
+}
+
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+/**
+ * Item que é insumo de receita, contra a última vez que se comprou o mesmo insumo: "Requeijão
+ * cremoso R$ 10,20/kg ▲ 34% — antes R$ 7,63 (out, planilha)". Abaixo de 3% de diferença não avisa.
+ */
+function AvisoDePreco({ item, insumos, precos, data }) {
+  const vinculo = precos.vinculos.get(chaveDoItem(item.nome))
+  if (!vinculo) return null
+  const insumo = insumos.find(s => s.id === vinculo.supply_id)
+  const c = compararItemDeCompra(item, vinculo, precos.porInsumo.get(vinculo.supply_id) ?? [], data)
+  if (!insumo || !c?.antes || c.variacao === null || Math.abs(c.variacao) < 3) return null
+  const subiu = c.variacao > 0
+  const [, mes, dia] = c.antes.em.split('-')
+  const quando = c.antes.origem === 'planilha' ? `${MESES_CURTOS[Number(mes) - 1]}, planilha` : `${dia}/${mes}${c.antes.loja ? ` no ${c.antes.loja}` : ''}`
+  return (
+    <p className={`mt-0.5 text-xs font-semibold ${subiu ? 'text-danger' : 'text-green-700'}`}>
+      {insumo.name} {formatCurrency(c.preco)}/{insumo.unit} {subiu ? '▲' : '▼'} {Math.abs(c.variacao).toFixed(0)}%
+      <span className="font-normal text-text-warm"> — antes {formatCurrency(c.antes.preco)} ({quando})</span>
+    </p>
   )
 }
 
@@ -498,7 +530,7 @@ function Inicio({ erro, linkColado, setLinkColado, aoLer, aoCamera, aoChave, aoX
   )
 }
 
-function Conferencia({ nota, itens, erro, trocarCategoria, trocarLoja, aoGravar, aoCancelar }) {
+function Conferencia({ nota, itens, erro, insumos, precos, trocarCategoria, trocarLoja, aoGravar, aoCancelar }) {
   const somaComida = itens.filter(i => i.categoria === 'comida').reduce((s, i) => s + Number(i.valor_total), 0)
   const somaLimpeza = itens.filter(i => i.categoria === 'limpeza').reduce((s, i) => s + Number(i.valor_total), 0)
   return (
@@ -536,6 +568,7 @@ function Conferencia({ nota, itens, erro, trocarCategoria, trocarLoja, aoGravar,
               <p className="text-xs text-text-warm">
                 {Number(i.quantidade).toLocaleString('pt-BR')} {i.unidade} × {formatCurrency(i.valor_unitario)}
               </p>
+              <AvisoDePreco item={i} insumos={insumos} precos={precos} data={nota.emitida_em} />
             </div>
             <select
               value={i.categoria}

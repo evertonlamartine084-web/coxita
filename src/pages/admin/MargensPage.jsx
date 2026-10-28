@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
-  getInsumos, getFichas, getParams, getSabores, getMixDeSabores, salvarParams,
+  getInsumos, getFichas, getParams, getSabores, getVendasDeSabores, getHistoricoDePrecos, mixDosSabores, salvarParams,
   deleteInsumo, insumoEstaEmUso,
 } from '../../services/custos'
 import {
@@ -13,6 +13,9 @@ import {
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import Loading from '../../components/ui/Loading'
+import {
+  historicoPorInsumo, compararPreco, lojaDaOrigem, custosHojeEAntes, consumoPelasVendas, usadoEm,
+} from '../../utils/precosDosInsumos'
 import FichaProdutoModal from '../../components/admin/FichaProdutoModal'
 import InsumoModal from '../../components/admin/InsumoModal'
 
@@ -58,7 +61,8 @@ export default function MargensPage() {
   const [insumos, setInsumos] = useState([])
   const [fichas, setFichas] = useState([])
   const [sabores, setSabores] = useState([])
-  const [mix, setMix] = useState(new Map())
+  const [vendas, setVendas] = useState([])
+  const [historico, setHistorico] = useState([])
   const [params, setParams] = useState(PARAMS_PADRAO)
   const [carregando, setCarregando] = useState(true)
   const [aba, setAba] = useState('produtos')
@@ -70,10 +74,12 @@ export default function MargensPage() {
   // o dono acabou de mudar.
   const carregar = async () => {
     try {
-      const [i, f, p, sab, m] = await Promise.all([
-        getInsumos(), getFichas(), getParams(), getSabores(), getMixDeSabores(DIAS_DO_MIX).catch(() => new Map()),
+      const [i, f, p, sab, m, h] = await Promise.all([
+        getInsumos(), getFichas(), getParams(), getSabores(), getVendasDeSabores(DIAS_DO_MIX).catch(() => []),
+        getHistoricoDePrecos().catch(() => []),
       ])
-      setMix(m)
+      setVendas(m)
+      setHistorico(h)
       setInsumos(i)
       setFichas(f)
       setParams(p)
@@ -89,6 +95,7 @@ export default function MargensPage() {
   useEffect(() => { carregar() }, [])
 
   const custos = useMemo(() => custoPorInsumo(insumos), [insumos])
+  const mix = useMemo(() => mixDosSabores(vendas), [vendas])
   const contas = useMemo(
     () => fichas.map(produto => {
       const porSabor = calcularPorSabor(produto, sabores, custos, params)
@@ -201,6 +208,9 @@ export default function MargensPage() {
         <PainelInsumos
           insumos={insumos}
           fichas={fichas}
+          sabores={sabores}
+          vendas={vendas}
+          historico={historico}
           custos={custos}
           onEditar={setInsumoAberto}
           onRecarregar={carregar}
@@ -379,11 +389,28 @@ function TabelaProdutos({ contas, mix, onAbrir }) {
   )
 }
 
-function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
-  const comprados = insumos.filter(i => i.kind === 'insumo')
-  // Ficha de uma unidade de cada sabor (unidade "un") separada das massas e recheios em kg.
+function PainelInsumos({ insumos, fichas, sabores, vendas, historico, custos, onEditar, onRecarregar }) {
+  const [aberto, setAberto] = useState(null)
+  const porInsumo = useMemo(() => historicoPorInsumo(historico), [historico])
+  const consumo = useMemo(() => consumoPelasVendas(vendas, fichas, sabores, insumos), [vendas, fichas, sabores, insumos])
+  const custos30 = useMemo(() => custosHojeEAntes(insumos, porInsumo, 30), [insumos, porInsumo])
+  const mix = useMemo(() => mixDosSabores(vendas), [vendas])
+
+  // Comprados, do que mais pesa no custo do mês para o que menos pesa.
+  const comprados = insumos
+    .filter(i => i.kind === 'insumo')
+    .map(i => {
+      const comparacao = compararPreco(i, porInsumo.get(i.id) ?? [])
+      const quantidade = consumo.get(i.id) ?? 0
+      return { item: i, comparacao, quantidade, peso: quantidade * (comparacao.hoje ?? 0) }
+    })
+    .sort((x, y) => y.peso - x.peso || x.item.name.localeCompare(y.item.name))
+  const pesoTotal = comprados.reduce((soma, c) => soma + c.peso, 0)
+
   const produzidos = insumos.filter(i => i.kind === 'recheio' && i.unit !== 'un')
-  const porUnidade = insumos.filter(i => i.kind === 'recheio' && i.unit === 'un')
+  const porUnidade = insumos
+    .filter(i => i.kind === 'recheio' && i.unit === 'un')
+    .map(i => ({ item: i, sabor: sabores.find(s => s.supply_id === i.id) }))
 
   const excluir = async (item) => {
     if (insumoEstaEmUso(item.id, insumos, fichas)) {
@@ -401,25 +428,11 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
     }
   }
 
-  const Linha = ({ item, children }) => (
-    <tr className="hover:bg-gray-50">
-      <td className="px-4 py-3">
-        <p className="font-medium">{item.name}</p>
-        {item.note && <p className="text-xs text-text-light">{item.note}</p>}
-      </td>
-      {children}
-      <td className="px-4 py-3 text-right font-semibold tabular-nums">
-        {formatCurrencyFine(custos.get(item.id) ?? 0, 4)}
-        <span className="text-xs text-text-light font-normal">/{item.unit}</span>
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex gap-2 justify-end">
-          <button onClick={() => onEditar(item)} className="text-primary hover:underline text-sm">Editar</button>
-          <button onClick={() => excluir(item)} className="text-danger hover:underline text-sm">Excluir</button>
-        </div>
-      </td>
-    </tr>
-  )
+  const variacaoDoCusto = (id) => {
+    const hoje = custos30.hoje.get(id) ?? 0
+    const antes = custos30.antes.get(id) ?? 0
+    return antes > 0 ? (hoje / antes - 1) * 100 : null
+  }
 
   return (
     <div className="space-y-6">
@@ -429,8 +442,8 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
             Comprados
           </h2>
           <p className="text-xs text-text-light">
-            O preço muda sozinho quando um item de compra ligado a ele é lançado (tela de Compras → abra a compra → “ligar”).
-            Sem compra há mais de {DIAS_PRECO_VELHO} dias fica marcado: confira ou edite à mão.
+            Do que mais pesa no custo para o que menos pesa, pelo que saiu nos últimos {DIAS_DO_MIX} dias. O preço de hoje
+            muda sozinho com a compra ligada ao insumo (Compras → abra a compra → “ligar”). Toque no insumo para ver o histórico.
           </p>
         </header>
         <div className="overflow-x-auto">
@@ -438,23 +451,94 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
             <thead className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wide text-text-light">
               <tr>
                 <th className="text-left px-4 py-2 font-semibold">Insumo</th>
-                <th className="text-right px-4 py-2 font-semibold">Paguei</th>
-                <th className="text-right px-4 py-2 font-semibold">Veio</th>
-                <th className="text-left px-4 py-2 font-semibold">Preço de</th>
-                <th className="text-right px-4 py-2 font-semibold">Custo</th>
+                <th className="text-right px-4 py-2 font-semibold">Hoje</th>
+                <th className="text-right px-4 py-2 font-semibold">Antes</th>
+                <th className="text-right px-4 py-2 font-semibold">Variação</th>
+                <th className="text-right px-4 py-2 font-semibold">Mais barato em 90 dias</th>
+                <th className="text-right px-4 py-2 font-semibold">Peso no mês</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {comprados.map(item => (
-                <Linha key={item.id} item={item}>
-                  <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(item.pack_price)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-text-light">
-                    {formatQuantidade(item.pack_quantity)} {item.unit}
-                  </td>
-                  <OrigemDoPreco item={item} />
-                </Linha>
-              ))}
+              {comprados.map(({ item, comparacao: c, quantidade, peso }) => {
+                const expandido = aberto === item.id
+                const dias = diasDoPreco(item)
+                const velho = dias === null || dias > DIAS_PRECO_VELHO
+                return (
+                  <Fragment key={item.id}>
+                    <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setAberto(expandido ? null : item.id)}>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{item.name}</p>
+                        {item.note && <p className="text-xs text-text-light max-w-xs">{item.note}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <span className="font-semibold tabular-nums">{c.hoje ? formatCurrency(c.hoje) : '—'}</span>
+                        <span className="text-xs text-text-light">/{item.unit}</span>
+                        <span className={`block text-xs ${velho ? 'font-semibold text-amber-800' : 'text-text-light'}`}>
+                          {quandoEOnde(item.preco_em, lojaDaOrigem(item.preco_origem), !item.preco_origem?.startsWith('Compra'))}
+                          {velho && ' · confira'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {c.antes ? (
+                          <>
+                            <span className="tabular-nums">{formatCurrency(c.antes.preco)}</span>
+                            <span className="block text-xs text-text-light">
+                              {quandoEOnde(c.antes.em, c.antes.loja, c.antes.origem === 'planilha')}
+                            </span>
+                          </>
+                        ) : <span className="text-text-light">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Variacao valor={c.variacao} />
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {c.maisBarato && !c.maisBarato.atual ? (
+                          <>
+                            <span className="tabular-nums">{formatCurrency(c.maisBarato.preco)}</span>
+                            <span className="block text-xs text-text-light">
+                              {quandoEOnde(c.maisBarato.em, c.maisBarato.loja, c.maisBarato.origem === 'planilha')}
+                            </span>
+                            {c.acimaDoMaisBarato > 1 && (
+                              <span className="block text-xs font-semibold text-danger">hoje {formatPercent(c.acimaDoMaisBarato, 0)} acima</span>
+                            )}
+                          </>
+                        ) : c.maisBarato ? (
+                          <span className="text-xs font-semibold text-green-700">é o de hoje</span>
+                        ) : <span className="text-text-light">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {peso > 0 ? (
+                          <>
+                            <span className="font-semibold tabular-nums">{formatCurrency(peso)}</span>
+                            <span className="block text-xs text-text-light">
+                              {formatQuantidade(quantidade)} {item.unit} · {formatPercent((peso / pesoTotal) * 100, 0)}
+                            </span>
+                          </>
+                        ) : <span className="text-xs text-text-light">não saiu</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onEditar(item) }}
+                          className="text-primary hover:underline text-sm"
+                        >
+                          Editar
+                        </button>
+                      </td>
+                    </tr>
+                    {expandido && (
+                      <tr className="bg-cream/40">
+                        <td colSpan={7} className="px-4 py-3">
+                          <HistoricoDoInsumo item={item} lista={porInsumo.get(item.id) ?? []} />
+                          <button onClick={() => excluir(item)} className="mt-2 text-xs text-danger hover:underline">
+                            Excluir {item.name}
+                          </button>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -466,34 +550,45 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
             Massas e recheios
           </h2>
           <p className="text-xs text-text-light">
-            Recheios com receita própria. O custo por kg sai do lote dividido pelo que ele rende.
+            Receita da cozinha: o custo por kg sai do lote dividido pelo que ele rende, com o preço de hoje de cada insumo.
           </p>
         </header>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wide text-text-light">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold">Recheio</th>
-                <th className="text-right px-4 py-2 font-semibold">Itens</th>
-                <th className="text-right px-4 py-2 font-semibold">Rende</th>
-                <th className="text-right px-4 py-2 font-semibold">Custo</th>
+                <th className="text-left px-4 py-2 font-semibold">Receita</th>
+                <th className="text-right px-4 py-2 font-semibold">Custo hoje</th>
+                <th className="text-right px-4 py-2 font-semibold">Em 30 dias</th>
+                <th className="text-left px-4 py-2 font-semibold">Vai em</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {produzidos.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-text-light">Nenhum recheio cadastrado.</td></tr>
-              )}
-              {produzidos.map(item => (
-                <Linha key={item.id} item={item}>
-                  <td className="px-4 py-3 text-right tabular-nums text-text-light">
-                    {(item.supply_recipe_items ?? []).length}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-text-light">
-                    {formatQuantidade(item.yield_quantity)} {item.unit}
-                  </td>
-                </Linha>
-              ))}
+              {produzidos.map(item => {
+                const usos = usadoEm(item.id, insumos, sabores)
+                return (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-xs text-text-light">
+                        {(item.supply_recipe_items ?? []).length} itens · rende {formatQuantidade(item.yield_quantity)} {item.unit}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <span className="font-semibold tabular-nums">{formatCurrency(custos.get(item.id) ?? 0)}</span>
+                      <span className="text-xs text-text-light">/{item.unit}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right"><Variacao valor={variacaoDoCusto(item.id)} /></td>
+                    <td className="px-4 py-3 text-xs text-text-light max-w-xs">
+                      {usos.length ? usos.join(', ') : 'nenhum sabor'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => onEditar(item)} className="text-primary hover:underline text-sm">Editar</button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -513,20 +608,30 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
             <thead className="bg-gray-50/50 border-b border-gray-200 text-xs uppercase tracking-wide text-text-light">
               <tr>
                 <th className="text-left px-4 py-2 font-semibold">Sabor</th>
-                <th className="text-right px-4 py-2 font-semibold">Itens</th>
-                <th className="text-right px-4 py-2 font-semibold" />
-                <th className="text-right px-4 py-2 font-semibold">Custo</th>
+                <th className="text-right px-4 py-2 font-semibold">Custo por unidade</th>
+                <th className="text-right px-4 py-2 font-semibold">Em 30 dias</th>
+                <th className="text-right px-4 py-2 font-semibold">Vendidos em {DIAS_DO_MIX} dias</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {porUnidade.map(item => (
-                <Linha key={item.id} item={item}>
-                  <td className="px-4 py-3 text-right tabular-nums text-text-light">
-                    {(item.supply_recipe_items ?? []).length}
+              {porUnidade.map(({ item, sabor }) => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{sabor?.name ?? item.name}</p>
+                    {sabor && !sabor.active && <p className="text-xs text-text-light">fora do cardápio</p>}
                   </td>
-                  <td />
-                </Linha>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                    {formatCurrencyFine(custos.get(item.id) ?? 0, 3)}
+                  </td>
+                  <td className="px-4 py-3 text-right"><Variacao valor={variacaoDoCusto(item.id)} /></td>
+                  <td className="px-4 py-3 text-right tabular-nums text-text-light">
+                    {sabor ? (mix.get(sabor.id) ?? 0).toLocaleString('pt-BR') : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => onEditar(item)} className="text-primary hover:underline text-sm">Editar</button>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -536,17 +641,47 @@ function PainelInsumos({ insumos, fichas, custos, onEditar, onRecarregar }) {
   )
 }
 
-function OrigemDoPreco({ item }) {
-  const dias = diasDoPreco(item)
-  const velho = dias === null || dias > DIAS_PRECO_VELHO
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+/** "21/10 · Eloi Chaves", ou "out · planilha" para o que veio da planilha (sem dia nem loja). */
+function quandoEOnde(em, loja, daPlanilha) {
+  if (!em) return 'sem data'
+  const [, mes, dia] = em.split('-')
+  if (daPlanilha) return `${MESES_CURTOS[Number(mes) - 1]} · planilha`
+  return `${dia}/${mes}${loja ? ` · ${loja}` : ''}`
+}
+
+/** ▲ vermelho quando subiu, ▼ verde quando caiu; abaixo de 1% não conta. */
+function Variacao({ valor }) {
+  if (valor === null || valor === undefined || !Number.isFinite(valor)) return <span className="text-text-light">—</span>
+  if (Math.abs(valor) < 1) return <span className="text-xs text-text-light">igual</span>
+  const subiu = valor > 0
   return (
-    <td className="px-4 py-3 text-xs">
-      <span className={velho ? 'font-semibold text-amber-800' : 'text-text-light'}>
-        {item.preco_em ? new Date(`${item.preco_em}T12:00:00`).toLocaleDateString('pt-BR') : 'sem data'}
-        {velho && ' · confira'}
-      </span>
-      {item.preco_origem && <span className="block text-text-light">{item.preco_origem}</span>}
-    </td>
+    <span className={`text-xs font-semibold whitespace-nowrap ${subiu ? 'text-danger' : 'text-green-700'}`}>
+      {subiu ? '▲' : '▼'} {formatPercent(Math.abs(valor), 0)}
+    </span>
+  )
+}
+
+function HistoricoDoInsumo({ item, lista }) {
+  if (!lista.length) {
+    return <p className="text-xs text-text-light">Nenhuma compra registrada ainda. Ligue o item na tela de Compras quando ele vier num cupom.</p>
+  }
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-text-light mb-1">Preços pagos</p>
+      <ul className="text-xs space-y-0.5">
+        {lista.map(h => (
+          <li key={h.id} className="flex flex-wrap gap-x-2">
+            <span className="w-24 text-text-light">{quandoEOnde(h.em, h.loja, h.origem === 'planilha')}</span>
+            <span className="w-24 font-semibold tabular-nums">{formatCurrency(h.preco)}/{item.unit}</span>
+            <span className="text-text-light">
+              {h.descricao}{h.vezes > 1 ? ` (média de ${h.vezes} compras)` : ''}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
