@@ -38,6 +38,8 @@ const DIA = 24 * 60 * 60 * 1000
 
 const inicioDoDia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const somaTotal = (lista) => lista.reduce((s, o) => s + Number(o.total), 0)
+const somaTaxa = (lista) => lista.reduce((s, o) => s + Number(o.delivery_fee || 0), 0)
+const comTaxa = (lista) => lista.filter(o => Number(o.delivery_fee) > 0)
 const diaMes = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 
 export default function DashboardPage() {
@@ -54,7 +56,8 @@ export default function DashboardPage() {
   if (erro) return <p className="text-sm text-red-600">Não foi possível carregar os pedidos: {erro}</p>
   if (!dados) return <Loading />
 
-  const { atual, anterior, rotuloAnterior, barras, pagamentos, canais, reposicoes, sabores, abertos, agendados, deHoje, primeiraVenda } = dados
+  const { atual, anterior, rotuloAnterior, barras, pagamentos, canais, reposicoes, sabores, abertos, agendados, deHoje, primeiraVenda, doMes } = dados
+  const nomeDoMes = new Date().toLocaleDateString('pt-BR', { month: 'long' })
   const faturado = somaTotal(atual)
   const ticket = atual.length ? faturado / atual.length : 0
   const aEntregar = somaTotal(atual.filter(o => ABERTOS.includes(o.status)))
@@ -81,7 +84,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Números do período */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr] lg:gap-4">
         <div className="col-span-2 rounded-xl border border-border bg-white p-5 lg:col-span-1">
           <p className="text-sm text-text-light">Faturamento</p>
           <p className="mt-1 text-4xl font-bold text-text">{formatCurrency(faturado)}</p>
@@ -93,7 +96,10 @@ export default function DashboardPage() {
         <Numero rotulo="Pedidos" valor={atual.length}
           nota={anterior === null ? `desde ${diaMes(primeiraVenda)}` : `${anterior.length} ${rotuloAnterior}`} />
         <Numero rotulo="Ticket médio" valor={formatCurrency(ticket)} nota="por pedido" />
-        <Numero largo rotulo="Em aberto" valor={formatCurrency(somaTotal(abertos))}
+        {/* a taxa entra no faturamento, mas é dinheiro da entrega: separada, para ver quanto rendeu */}
+        <Numero rotulo="Taxa de entrega" valor={formatCurrency(somaTaxa(atual))}
+          nota={`em ${nomeDoMes}: ${formatCurrency(somaTaxa(doMes))} · ${comTaxa(doMes).length} ${comTaxa(doMes).length === 1 ? 'entrega' : 'entregas'}`} />
+        <Numero rotulo="Em aberto" valor={formatCurrency(somaTotal(abertos))}
           nota={`${abertos.length} ${abertos.length === 1 ? 'pedido ainda não entregue' : 'pedidos ainda não entregues'}`} />
       </section>
 
@@ -174,6 +180,7 @@ function calcular(pedidos, periodo) {
     rotuloAnterior = `nos ${dias} dias anteriores`
   }
   const atual = entre(inicio, new Date(+agora + 1))
+  const doMes = entre(new Date(agora.getFullYear(), agora.getMonth(), 1), new Date(+agora + 1))
   const reposicoes = pedidos.filter(o => o.reposicao_de && o.status !== 'cancelado'
     && new Date(o.created_at) >= inicio && new Date(o.created_at) <= agora)
 
@@ -244,6 +251,7 @@ function calcular(pedidos, periodo) {
     agendados,
     deHoje,
     primeiraVenda,
+    doMes,
   }
 }
 
