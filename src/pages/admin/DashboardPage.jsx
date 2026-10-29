@@ -41,6 +41,25 @@ const somaTotal = (lista) => lista.reduce((s, o) => s + Number(o.total), 0)
 const somaTaxa = (lista) => lista.reduce((s, o) => s + Number(o.delivery_fee || 0), 0)
 const comTaxa = (lista) => lista.filter(o => Number(o.delivery_fee) > 0)
 const diaMes = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+const nomeMes = (d) => d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+// período de um mês fechado: 'mes:2026-10'
+const MES = 'mes:'
+const doMesEscolhido = (periodo) => {
+  const [ano, mes] = periodo.slice(MES.length).split('-').map(Number)
+  return new Date(ano, mes - 1, 1)
+}
+
+/** Os meses que têm venda, do mais novo para o mais antigo, para o seletor. */
+function mesesComVenda(pedidos) {
+  const vistos = new Map()
+  for (const o of pedidos) {
+    if (o.status === 'cancelado' || o.reposicao_de) continue
+    const d = new Date(o.created_at)
+    const chave = `${MES}${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    if (!vistos.has(chave)) vistos.set(chave, nomeMes(new Date(d.getFullYear(), d.getMonth(), 1)))
+  }
+  return [...vistos].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([key, label]) => ({ key, label }))
+}
 
 export default function DashboardPage() {
   const [pedidos, setPedidos] = useState(null)
@@ -52,6 +71,7 @@ export default function DashboardPage() {
   }, [])
 
   const dados = useMemo(() => (pedidos ? calcular(pedidos, periodo) : null), [pedidos, periodo])
+  const meses = useMemo(() => (pedidos ? mesesComVenda(pedidos) : []), [pedidos])
 
   if (erro) return <p className="text-sm text-red-600">Não foi possível carregar os pedidos: {erro}</p>
   if (!dados) return <Loading />
@@ -80,6 +100,17 @@ export default function DashboardPage() {
               {p.label}
             </button>
           ))}
+          <select
+            aria-label="Ver um mês"
+            value={periodo.startsWith(MES) ? periodo : ''}
+            onChange={e => e.target.value && setPeriodo(e.target.value)}
+            className={`cursor-pointer rounded-md px-2 py-1.5 text-sm font-semibold capitalize ${
+              periodo.startsWith(MES) ? 'bg-primary text-white' : 'bg-transparent text-text-light hover:bg-bg-warm'
+            }`}
+          >
+            <option value="" disabled>Mês…</option>
+            {meses.map(m => <option key={m.key} value={m.key} className="bg-white text-text">{m.label}</option>)}
+          </select>
         </div>
       </div>
 
@@ -98,7 +129,9 @@ export default function DashboardPage() {
         <Numero rotulo="Ticket médio" valor={formatCurrency(ticket)} nota="por pedido" />
         {/* a taxa entra no faturamento, mas é dinheiro da entrega: separada, para ver quanto rendeu */}
         <Numero rotulo="Taxa de entrega" valor={formatCurrency(somaTaxa(atual))}
-          nota={`em ${nomeDoMes}: ${formatCurrency(somaTaxa(doMes))} · ${comTaxa(doMes).length} ${comTaxa(doMes).length === 1 ? 'entrega' : 'entregas'}`} />
+          nota={periodo.startsWith(MES)
+            ? `${comTaxa(atual).length} ${comTaxa(atual).length === 1 ? 'entrega cobrada' : 'entregas cobradas'}`
+            : `em ${nomeDoMes}: ${formatCurrency(somaTaxa(doMes))} · ${comTaxa(doMes).length} ${comTaxa(doMes).length === 1 ? 'entrega' : 'entregas'}`} />
         <Numero rotulo="Em aberto" valor={formatCurrency(somaTotal(abertos))}
           nota={`${abertos.length} ${abertos.length === 1 ? 'pedido ainda não entregue' : 'pedidos ainda não entregues'}`} />
       </section>
@@ -165,8 +198,21 @@ function calcular(pedidos, periodo) {
     return d >= ini && d < fim
   })
 
-  let inicio, anterior = null, rotuloAnterior = ''
-  if (periodo === 'hoje') {
+  let inicio, fim = new Date(+agora + 1), anterior = null, rotuloAnterior = ''
+  if (periodo.startsWith(MES)) {
+    inicio = doMesEscolhido(periodo)
+    const seguinte = new Date(inicio.getFullYear(), inicio.getMonth() + 1, 1)
+    const antes = new Date(inicio.getFullYear(), inicio.getMonth() - 1, 1)
+    if (seguinte > agora) {
+      // mês corrente: compara com o mês passado até o mesmo dia, não com ele inteiro
+      anterior = entre(antes, new Date(antes.getFullYear(), antes.getMonth(), agora.getDate() + 1))
+      rotuloAnterior = `em ${antes.toLocaleDateString('pt-BR', { month: 'long' })} até o dia ${agora.getDate()}`
+    } else {
+      fim = seguinte
+      anterior = entre(antes, inicio)
+      rotuloAnterior = `em ${antes.toLocaleDateString('pt-BR', { month: 'long' })}`
+    }
+  } else if (periodo === 'hoje') {
     inicio = hoje
     // ontem até a mesma hora: comparar o dia inteiro de ontem com meia manhã de hoje engana
     anterior = entre(new Date(hoje - DIA), new Date(agora - DIA))
@@ -179,10 +225,10 @@ function calcular(pedidos, periodo) {
     anterior = entre(new Date(inicio - dias * DIA), inicio)
     rotuloAnterior = `nos ${dias} dias anteriores`
   }
-  const atual = entre(inicio, new Date(+agora + 1))
+  const atual = entre(inicio, fim)
   const doMes = entre(new Date(agora.getFullYear(), agora.getMonth(), 1), new Date(+agora + 1))
   const reposicoes = pedidos.filter(o => o.reposicao_de && o.status !== 'cancelado'
-    && new Date(o.created_at) >= inicio && new Date(o.created_at) <= agora)
+    && new Date(o.created_at) >= inicio && new Date(o.created_at) < fim)
 
   // barras: por hora no "hoje", por dia no resto
   const barras = []
@@ -195,7 +241,7 @@ function calcular(pedidos, periodo) {
       barras.push({ rotulo: `${h}h`, completo: `${h}h às ${h + 1}h`, valor: somaTotal(daHora), pedidos: daHora.length })
     }
   } else {
-    for (let d = new Date(inicio); d <= hoje; d = new Date(+d + DIA)) {
+    for (let d = new Date(inicio); d <= hoje && d < fim; d = new Date(+d + DIA)) {
       const doDia = entre(d, new Date(+d + DIA))
       barras.push({
         rotulo: diaMes(d),
