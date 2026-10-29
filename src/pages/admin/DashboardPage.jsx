@@ -41,7 +41,7 @@ const somaTotal = (lista) => lista.reduce((s, o) => s + Number(o.total), 0)
 const somaTaxa = (lista) => lista.reduce((s, o) => s + Number(o.delivery_fee || 0), 0)
 const comTaxa = (lista) => lista.filter(o => Number(o.delivery_fee) > 0)
 const diaMes = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-const nomeMes = (d) => d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+const nomeMes = (d) => { const t = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); return t[0].toUpperCase() + t.slice(1) }
 // período de um mês fechado: 'mes:2026-10'
 const MES = 'mes:'
 const doMesEscolhido = (periodo) => {
@@ -104,7 +104,7 @@ export default function DashboardPage() {
             aria-label="Ver um mês"
             value={periodo.startsWith(MES) ? periodo : ''}
             onChange={e => e.target.value && setPeriodo(e.target.value)}
-            className={`cursor-pointer rounded-md px-2 py-1.5 text-sm font-semibold capitalize ${
+            className={`cursor-pointer rounded-md px-2 py-1.5 text-sm font-semibold ${
               periodo.startsWith(MES) ? 'bg-primary text-white' : 'bg-transparent text-text-light hover:bg-bg-warm'
             }`}
           >
