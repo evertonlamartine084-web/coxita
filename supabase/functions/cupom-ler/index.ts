@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { lerNota, decodificar, paginaDeErro, type ItemLido, type NotaLida } from "./leitor.ts"
-import { ErroNfe, gravarNfe, lerNfe } from "../_shared/nfe.ts"
+import { apelidoDoFornecedor, ErroNfe, gravarNfe, lerNfe } from "../_shared/nfe.ts"
 
 /**
  * cupom-ler — lê um cupom de compra (NFC-e) pelo QR code e lança nas planilhas e no painel.
@@ -618,11 +618,10 @@ async function comCategorias(db: any, lido: { nota: Nota; itens: Omit<Item, "cat
   const itens: Item[] = lido.itens.map((i) => ({ ...i, categoria: sugerirCategoria(i.nome, lembradas) }))
   // nome curto da loja, escolhido pelo dono na primeira compra ("Nordestão" em vez da razão social)
   const apelidos = await lerApelidos(db)
-  const cnpj = soDigitos(lido.nota.emitente_cnpj)
   const nota = {
     ...lido.nota,
     emitente_nome_sefaz: lido.nota.emitente_nome,
-    emitente_nome: (cnpj && apelidos[cnpj]) || lido.nota.emitente_nome,
+    emitente_nome: apelidoDoFornecedor(apelidos, lido.nota.emitente_cnpj) || lido.nota.emitente_nome,
   }
   return { nota, itens }
 }

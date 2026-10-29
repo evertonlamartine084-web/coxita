@@ -97,6 +97,16 @@ export function lerNfe(xml: string) {
  * Grava a NF-e como compra esperando conferência. Se a chave já estava lançada, devolve a que
  * existe (`ja_existia`). A nota pedida pelo código de barras com essa chave é dada como recebida.
  */
+// Rede cujas filiais vêm com o número da loja no nome fantasia ("298 NATAL PONTA NEGRA" no Assaí):
+// qualquer filial da raiz do CNPJ fica com o nome da rede, até o dono escolher outro.
+const REDES: Record<string, string> = { "06057223": "Assaí" }
+
+/** Nome curto do fornecedor: o que o dono escolheu para esse CNPJ ou, sem isso, o da rede. */
+export function apelidoDoFornecedor(apelidos: Record<string, string>, cnpj: string | null | undefined) {
+  const d = (cnpj ?? "").replace(/\D/g, "")
+  return (d && (apelidos[d] || REDES[d.slice(0, 8)])) || null
+}
+
 export async function gravarNfe(db: any, xml: string, observacao: string | null) {
   const nota = lerNfe(xml)
   if (!nota.chave_acesso || !nota.itens.length) throw new ErroNfe("Esse XML não tem a chave ou os itens da nota.")
@@ -110,8 +120,7 @@ export async function gravarNfe(db: any, xml: string, observacao: string | null)
   const { data: cfg } = await db.from("settings").select("key, value").in("key", ["compras_fornecedores"])
   let apelidos: Record<string, string> = {}
   try { apelidos = JSON.parse(cfg?.[0]?.value ?? "{}") } catch { /* vazio */ }
-  const cnpjDigitos = (nota.emitente_cnpj ?? "").replace(/\D/g, "")
-  const emitenteNome = apelidos[cnpjDigitos] || nota.emitente_nome
+  const emitenteNome = apelidoDoFornecedor(apelidos, nota.emitente_cnpj) || nota.emitente_nome
 
   const nomes = nota.itens.map((i) => normalizarNome(i.nome))
   const { data: lembradas } = await db.from("compras_categorias").select("nome, categoria").in("nome", nomes)
