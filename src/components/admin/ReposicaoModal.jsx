@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { criarReposicao } from '../../services/orders'
+import { getProdutosDoPainel } from '../../services/products'
 
 const MOTIVOS_REPOSICAO = [
   'Muito óleo nos salgados',
@@ -16,18 +17,32 @@ const MOTIVOS_REPOSICAO = [
 /**
  * Reposição: refaz, sem cobrança, o que saiu com problema no pedido. Escolhe os itens (com a
  * quantidade) e o motivo; o pedido novo vai para a cozinha como qualquer outro, a R$ 0,00
- * (supabase/sql/reposicao.sql).
+ * (supabase/sql/reposicao.sql). Cada item pode sair como outro produto do mesmo grupo de sabores e
+ * do mesmo tamanho -- o cento que era congelado e saiu frito volta congelado
+ * (supabase/sql/reposicao-trocar-produto.sql).
  */
 export default function ReposicaoModal({ pedido, aberto, aoFechar, aoCriar }) {
   const itens = pedido?.order_items ?? []
-  const [escolha, setEscolha] = useState({}) // item_id -> { usar, quantity }
+  const [escolha, setEscolha] = useState({}) // item_id -> { usar, quantity, product_id }
   const [motivo, setMotivo] = useState(MOTIVOS_REPOSICAO[0])
   const [outro, setOutro] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [produtos, setProdutos] = useState([])
+
+  useEffect(() => {
+    if (aberto) getProdutosDoPainel().then(setProdutos).catch(() => setProdutos([]))
+  }, [aberto])
 
   if (!aberto || !pedido) return null
 
-  const da = (it) => escolha[it.id] ?? { usar: true, quantity: it.quantity }
+  const da = (it) => escolha[it.id] ?? { usar: true, quantity: it.quantity, product_id: it.product_id }
+  // trocas possíveis: mesmo grupo de sabores e mesmo tamanho, para os sabores do original caberem
+  const trocasDe = (it) => {
+    const original = produtos.find(p => p.id === it.product_id)
+    if (!original?.flavor_group) return []
+    return produtos.filter(p => p.id !== original.id && !p.fixed_flavor_id
+      && p.flavor_group === original.flavor_group && p.pack_size === original.pack_size)
+  }
   const mudar = (it, campo, valor) => setEscolha(e => ({ ...e, [it.id]: { ...da(it), [campo]: valor } }))
   const marcados = itens.filter(it => da(it).usar)
 
@@ -38,7 +53,7 @@ export default function ReposicaoModal({ pedido, aberto, aoFechar, aoCriar }) {
     if (!confirm(`Criar a reposição de ${marcados.length} ${marcados.length === 1 ? 'item' : 'itens'} para ${pedido.customer_name}, sem cobrança? Ela vai para a cozinha e baixa o estoque.`)) return
     setSalvando(true)
     try {
-      const novo = await criarReposicao(pedido.id, texto, marcados.map(it => ({ item_id: it.id, quantity: da(it).quantity })))
+      const novo = await criarReposicao(pedido.id, texto, marcados.map(it => ({ item_id: it.id, quantity: da(it).quantity, product_id: da(it).product_id })))
       toast.success(`Reposição #${novo.order_number} criada e enviada para a cozinha.`)
       setEscolha({})
       aoCriar?.(novo)
@@ -68,6 +83,16 @@ export default function ReposicaoModal({ pedido, aberto, aoFechar, aoCriar }) {
                   <p className="font-medium">{it.product_name}</p>
                   {it.order_item_flavors?.length > 0 && (
                     <p className="text-xs text-text-light">{it.order_item_flavors.map(f => `${f.quantity}x ${f.flavor_name}`).join(', ')}</p>
+                  )}
+                  {trocasDe(it).length > 0 && (
+                    <label className="mt-1.5 flex items-center gap-1.5 text-xs text-text-light">
+                      Repor como
+                      <select value={da(it).product_id ?? ''} onChange={e => mudar(it, 'product_id', e.target.value)}
+                        className="rounded border border-gray-200 px-1.5 py-0.5 text-text">
+                        <option value={it.product_id}>{it.product_name} (o mesmo)</option>
+                        {trocasDe(it).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </label>
                   )}
                 </div>
                 {it.quantity > 1 && (
