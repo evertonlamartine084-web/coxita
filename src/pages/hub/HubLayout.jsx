@@ -77,7 +77,7 @@ export default function HubLayout() {
     <div className="min-h-screen bg-bg text-text">
       <header className="bg-brown text-cream">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
-          <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-8 w-auto rounded bg-cream px-1.5 py-0.5" />
+          <img width={790} height={335} src="/wordmark.svg" alt="Coxelli" className="h-8 w-auto rounded bg-cream px-1.5 py-0.5" />
           <span className="font-display text-lg font-extrabold uppercase tracking-widest text-secondary">Hub</span>
           <Link to="/admin/" className="ml-auto flex items-center gap-1 text-sm font-semibold text-cream/80 no-underline hover:text-white">
             <HiArrowLeft /> Painel

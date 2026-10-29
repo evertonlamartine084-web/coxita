@@ -560,7 +560,7 @@ export default function AdminLayout() {
         <div className="h-3 gingham-blue border-b-2 border-secondary shrink-0" aria-hidden="true" />
         <div className="p-5 border-b border-white/15 shrink-0">
           <div className="bg-cream border-2 border-secondary p-3 shadow-[4px_4px_0_#ffcd5e]">
-            <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-10 w-auto object-contain" />
+            <img width={790} height={335} src="/wordmark.svg" alt="Coxelli" className="h-10 w-auto object-contain" />
             <p className="font-display text-xs font-extrabold uppercase tracking-[0.16em] text-brown mt-1">Painel da cozinha</p>
           </div>
         </div>
@@ -681,7 +681,7 @@ export default function AdminLayout() {
       <div className={`flex-1 flex flex-col min-w-0 ${telaCheia ? 'h-[100dvh] lg:h-screen overflow-hidden' : ''}`}>
         <header className="bg-cream border-b-4 border-festa px-4 py-3 flex items-center lg:hidden sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="text-brown text-2xl mr-3" aria-label="Abrir menu">☰</button>
-          <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-9 w-auto" />
+          <img width={790} height={335} src="/wordmark.svg" alt="Coxelli" className="h-9 w-auto" />
           <span className="ml-auto font-display text-xs font-extrabold uppercase tracking-widest text-festa">Admin</span>
         </header>
         <main className={telaCheia

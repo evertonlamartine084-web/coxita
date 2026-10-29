@@ -35,7 +35,7 @@ export default function LoginPage() {
         <div className="text-center mb-6">
           <h1 className="sr-only">Coxelli</h1>
           <div className="inline-block bg-cream border-3 border-brown px-6 py-4 shadow-[6px_6px_0_#3f6bb5]">
-            <img width={800} height={315} src="/wordmark.png" alt="Coxelli" className="h-16 w-auto mx-auto" />
+            <img width={790} height={335} src="/wordmark.svg" alt="Coxelli" className="h-16 w-auto mx-auto" />
             <p className="font-display text-sm font-extrabold uppercase tracking-[0.15em] text-brown mt-2">Painel administrativo</p>
           </div>
         </div>

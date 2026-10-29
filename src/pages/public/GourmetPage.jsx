@@ -51,7 +51,7 @@ function Italico({ children, className = 'text-gourmet-terra' }) {
 function Assinatura({ tamanho = 'h-10 sm:h-12', className = '' }) {
   return (
     <span className={`inline-flex items-end gap-2.5 ${className}`}>
-      <img src="/wordmark.png" alt="Coxelli" width={800} height={315} className={`${tamanho} w-auto`} />
+      <img src="/wordmark.svg" alt="Coxelli" width={790} height={335} className={`${tamanho} w-auto`} />
       <span className="gourmet-assina mb-0.5 font-['Cormorant_Garamond',Georgia,serif] text-[1.7rem] font-light italic leading-none tracking-wide text-gourmet-ink sm:text-[2rem]">
         gourmet
       </span>
