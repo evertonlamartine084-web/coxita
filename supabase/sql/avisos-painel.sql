@@ -21,6 +21,9 @@ as $$
        where bling_nfe_em > now() - interval '2 days'
          and bling_nfe_status = 'erro'
          and (bling_nfe_erro ilike '%reconect%' or bling_nfe_erro ilike '%recusou%' or bling_nfe_erro ilike '%autoriza%')
+         -- nota parada na Sefaz não é conexão caída (30/10: "a nota ainda não foi autorizada" do #180
+         -- acendeu o "Bling desconectado" com as outras notas saindo normalmente)
+         and bling_nfe_erro not ilike 'a nota ainda não foi autorizada%'
        order by bling_nfe_em desc limit 1),
     'impressao_viva', (select max(created_at) from impressao_log where evento = 'verificando'),
     'zap_vivo', (select max(created_at) from impressao_log where evento = 'zap_vivo'),
