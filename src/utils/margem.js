@@ -260,13 +260,15 @@ export function calcularProduto(produto, custos = new Map(), params = PARAMS_PAD
  *
  * @param produto  com flavor_group e, se for de sabor único, fixed_flavor_id
  * @param sabores  [{ id, name, group_slug, active, supply_id, flavor_prices: [{ pack_size, price }] }]
+ * @param comForaDoAr  inclui os sabores desligados: a média pela venda precisa deles, porque um sabor
+ *                     desligado hoje (acabou o estoque) pode ter sido o que mais vendeu no mês
  * @returns [{ sabor, conta }], o pior sabor primeiro; vazio quando o produto não é de sabor
  */
-export function calcularPorSabor(produto, sabores = [], custos = new Map(), params = PARAMS_PADRAO) {
+export function calcularPorSabor(produto, sabores = [], custos = new Map(), params = PARAMS_PADRAO, comForaDoAr = false) {
   if (!produto?.flavor_group && !produto?.fixed_flavor_id) return []
   const doProduto = produto.fixed_flavor_id
     ? sabores.filter(s => s.id === produto.fixed_flavor_id)
-    : sabores.filter(s => s.group_slug === produto.flavor_group && s.active)
+    : sabores.filter(s => s.group_slug === produto.flavor_group && (s.active || comForaDoAr))
 
   return doProduto
     .map(sabor => {

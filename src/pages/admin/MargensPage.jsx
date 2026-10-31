@@ -105,7 +105,8 @@ export default function MargensPage() {
         produto, porSabor, piorSabor: pior?.sabor,
         conta: pior ? pior.conta : calcularProduto(produto, custos, params),
         preco: pior ? pior.preco : Number(produto.price),
-        pelaVenda: porSabor.length > 1 ? margemPelaVenda(porSabor, mix) : null,
+        // a média conta também o sabor desligado que vendeu (a coxinha, em 30/10, estava fora do ar)
+        pelaVenda: porSabor.length > 1 ? margemPelaVenda(calcularPorSabor(produto, sabores, custos, params, true), mix) : null,
       }
     }),
     [fichas, sabores, custos, params, mix],
