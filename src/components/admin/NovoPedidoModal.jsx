@@ -3,10 +3,10 @@ import { HiPlus, HiTrash } from 'react-icons/hi'
 import toast from 'react-hot-toast'
 import { getAllProducts, getProdutosDoPainel } from '../../services/products'
 import { getSettings, peekSettings } from '../../services/settings'
-import { createOrder } from '../../services/orders'
+import { createOrder, marcarPago, registrarSinal } from '../../services/orders'
 import { cotarEntrega } from '../../services/entrega'
 import { calcularDescontoAvista, ehAVista } from '../../utils/descontoAvista'
-import { formatCurrency, mascararTelefone, CANAIS } from '../../utils/format'
+import { formatCurrency, mascararTelefone, CANAIS, PAYMENT_LABELS } from '../../utils/format'
 import FlavorPicker from '../product/FlavorPicker'
 import EscolherProduto from './EscolherProduto'
 import Modal from '../ui/Modal'
@@ -45,6 +45,10 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
     taxa_entrega: '',
     delivery_km: null,
     payment_method: 'dinheiro',
+    // já pagou? 'nao' | 'pago' | 'sinal' -- o mesmo que se marca depois no detalhe do pedido
+    pago: 'nao',
+    sinal_valor: '',
+    sinal_forma: 'pix',
     canal: 'whatsapp',
     notes: '',
     agendado: false,
@@ -178,6 +182,10 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
     if (form.agendado && (!form.scheduled_date || !form.scheduled_time)) {
       return toast.error('Informe a data e a hora do agendamento.')
     }
+    const sinal = Number(String(form.sinal_valor).replace(',', '.'))
+    if (form.pago === 'sinal' && !(sinal > 0 && sinal < total)) {
+      return toast.error(`O sinal tem que ficar entre R$ 0 e ${formatCurrency(total)}.`)
+    }
 
     setSalvando(true)
     try {
@@ -202,9 +210,17 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
         discount_avista: descontoAvista,
         total,
       }, itensDoPedido)
+      // o pedido já existe: se o pagamento não gravar, avisa e deixa para marcar no detalhe
+      try {
+        if (form.pago === 'pago') Object.assign(pedido, await marcarPago(pedido.id))
+        if (form.pago === 'sinal') Object.assign(pedido, await registrarSinal(pedido.id, sinal, form.sinal_forma))
+      } catch (e) {
+        console.error('Pedido criado, mas o pagamento não gravou:', e)
+        toast.error(`Pedido #${pedido.order_number} criado, mas o pagamento não gravou. Marque no detalhe do pedido.`)
+      }
       toast.success(`Pedido #${pedido.order_number} criado.`)
       setItens([])
-      setForm(f => ({ ...f, customer_name: '', customer_phone: '', notes: '', agendado: false, scheduled_date: '', scheduled_time: '' }))
+      setForm(f => ({ ...f, customer_name: '', customer_phone: '', notes: '', agendado: false, scheduled_date: '', scheduled_time: '', pago: 'nao', sinal_valor: '' }))
       // nome e telefone digitados vão junto: o Atendimento usa para nomear a conversa
       aoCriar?.({ ...pedido, customer_name: form.customer_name.trim(), customer_phone: form.customer_phone.trim() })
       aoFechar()
@@ -286,6 +302,55 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
                 <option value="credito">Cartão na entrega</option>
               </select>
             </label>
+            <div className="text-sm sm:col-span-2" role="group" aria-label="Já pagou?">
+              <span className="mb-1 block font-medium">Já pagou?</span>
+              <div className="flex flex-wrap gap-2">
+                {[['nao', 'Não pago'], ['pago', 'Pago'], ['sinal', 'Pagou sinal']].map(([v, rotulo]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={form.pago === v}
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      pago: v,
+                      // sinal começa na metade, como no detalhe do pedido
+                      sinal_valor: v === 'sinal' && !f.sinal_valor ? String(Math.round(total * 50) / 100).replace('.', ',') : f.sinal_valor,
+                    }))}
+                    className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors ${
+                      form.pago === v
+                        ? v === 'nao' ? 'bg-gray-100 text-gray-700 ring-current' : 'bg-green-50 text-green-700 ring-current'
+                        : 'bg-white text-text-light ring-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
+              {form.pago === 'pago' && (
+                <p className="mt-1 text-xs text-text-light">Entra como pago no {PAYMENT_LABELS[form.payment_method] ?? form.payment_method}.</p>
+              )}
+              {form.pago === 'sinal' && (
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <Input label="Valor do sinal (R$)" value={form.sinal_valor} onChange={e => mudar('sinal_valor', e.target.value)} inputMode="decimal" />
+                  <label className="text-sm">
+                    <span className="mb-1 block font-medium">Sinal pago no</span>
+                    <select
+                      value={form.sinal_forma}
+                      onChange={e => mudar('sinal_forma', e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                    >
+                      <option value="pix">Pix</option>
+                      <option value="dinheiro">Dinheiro</option>
+                      <option value="credito">Crédito</option>
+                      <option value="debito">Débito</option>
+                    </select>
+                  </label>
+                  <p className="text-xs text-text-light sm:col-span-2">
+                    O resto ({formatCurrency(Math.max(total - (Number(String(form.sinal_valor).replace(',', '.')) || 0), 0))}) fica a receber no {PAYMENT_LABELS[form.payment_method] ?? form.payment_method}.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {form.delivery_type === 'entrega' && (
