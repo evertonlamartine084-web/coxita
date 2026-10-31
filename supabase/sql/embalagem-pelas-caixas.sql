@@ -84,3 +84,14 @@ update products p
    set custo_embalagem = round(s.pack_price / nullif(s.pack_quantity, 0) + p.embalagem_extra, 2)
   from supplies s
  where s.id = p.embalagem_supply_id;
+
+-- 30/10: o dono corrigiu o extra. Não vai guardanapo; o saco é R$ 0,034 a cada 25 salgados
+-- (os 0,63 / 1,26 / 2,52 da planilha não valem mais).
+alter table products alter column embalagem_extra type numeric(10,4);
+update products
+   set embalagem_extra = round(0.034 * pack_size / 25.0, 4)
+ where embalagem_supply_id is not null;
+update products p
+   set custo_embalagem = round(s.pack_price / nullif(s.pack_quantity, 0) + p.embalagem_extra, 2)
+  from supplies s
+ where s.id = p.embalagem_supply_id;
