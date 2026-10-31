@@ -159,10 +159,10 @@ export default function CustomersPage() {
               {lista.map((c) => {
                 const dias = diasDesde(c.ultimo_pedido)
                 return (
-                  <tr key={c.telefone} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                  <tr key={c.telefone ?? `sem-numero:${c.nome}`} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                     <td className="p-3">
                       <div className="font-semibold">{c.nome}</div>
-                      <div className="text-xs text-gray-500">{formatarTelefone(c.telefone)}</div>
+                      <div className="text-xs text-gray-500">{c.telefone ? formatarTelefone(c.telefone) : 'sem número'}</div>
                     </td>
                     <td className="p-3">
                       {c.pedidos}
@@ -184,7 +184,7 @@ export default function CustomersPage() {
                     </td>
                     <td className="p-3 text-gray-600">{c.bairro || '—'}</td>
                     <td className="p-3">
-                      <a
+                      {c.telefone && <a
                         href={linkDoWhatsapp(c.telefone)}
                         target="_blank"
                         rel="noreferrer"
@@ -192,7 +192,7 @@ export default function CustomersPage() {
                         className="inline-flex items-center gap-1 text-primary hover:text-primary-dark"
                       >
                         <HiPhone className="size-4" />
-                      </a>
+                      </a>}
                     </td>
                   </tr>
                 )

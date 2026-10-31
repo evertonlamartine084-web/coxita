@@ -46,7 +46,30 @@ as $$
     -- cancelado não é compra: não conta pedido, valor, data nem "recorrente" (15/10/2026)
     and o.status <> 'cancelado'
   group by right(regexp_replace(o.customer_phone, '\D', '', 'g'), 11)
-  order by max(o.created_at) desc;
+
+  union all
+
+  -- Freguês sem número (30/10/2026, o "Gordinho" que pede no balcão e pelo Zap sem telefone):
+  -- entra pelo nome, a partir do 2º pedido. Nome genérico não é pessoa.
+  select
+    null,
+    (array_agg(o.customer_name order by o.created_at desc))[1],
+    count(*),
+    coalesce(sum(o.total), 0),
+    coalesce(sum(o.total) / nullif(count(*), 0), 0),
+    min(o.created_at),
+    max(o.created_at),
+    (array_agg(o.address order by o.created_at desc) filter (where o.address is not null))[1],
+    (array_agg(o.neighborhood order by o.created_at desc) filter (where o.neighborhood is not null))[1]
+  from orders o
+  where regexp_replace(coalesce(o.customer_phone, ''), '\D', '', 'g') = ''
+    and o.reposicao_de is null
+    and o.status <> 'cancelado'
+    and lower(trim(o.customer_name)) not in ('ifood', 'compras anteriores', 'cliente balcão', 'cliente balcao', 'consumidor final', 'cliente')
+  group by lower(trim(o.customer_name))
+  having count(*) >= 2
+
+  order by 7 desc;
 $$;
 
 revoke all on function clientes_resumo() from public, anon;
