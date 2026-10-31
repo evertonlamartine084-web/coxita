@@ -182,7 +182,8 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
     if (form.agendado && (!form.scheduled_date || !form.scheduled_time)) {
       return toast.error('Informe a data e a hora do agendamento.')
     }
-    const sinal = Number(String(form.sinal_valor).replace(',', '.'))
+    // campo vazio = a metade sugerida no placeholder
+    const sinal = form.sinal_valor.trim() ? Number(String(form.sinal_valor).replace(',', '.')) : Math.round(total * 50) / 100
     if (form.pago === 'sinal' && !(sinal > 0 && sinal < total)) {
       return toast.error(`O sinal tem que ficar entre R$ 0 e ${formatCurrency(total)}.`)
     }
@@ -313,8 +314,6 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
                     onClick={() => setForm(f => ({
                       ...f,
                       pago: v,
-                      // sinal começa na metade, como no detalhe do pedido
-                      sinal_valor: v === 'sinal' && !f.sinal_valor ? String(Math.round(total * 50) / 100).replace('.', ',') : f.sinal_valor,
                     }))}
                     className={`cursor-pointer rounded-full px-3 py-1.5 text-sm font-semibold ring-1 transition-colors ${
                       form.pago === v
@@ -331,7 +330,9 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
               )}
               {form.pago === 'sinal' && (
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                  <Input label="Valor do sinal (R$)" value={form.sinal_valor} onChange={e => mudar('sinal_valor', e.target.value)} inputMode="decimal" />
+                  {/* vazio vale a metade do total, como no detalhe do pedido */}
+                  <Input label="Valor do sinal (R$)" value={form.sinal_valor} onChange={e => mudar('sinal_valor', e.target.value)} inputMode="decimal"
+                    placeholder={`metade: ${String(Math.round(total * 50) / 100).replace('.', ',')}`} />
                   <label className="text-sm">
                     <span className="mb-1 block font-medium">Sinal pago no</span>
                     <select
@@ -346,7 +347,7 @@ export default function NovoPedidoModal({ aberto, aoFechar, aoCriar, inicial = n
                     </select>
                   </label>
                   <p className="text-xs text-text-light sm:col-span-2">
-                    O resto ({formatCurrency(Math.max(total - (Number(String(form.sinal_valor).replace(',', '.')) || 0), 0))}) fica a receber no {PAYMENT_LABELS[form.payment_method] ?? form.payment_method}.
+                    O resto ({formatCurrency(Math.max(total - (form.sinal_valor.trim() ? Number(String(form.sinal_valor).replace(',', '.')) || 0 : Math.round(total * 50) / 100), 0))}) fica a receber no {PAYMENT_LABELS[form.payment_method] ?? form.payment_method}.
                   </p>
                 </div>
               )}
