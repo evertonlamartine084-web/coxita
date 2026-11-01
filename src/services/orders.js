@@ -363,6 +363,18 @@ export async function registrarSinal(orderId, valor, forma = null) {
   return data
 }
 
+/** Corrige os dados de um pedido já lançado (EditarDadosPedido): cliente, endereço, datas, taxa, pagamento. */
+export async function editarDadosPedido(orderId, campos) {
+  const { data, error } = await supabase
+    .from('orders')
+    .update(campos)
+    .eq('id', orderId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 /** Corrige por onde o pedido chegou (site, ifood, whatsapp, balcao). */
 export async function mudarCanal(orderId, canal) {
   const { error } = await supabase.from('orders').update({ canal }).eq('id', orderId)

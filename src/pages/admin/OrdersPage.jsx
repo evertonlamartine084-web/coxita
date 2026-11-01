@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { getOrders, updateOrderStatus, getOrderMessages, sendOrderMessage, markMessagesRead, getUnreadMessageCounts, estornarPedido, emitirNota, excluirPedidoCancelado, marcarPago, mudarCanal } from '../../services/orders'
 import EditarItensPedido from '../../components/admin/EditarItensPedido'
+import EditarDadosPedido from '../../components/admin/EditarDadosPedido'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { supabase } from '../../services/supabase'
 import { formatCurrency, formatDate, STATUS_LABELS, STATUS_COLORS, rotuloDoStatus, PAYMENT_LABELS, PAYMENT_STATUS_LABELS, aReceber, faltaReceber, faltaReceberNo, restoSemDesconto, rotuloDoPagamento, CANAIS, janelaDeEntrega } from '../../utils/format'
@@ -94,6 +95,9 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [editandoItens, setEditandoItens] = useState(false)
+  const [editandoDados, setEditandoDados] = useState(false)
+  // outro pedido aberto: fecha a edição do anterior
+  useEffect(() => { setEditandoDados(false) }, [selectedOrder?.id])
   const [estornando, setEstornando] = useState(false)
   const [emitindoNota, setEmitindoNota] = useState(false)
   const [criandoPedido, setCriandoPedido] = useState(false)
@@ -551,6 +555,15 @@ export default function OrdersPage() {
             <div>
               <Badge className={STATUS_COLORS[selectedOrder.status]}>{rotuloDoStatus(selectedOrder.status, selectedOrder.delivery_type)}</Badge>
               <span className="text-text-light text-sm ml-2">{formatDate(selectedOrder.created_at)}</span>
+              {!editandoDados && selectedOrder.status !== 'cancelado' && (
+                <button
+                  type="button"
+                  onClick={() => setEditandoDados(true)}
+                  className="float-right ml-2 cursor-pointer rounded-lg border border-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-gray-50"
+                >
+                  ✏️ Editar pedido
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -563,6 +576,18 @@ export default function OrdersPage() {
                 🖨️ Imprimir comanda
               </button>
             </div>
+
+            {editandoDados && (
+              <EditarDadosPedido
+                pedido={selectedOrder}
+                aoCancelar={() => setEditandoDados(false)}
+                aoSalvar={(atualizado) => {
+                  setEditandoDados(false)
+                  setSelectedOrder(prev => prev ? { ...prev, ...atualizado } : prev)
+                  loadOrders()
+                }}
+              />
+            )}
 
             {selectedOrder.scheduled_for && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
