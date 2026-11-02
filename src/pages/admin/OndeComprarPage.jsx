@@ -167,7 +167,7 @@ export default function OndeComprarPage() {
         </Button>
       </div>
       <p className="mb-6 text-sm text-gray-500">
-        Todo dia às 6h30 o robô procura os insumos no Atacadão (loja Natal Sul) e no Nordestão e compara, por kg ou litro, com o que vocês pagam hoje.
+        Todo dia às 6h30 o robô procura os insumos nas lojas de Natal do Atacadão (Natal Sul) e do Nordestão (Lagoa Nova), com o estoque delas, e compara, por kg ou litro, com o que vocês pagam hoje.
         Assaí e Carrefour bloqueiam robô no site e ficam de fora.
         {dados.rodada && <> Última busca: {new Date(dados.rodada.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}{dados.rodada.erros?.length ? ` (${dados.rodada.erros.length} erro(s))` : ''}.</>}
       </p>

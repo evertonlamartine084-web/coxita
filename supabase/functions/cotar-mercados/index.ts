@@ -69,9 +69,11 @@ Deno.serve(async (req) => {
       const pago = Number(s.pack_quantity) > 0 ? Number(s.pack_price) / Number(s.pack_quantity) : null
       const { achados, erros: e } = await cotarInsumo(b, s.unit, ignorados.get(b.supply_id) ?? new Set(), pago)
       erros.push(...e.map((x: string) => `${s.name} — ${x}`))
-      if (!achados.length) return
+      // mercado fora do ar não apaga o que já se leu hoje
+      if (e.length && !achados.length) return
       // o dia é refeito inteiro: produto que saiu da busca hoje não fica com o preço da manhã
       await db.from("mercado_precos").delete().eq("supply_id", b.supply_id).eq("visto_em", hoje)
+      if (!achados.length) return
       const { error: erroGravar } = await db.from("mercado_precos").insert(achados.map((a: Record<string, unknown>) => ({
         supply_id: b.supply_id,
         mercado: a.mercado, produto_id: a.produto_id, produto: a.produto, marca: a.marca,

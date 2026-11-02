@@ -4,10 +4,11 @@
  * JS puro de propósito: o Deno da função importa este arquivo e o Node também, para testar a
  * leitura dos nomes sem subir a função.
  *
- *  - Atacadão (VTEX): a busca é aberta; o preço é o da loja que atende o CEP, mandado no cookie
- *    vtex_segment. O CEP 59064-000 cai na Natal Sul (o da Zona Norte cai em lojas de outros estados).
+ *  - Atacadão (VTEX): a busca é aberta; o preço e o estoque são os da loja Natal Sul, pela simulação
+ *    de carrinho com o vendedor dela (o preço da busca é o da loja online nacional).
  *  - Nordestão (VipCommerce): a loja online entra como visitante com a chave que o próprio site
- *    manda para todo navegador (POST auth/loja/login) e busca no centro de distribuição 2.
+ *    manda para todo navegador (POST auth/loja/login) e busca no centro de distribuição 2, a loja
+ *    da Av. Senador Salgado Filho, 1656 (Lagoa Nova).
  *
  * Assaí e Carrefour ficam de fora: os sites têm proteção contra robô (Incapsula, captcha).
  */
@@ -54,36 +55,45 @@ export function combina(nome, { comeca = [], incluir = [], excluir = [] } = {}) 
 // ---------------------------------------------------------------- Atacadão
 
 const ATACADAO_CEP = '59064000'
-let segmentoAtacadao = null
-
-async function segmento() {
-  if (segmentoAtacadao) return segmentoAtacadao
-  const r = await fetch(`https://www.atacadao.com.br/api/checkout/pub/regions?country=BRA&postalCode=${ATACADAO_CEP}`, { headers: { 'user-agent': UA } })
-  const [regiao] = await r.json()
-  if (!regiao?.id) throw new Error('Atacadão não devolveu a região do CEP')
-  const seg = { regionId: regiao.id, channel: '1', countryCode: 'BRA', cultureInfo: 'pt-BR', currencyCode: 'BRL' }
-  segmentoAtacadao = btoa(JSON.stringify(seg))
-  return segmentoAtacadao
-}
+// A loja física de Natal. A busca do site devolve o preço do vendedor "1" (a loja online, que
+// entrega no Brasil todo e custa igual em qualquer CEP: óleo Soya R$ 7,99); o da loja Natal Sul
+// só sai pela simulação de carrinho com este vendedor (R$ 8,79 em 02/11/2026), com o estoque dela.
+const ATACADAO_LOJA = 'atacadaobr51'
 
 export async function buscarAtacadao(termo) {
-  const seg = await segmento()
-  const url = `https://www.atacadao.com.br/io/api/catalog_system/pub/products/search?ft=${encodeURIComponent(termo)}&_from=0&_to=29`
-  const r = await fetch(url, { headers: { 'user-agent': UA, cookie: `vtex_segment=${seg}` } })
+  const url = `https://www.atacadao.com.br/io/api/catalog_system/pub/products/search?ft=${encodeURIComponent(termo)}&_from=0&_to=49`
+  const r = await fetch(url, { headers: { 'user-agent': UA } })
   if (!r.ok && r.status !== 206) throw new Error(`Atacadão ${r.status}`)
-  const lista = await r.json()
+  const lista = (await r.json()) ?? []
+  const porSku = new Map(lista.filter(p => p.items?.[0]?.itemId).map(p => [String(p.items[0].itemId), p]))
+  if (!porSku.size) return []
+
+  // simulação de carrinho: não cria carrinho nem pedido, só devolve preço e estoque da loja
+  const sim = await fetch(`https://www.atacadao.com.br/api/checkout/pub/orderForms/simulation?sc=1`, {
+    method: 'POST',
+    headers: { 'user-agent': UA, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      items: [...porSku.keys()].map(id => ({ id, quantity: 1, seller: ATACADAO_LOJA })),
+      postalCode: ATACADAO_CEP,
+      country: 'BRA',
+    }),
+  })
+  if (!sim.ok) throw new Error(`Atacadão (loja Natal Sul) ${sim.status}`)
+  const d = await sim.json()
   const saida = []
-  for (const p of lista ?? []) {
-    const item = p.items?.[0]
-    const oferta = item?.sellers?.find(s => s.sellerDefault)?.commertialOffer ?? item?.sellers?.[0]?.commertialOffer
-    if (!oferta || !(oferta.Price > 0) || !(oferta.AvailableQuantity > 0)) continue
+  for (const i of d.items ?? []) {
+    if (i.availability !== 'available' || !(i.sellingPrice > 0)) continue
+    const p = porSku.get(String(i.id))
+    if (!p) continue
+    const preco = i.sellingPrice / 100
+    const cheio = Number(i.listPrice) / 100
     saida.push({
       mercado: 'Atacadão',
       produto_id: String(p.productId),
       produto: p.productName,
       marca: p.brand ?? null,
-      preco: Number(oferta.Price),
-      preco_original: Number(oferta.ListPrice) > Number(oferta.Price) ? Number(oferta.ListPrice) : null,
+      preco,
+      preco_original: cheio > preco ? cheio : null,
       link: `https://www.atacadao.com.br/${p.linkText}/p`,
     })
   }
