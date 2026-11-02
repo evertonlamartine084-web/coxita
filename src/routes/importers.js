@@ -45,6 +45,7 @@ export const importarPagina = {
   hubCrm: () => import('../pages/hub/HubCrm'),
   cupons: () => import('../pages/admin/CouponsPage'),
   compras: () => import('../pages/admin/ComprasPage'),
+  ondeComprar: () => import('../pages/admin/OndeComprarPage'),
 }
 
 const paginaPorRota = {

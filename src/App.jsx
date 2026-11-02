@@ -124,6 +124,7 @@ const HubCrm = lazyWithRetry(importarPagina.hubCrm)
 const ReviewsPage = lazyWithRetry(importarPagina.avaliacoes)
 const CouponsPage = lazyWithRetry(importarPagina.cupons)
 const ComprasPage = lazyWithRetry(importarPagina.compras)
+const OndeComprarPage = lazyWithRetry(importarPagina.ondeComprar)
 
 /** Uma visita por troca de rota (o site é SPA). O painel e o hub ficam de fora. */
 function RastreioDeRotas() {
@@ -213,6 +214,7 @@ export default function App() {
             <Route path="categorias" element={<CategoriesPage />} />
             <Route path="cupons" element={<CouponsPage />} />
             <Route path="compras" element={<ComprasPage />} />
+            <Route path="onde-comprar" element={<OndeComprarPage />} />
             <Route path="avaliacoes" element={<ReviewsPage />} />
             <Route path="configuracoes" element={<SettingsPage />} />
           </Route>

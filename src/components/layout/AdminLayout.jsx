@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { HiHome, HiShoppingBag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiArchive, HiDownload, HiMap, HiBell, HiChartBar, HiChatAlt2, HiReceiptTax } from 'react-icons/hi'
+import { HiHome, HiShoppingBag, HiClipboardList, HiCog, HiLogout, HiStar, HiTicket, HiUsers, HiCalculator, HiArchive, HiDownload, HiMap, HiBell, HiChartBar, HiChatAlt2, HiReceiptTax, HiTrendingDown } from 'react-icons/hi'
 import { signOut } from '../../services/auth'
 import { createElement, useState, useEffect, useRef } from 'react'
 import { supabase } from '../../services/supabase'
@@ -41,6 +41,7 @@ const navGrupos = [
     itens: [
       { to: '/admin/estoque', icon: HiArchive, label: 'Estoque' },
       { to: '/admin/compras', icon: HiReceiptTax, label: 'Compras' },
+      { to: '/admin/onde-comprar', icon: HiTrendingDown, label: 'Onde comprar' },
     ],
   },
   {
