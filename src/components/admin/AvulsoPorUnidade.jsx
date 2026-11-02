@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAllFlavors } from '../../services/flavors'
-import { ehPacote, itemPorUnidade, pacotesDoSabor } from '../../utils/pacote'
+import { getPrecoPorSabor } from '../../services/precoPorSabor'
+import { ehPacote, itemPorUnidade, pacotesDoSabor, precoDoSaborNoPacote } from '../../utils/pacote'
 import { formatCurrency } from '../../utils/format'
 
 /**
@@ -21,7 +22,8 @@ const GRUPOS = [
   { slug: 'doces', nome: 'Doces' },
 ]
 
-const porUnidade = (p) => Number(p.price) / p.pack_size
+// cada pastel tem o seu preço (flavor_prices); o meio cento genérico custa o do frango
+const porUnidade = (p, sabor, precos) => Number(precoDoSaborNoPacote(p, sabor, precos).price) / p.pack_size
 
 // item do Gourmet já é vendido por unidade: entra com a quantidade, sem pacote de base
 function itemDoGourmet(produto, unidades) {
@@ -41,11 +43,13 @@ export default function AvulsoPorUnidade({ produtos, aoAdicionar }) {
   const [saborId, setSaborId] = useState('')
   const [unidades, setUnidades] = useState('')
   const [pacoteEscolhido, setPacoteEscolhido] = useState('') // vazio = automático
+  const [precos, setPrecos] = useState(null)
   const campoRef = useRef(null)
 
   // todos, inclusive os desligados no site: sabor fora do cardápio ainda é feito sob encomenda
   // (o pastel de frango do Carlos, 27/10/2026), e os churros vivem como sabor fixo do pacote
   useEffect(() => { getAllFlavors().then(setSabores).catch(() => {}) }, [])
+  useEffect(() => { getPrecoPorSabor().then(setPrecos).catch(() => {}) }, [])
 
   const pacotes = useMemo(
     () => produtos.filter(p => p.active !== false && ehPacote(p)),
@@ -78,7 +82,7 @@ export default function AvulsoPorUnidade({ produtos, aoAdicionar }) {
   const produto = opcoes.find(p => String(p.id) === pacoteEscolhido) ?? automatico
   const item = !(sabor && qtd > 0) ? null
     : sabor.produto ? itemDoGourmet(sabor.produto, qtd)
-    : produto ? itemPorUnidade(produto, sabor, qtd) : null
+    : produto ? itemPorUnidade(produto, sabor, qtd, precos) : null
   // o item do Gourmet leva a quantidade; o de pacote já vem com o preço das unidades todas
   const vezes = item?.quantity ?? 1
 
@@ -118,7 +122,7 @@ export default function AvulsoPorUnidade({ produtos, aoAdicionar }) {
 
       <div className="grid max-h-60 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
         {grupo?.sabores.map(s => {
-          const valores = s.produto ? [Number(s.produto.price)] : s.pacotes.map(porUnidade)
+          const valores = s.produto ? [Number(s.produto.price)] : s.pacotes.map(p => porUnidade(p, s, precos))
           const min = Math.min(...valores)
           const max = Math.max(...valores)
           const marcado = String(s.id) === saborId
@@ -186,7 +190,7 @@ export default function AvulsoPorUnidade({ produtos, aoAdicionar }) {
                         ativo ? 'bg-white font-semibold text-brown shadow-sm ring-1 ring-primary/40' : 'text-gray-500 hover:bg-white/70'
                       }`}
                     >
-                      base {p.pack_size} · {formatCurrency(porUnidade(p))}
+                      base {p.pack_size} · {formatCurrency(porUnidade(p, sabor, precos))}
                     </button>
                   )
                 })}

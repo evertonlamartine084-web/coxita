@@ -234,7 +234,16 @@ export function fracaoDoPacote(produto, sabores) {
   return total > 0 ? total / produto.pack_size : 1
 }
 
-const centavos = valor => Math.round(valor * 100) / 100
+/**
+ * Preço do pacote inteiro de um sabor só: o do sabor naquele tamanho (flavor_prices, os
+ * pastéis) ou, sem linha própria, o do pacote.
+ */
+export function precoDoSaborNoPacote(produto, sabor, precos) {
+  const proprio = precos?.[`${sabor?.id}:${produto.pack_size}`]
+  return proprio
+    ? { price: proprio.price, cash_price: proprio.cash_price }
+    : { price: produto.price, cash_price: produto.cash_price }
+}
 
 /**
  * Item vendido por unidade, a partir do preço de um pacote: 70 churros saem a
@@ -243,14 +252,17 @@ const centavos = valor => Math.round(valor * 100) / 100
  * Fica como um item de um sabor só, ligado ao produto do pacote -- é ele que
  * dá o código do Bling e o preço à vista.
  */
-export function itemPorUnidade(produto, sabor, unidades) {
-  const fracao = unidades / produto.pack_size
-  const cash = Number(produto.cash_price)
+export function itemPorUnidade(produto, sabor, unidades, precos) {
+  // a conta em centavos inteiros, como em precoDaComposicao: 25 de frango no Pix são a
+  // metade de 17,49 = 8,75 (em reais, 8,745 vira 8,74 pela imprecisão do float)
+  const fatia = (valor) => Math.round((Math.round(Number(valor) * 100) * unidades) / produto.pack_size) / 100
+  const { price, cash_price } = precoDoSaborNoPacote(produto, sabor, precos)
+  const cash = Number(cash_price)
   return {
     product_id: produto.id,
     product_name: `${unidades} un. ${sabor.name}`,
-    price: centavos(Number(produto.price) * fracao),
-    cash_price: cash > 0 ? centavos(cash * fracao) : null,
+    price: fatia(price),
+    cash_price: cash > 0 ? fatia(cash) : null,
     flavors: [{ id: sabor.id, name: sabor.name, quantity: unidades }],
   }
 }
