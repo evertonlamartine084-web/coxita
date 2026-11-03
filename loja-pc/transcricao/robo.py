@@ -6,17 +6,23 @@ A cada volta: pergunta à função zap-transcrever quais áudios ainda não têm
 pelo link assinado, transcreve em português e devolve o texto. O painel mostra embaixo do áudio
 no Atendimento, e o montar-pedido lê junto com a conversa.
 
-O modelo (MODELO no chave.env: tiny, base, small, medium) é baixado na primeira vez e fica no
-volume /modelos. "small" é o meio-termo entre acerto e peso no PC.
+O modelo (MODELO no chave.env) é baixado na primeira vez e fica no volume /modelos. O padrão é o
+large-v3-turbo: em 03/11/2026 o "small" errava palavras ("algado", "me comendo"); o turbo acertou,
+uns 3 s por áudio de 20 s no Mac (no PC da loja, mais lento, mas ainda bem antes de alguém abrir).
 """
 import datetime as dt, json, os, tempfile, time, traceback, urllib.request
 from faster_whisper import WhisperModel
 
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SEGREDO = os.environ["TRANSCRICAO_SEGREDO"]
-MODELO = os.environ.get("MODELO", "small")
+MODELO = os.environ.get("MODELO", "large-v3-turbo")
 INTERVALO = int(os.environ.get("INTERVALO_SEGUNDOS", "20"))
 FUNCAO = f"{SUPABASE_URL}/functions/v1/zap-transcrever"
+# palavras da loja: sem isso o Whisper escreve "algado", "me comendo" (encomendando), "fobram" (cobram)
+VOCABULARIO = ("Conversa de WhatsApp com a Coxelli, loja de salgados em Natal. Salgados, salgado, cento, meio cento, "
+               "encomenda, encomendar, coxinha, bolinha de queijo, travesseiro sertanejo, enroladinho, croquete de "
+               "calabresa, pastel, pastéis, churros, empada, quiche, congelados, fritos, Pix, sinal, entrega, "
+               "retirada, Parnamirim, Pajuçara, Zona Norte.")
 
 
 def log(*a):
@@ -53,7 +59,8 @@ while True:
             try:
                 arquivo = baixar(a["url"])
                 inicio = time.time()
-                partes, info = modelo.transcribe(arquivo, language="pt", vad_filter=True, beam_size=5)
+                partes, info = modelo.transcribe(arquivo, language="pt", vad_filter=True, beam_size=5,
+                                                 initial_prompt=VOCABULARIO)
                 texto = " ".join(p.text.strip() for p in partes).strip()
                 chamar("resultado", id=a["id"], texto=texto, erro=None if texto else "sem fala")
                 log(f"áudio {a['id']}: {info.duration:.0f}s em {time.time() - inicio:.0f}s →", texto[:80])

@@ -10,6 +10,6 @@ services:
       - modelos:/modelos
     # não deixa o Whisper tomar o PC todo: o painel e a Evolution rodam na mesma máquina
     cpus: 2
-    mem_limit: 2g
+    mem_limit: 3g
 volumes:
   modelos:

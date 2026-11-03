@@ -7,7 +7,7 @@ Ubuntu do WSL, como a Evolution e o robô da Receita.
 ## Instalar (uma vez)
 
 1. Copie esta pasta inteira (com o `chave.env`) para o PC da loja, por exemplo `C:\CoxelliTranscricao`.
-2. Dê dois cliques em `instalar.bat`. Na primeira vez ele baixa o Whisper (uns 500 MB) e demora.
+2. Dê dois cliques em `instalar.bat`. Na primeira vez ele baixa o Whisper (uns 1,6 GB) e demora.
 
 Depois disso ele volta sozinho quando o PC liga (`restart: always`). Ele começa pelos áudios
 dos últimos 30 dias que ainda não têm texto, do mais novo para o mais velho.
