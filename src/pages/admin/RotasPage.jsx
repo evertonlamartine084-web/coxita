@@ -115,6 +115,8 @@ export default function RotasPage() {
       .from('orders')
       .select('id, order_number, customer_name, customer_phone, address, address_number, address_complement, neighborhood, address_reference, address_cep, scheduled_for, created_at, status, total, payment_method, payment_status, sinal_valor, entrega_lat, entrega_lng')
       .eq('delivery_type', 'entrega')
+      // o Uber leva sozinho: não entra na rota do entregador da loja
+      .or('entregador.is.null,entregador.neq.uber')
       .neq('status', 'cancelado')
       .or(`and(scheduled_for.gte.${ini.toISOString()},scheduled_for.lt.${fim.toISOString()}),and(scheduled_for.is.null,created_at.gte.${ini.toISOString()},created_at.lt.${fim.toISOString()})`)
     if (error) { toast.error(`Não foi possível carregar: ${error.message}`); setPedidos([]); return }

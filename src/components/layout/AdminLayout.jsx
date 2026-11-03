@@ -9,7 +9,7 @@ import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo,
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa, mensagemDeLead } from '../../utils/crm'
 import { HORA_DO_RESUMO, textoDoResumo } from '../../utils/resumoDaManha'
-import { julgarAnuncios, textoDoAlerta, textoDoPlacar } from '../../utils/vigiaMeta'
+import { julgarAnuncios, textoDoAlerta } from '../../utils/vigiaMeta'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -284,7 +284,7 @@ export default function AdminLayout() {
       const duasHoras = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, codigo_cliente, public_token, customer_name, customer_phone, status, entregue_em, canal, delivery_type, scheduled_for, total, sinal_valor, payment_status, payment_method, zap_cliente')
+        .select('id, order_number, codigo_cliente, public_token, customer_name, customer_phone, status, entregue_em, canal, delivery_type, entregador, uber_link, uber_motorista, scheduled_for, total, sinal_valor, payment_status, payment_method, zap_cliente')
         .in('canal', ['site', 'whatsapp'])
         .is('reposicao_de', null)
         .neq('status', 'cancelado')
@@ -435,13 +435,13 @@ export default function AdminLayout() {
     }
 
     // Vigia da Meta: de hora em hora lê os anúncios (hub-meta) e avisa no grupo uma vez por
-    // anúncio quando um deve ser desligado; placar do dia na hora marcada.
+    // anúncio quando um deve ser desligado. Sem placar nem aviso de quem ganha (o dono pediu: isso
+    // fica só no Hub → Anúncios).
     let ultimoVigia = 0
     const vigiaDaMeta = async (cfg, config) => {
       if (Date.now() - ultimoVigia < 60 * 60 * 1000) return
       ultimoVigia = Date.now()
-      const agora = new Date()
-      const hoje = agora.toLocaleDateString('sv-SE')
+      const hoje = new Date().toLocaleDateString('sv-SE')
       const { data, error } = await supabase.functions.invoke('hub-meta', { body: { inicio: cfg.inicio, fim: hoje } })
       if (error || !data?.anuncios) throw new Error(error?.message || 'hub-meta sem anúncios')
       const julgados = julgarAnuncios(data.anuncios, cfg)
@@ -460,7 +460,6 @@ export default function AdminLayout() {
       for (const a of julgados.filter(x => x.veredito === 'matar')) {
         await avisar(`${a.veredito}:${a.anuncio_id}`, textoDoAlerta(a))
       }
-      if (agora.getHours() >= cfg.hora_placar && julgados.length) await avisar(`placar:${hoje}`, textoDoPlacar(julgados, cfg))
     }
 
     const fluxosDoCrm = async (config) => {

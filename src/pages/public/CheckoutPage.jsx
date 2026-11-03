@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { HiTruck, HiOfficeBuilding, HiCreditCard, HiCash, HiDeviceMobile, HiClock, HiLightningBolt } from 'react-icons/hi'
-import { FaWhatsapp } from 'react-icons/fa'
+import { FaWhatsapp, FaCarSide } from 'react-icons/fa'
 import { cepNaZonaNorte } from '../../content/entrega'
 import { comecouCheckout, fezPedido, passoDoCheckout } from '../../services/rastreio'
 import { useCartStore } from '../../store/cartStore'
@@ -11,6 +11,7 @@ import { gravarOrigemDoPedido } from '../../services/origem'
 import { salvarCarrinho, esquecerCarrinho } from '../../services/carrinhos'
 import { getSettings } from '../../services/settings'
 import { cotarEntrega } from '../../services/entrega'
+import { cotarUber } from '../../services/uber'
 import { getProducts } from '../../services/products'
 import { getPrecoPorSabor } from '../../services/precoPorSabor'
 import { pagarComCartao, gerarPix } from '../../services/cielo'
@@ -89,6 +90,12 @@ export default function CheckoutPage() {
   // Só a entrega tem horário; quem retira pode pedir para agora a qualquer hora
   const entregaPausada = settings.entrega_ativa === 'nao'
   const entregaFechada = form.delivery_type === 'entrega' && entregaForaDoHorario
+  // Entrega por Uber (03/11/2026): o motorista do Uber Direct busca na loja. Preço da própria Uber,
+  // pago pelo site (Pix ou cartão), sem agenda; a conta da Uber só vai a até 5 km da loja.
+  const uberAtivo = settings.uber_ativo === 'sim'
+  const ehUber = form.delivery_type === 'uber'
+  // entrega própria e Uber pedem endereço; retirada não
+  const comEndereco = form.delivery_type !== 'retirada'
 
   const getDescontoCupom = () => {
     if (!appliedCoupon) return 0
@@ -235,9 +242,19 @@ export default function CheckoutPage() {
   const cepDigitos = form.address_cep.replace(/\D/g, '')
   const numeroEndereco = form.address_number.trim()
   useEffect(() => {
-    if (form.delivery_type !== 'entrega' || cepDigitos.length !== 8) {
+    if (!comEndereco || cepDigitos.length !== 8) {
       setCotacao({ status: 'vazio' })
       return
+    }
+    if (form.delivery_type === 'uber') {
+      let cancelado = false
+      setCotacao({ status: 'calculando' })
+      const t = setTimeout(() => {
+        cotarUber({ cep: cepDigitos, numero: numeroEndereco, rua: form.address, bairro: form.neighborhood })
+          .then(c => { if (!cancelado) setCotacao(c.dentro_area ? { status: 'ok', ...c } : { status: 'fora-uber', ...c }) })
+          .catch(e => { if (!cancelado) setCotacao({ status: 'erro', motivo: e.message }) })
+      }, 700)
+      return () => { cancelado = true; clearTimeout(t) }
     }
     // Fora da Zona Norte nem calcula: a entrega é combinada pelo WhatsApp
     if (!cepNaZonaNorte(cepDigitos)) {
@@ -258,14 +275,14 @@ export default function CheckoutPage() {
 
   // Resultado do frete no funil: CEP fora da Zona Norte é a suspeita nº 1 de desistência
   useEffect(() => {
-    const passo = { ok: 'frete_ok', 'fora-zona': 'cep_fora_zona', fora: 'fora_do_raio', erro: 'frete_erro' }[cotacao.status]
+    const passo = { ok: 'frete_ok', 'fora-zona': 'cep_fora_zona', fora: 'fora_do_raio', 'fora-uber': 'uber_fora_do_raio', erro: 'frete_erro' }[cotacao.status]
     if (passo) passoDoCheckout(passo, {}, { umaVez: true })
   }, [cotacao.status])
 
   // a taxa do resumo é sempre a da cotação; sem cotação válida, zero (e o envio fica bloqueado)
   useEffect(() => {
-    setDeliveryFee(form.delivery_type === 'entrega' && cotacao.status === 'ok' ? Number(cotacao.taxa) : 0)
-  }, [form.delivery_type, cotacao, setDeliveryFee])
+    setDeliveryFee(comEndereco && cotacao.status === 'ok' ? Number(cotacao.taxa) : 0)
+  }, [comEndereco, cotacao, setDeliveryFee])
 
   // Fora do horário de entrega, entrega só agendada
   useEffect(() => {
@@ -280,7 +297,8 @@ export default function CheckoutPage() {
     const t = setInterval(conferir, 60000)
     return () => clearInterval(t)
   }, [settings])
-  const retiradaFechada = form.delivery_type === 'retirada' && lojaFechada
+  // Uber sai da loja: "agora" só com ela aberta, como a retirada
+  const retiradaFechada = form.delivery_type !== 'entrega' && lojaFechada
   useEffect(() => {
     if (retiradaFechada) setForm(f => (f.order_type === 'agora' ? { ...f, order_type: 'agendado' } : f))
   }, [retiradaFechada])
@@ -309,6 +327,14 @@ export default function CheckoutPage() {
       // entrega é sempre com horário marcado; voltar para retirada volta ao "Agora"
       if (name === 'delivery_type' && value === 'entrega') return { ...f, delivery_type: value, order_type: 'agendado', scheduled_date: '', scheduled_time: '' }
       if (name === 'delivery_type' && value === 'retirada' && f.delivery_type === 'entrega') return { ...f, delivery_type: value, order_type: 'agora', scheduled_date: '', scheduled_time: '' }
+      // Uber: sem agenda (sai "agora" ou no horário escolhido) e só com pagamento pelo site
+      if (name === 'delivery_type' && value === 'uber') {
+        return {
+          ...f, delivery_type: value,
+          ...(f.delivery_type === 'entrega' ? { order_type: 'agora', scheduled_date: '', scheduled_time: '' } : {}),
+          payment_method: ['pix_online', 'cartao'].includes(f.payment_method) ? f.payment_method : 'pix_online',
+        }
+      }
       if (name === 'customer_phone') return { ...f, customer_phone: mascararTelefone(value) }
       return { ...f, [name]: value }
     })
@@ -332,9 +358,10 @@ export default function CheckoutPage() {
     if (form.customer_cpf.trim() && !cpfValido(form.customer_cpf)) {
       errs.customer_cpf = 'CPF inválido. Deixe em branco se não quiser na nota.'
     }
-    if (form.delivery_type === 'entrega') {
+    if (comEndereco) {
       if (form.address_cep.replace(/\D/g, '').length !== 8) errs.address_cep = 'CEP obrigatório para calcular a entrega'
       else if (cotacao.status === 'calculando') errs.address_cep = 'Aguarde o cálculo da entrega'
+      else if (cotacao.status === 'fora-uber') errs.address_cep = 'O Uber não chega neste endereço. Escolha outra forma de entrega.'
       else if (cotacao.status === 'fora-zona') errs.address_cep = 'Fora da Zona Norte, a entrega é combinada pelo WhatsApp.'
       else if (cotacao.status === 'fora') errs.address_cep = `Entregamos até ${cotacao.max_km} km. Escolha a retirada.`
       else if (cotacao.status !== 'ok') errs.address_cep = 'Não conseguimos calcular a entrega para este CEP'
@@ -360,6 +387,9 @@ export default function CheckoutPage() {
       }
     }
     const minOrder = parseFloat(settings.min_order || '0')
+    if (ehUber && !['pix_online', 'cartao'].includes(form.payment_method)) {
+      errs.payment_method = 'Na entrega por Uber o pagamento é pelo site'
+    }
     if (minOrder > 0 && getSubtotal() < minOrder) {
       errs.min_order = `Pedido mínimo: ${formatCurrency(minOrder)}`
     }
@@ -388,11 +418,13 @@ export default function CheckoutPage() {
         customer_phone: form.customer_phone.trim(),
         // opcional: vazio significa nota sem identificação do consumidor
         customer_cpf: form.customer_cpf.replace(/\D/g, '') || null,
-        delivery_type: form.delivery_type,
-        address_cep: form.delivery_type === 'entrega' ? form.address_cep.replace(/\D/g, '') || null : null,
-        address: form.delivery_type === 'entrega' ? form.address.trim() : null,
-        neighborhood: form.delivery_type === 'entrega' ? form.neighborhood.trim() : null,
-        address_number: form.delivery_type === 'entrega' ? form.address_number.trim() : null,
+        // Uber é entrega para o resto do sistema; o que muda é quem leva (entregador)
+        delivery_type: ehUber ? 'entrega' : form.delivery_type,
+        entregador: ehUber ? 'uber' : null,
+        address_cep: comEndereco ? form.address_cep.replace(/\D/g, '') || null : null,
+        address: comEndereco ? form.address.trim() : null,
+        neighborhood: comEndereco ? form.neighborhood.trim() : null,
+        address_number: comEndereco ? form.address_number.trim() : null,
         address_complement: form.address_complement.trim() || null,
         address_reference: form.address_reference.trim() || null,
         notes: form.notes.trim() || null,
@@ -402,7 +434,7 @@ export default function CheckoutPage() {
         subtotal: getSubtotal(),
         delivery_fee: deliveryFee,
         // o banco confere a taxa por esta cotação (ver supabase/sql/entrega-por-km.sql)
-        cotacao_entrega: form.delivery_type === 'entrega' ? cotacao.id : null,
+        cotacao_entrega: comEndereco ? cotacao.id : null,
         discount: getDiscount(),
         discount_avista: getDescontoAvista(),
         coupon_code: appliedCoupon?.code || null,
@@ -487,6 +519,10 @@ export default function CheckoutPage() {
         setForm(f => ({ ...f, scheduled_date: '', scheduled_time: '' }))
         setRecarregarHorarios(n => n + 1)
         toast.error('Esse horário de entrega não está mais disponível. Escolha outro.')
+      } else if (msg.includes('uber-')) {
+        toast.error(msg.includes('uber-pagamento')
+          ? 'Na entrega por Uber o pagamento é pelo site: escolha Pix ou cartão.'
+          : 'A entrega por Uber não está disponível agora. Escolha outra forma.')
       } else if (msg.includes('entrega-pausada')) {
         toast.error('As entregas estão pausadas no momento. Escolha a retirada.')
       } else if (msg.includes('entrega-')) {
@@ -616,7 +652,9 @@ export default function CheckoutPage() {
             <CheckoutSection title="Tipo de entrega" step="2">
               {entregaPausada && (
                 <p className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                  As entregas estão pausadas no momento. Você pode retirar o pedido na loja.
+                  {uberAtivo
+                    ? 'A nossa entrega está pausada no momento. Você pode receber por Uber ou retirar na loja.'
+                    : 'As entregas estão pausadas no momento. Você pode retirar o pedido na loja.'}
                 </p>
               )}
               <div className="flex gap-3">
@@ -628,6 +666,15 @@ export default function CheckoutPage() {
                   sublabel="Receba em casa"
                   name="delivery_type"
                   value="entrega"
+                />}
+                {uberAtivo && <DeliveryOption
+                  active={ehUber}
+                  onChange={() => handleChange({ target: { name: 'delivery_type', value: 'uber' } })}
+                  icon={<FaCarSide size={22} />}
+                  label="Uber"
+                  sublabel="Motorista leva"
+                  name="delivery_type"
+                  value="uber"
                 />}
                 <DeliveryOption
                   active={form.delivery_type === 'retirada'}
@@ -642,7 +689,7 @@ export default function CheckoutPage() {
             </CheckoutSection>
 
             {/* Endereço */}
-            {form.delivery_type === 'entrega' && (
+            {comEndereco && (
               <CheckoutSection title="Endereço" step="">
                 <div className="relative">
                   <Input
@@ -658,11 +705,18 @@ export default function CheckoutPage() {
                     <span className="absolute right-3 top-9 text-xs text-primary font-semibold animate-pulse">Buscando...</span>
                   )}
                 </div>
-                <AvisoEntrega
-                  cotacao={cotacao}
-                  aoRetirar={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
-                  linkWhatsApp={linkPedidoWhatsApp()}
-                />
+                {ehUber ? (
+                  <AvisoUber
+                    cotacao={cotacao}
+                    aoRetirar={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
+                  />
+                ) : (
+                  <AvisoEntrega
+                    cotacao={cotacao}
+                    aoRetirar={() => handleChange({ target: { name: 'delivery_type', value: 'retirada' } })}
+                    linkWhatsApp={linkPedidoWhatsApp()}
+                  />
+                )}
                 <Input label="Rua *" name="address" value={form.address} onChange={handleChange} error={errors.address} />
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Número *" name="address_number" value={form.address_number} onChange={handleChange} error={errors.address_number} />
@@ -674,8 +728,8 @@ export default function CheckoutPage() {
             )}
 
             {/* Quando receber */}
-            <CheckoutSection title={form.delivery_type === 'entrega' ? 'Horário da entrega' : 'Quando você quer?'} step="">
-              {form.delivery_type === 'entrega' ? (
+            <CheckoutSection title={form.delivery_type === 'entrega' ? 'Horário da entrega' : ehUber ? 'Quando você quer receber?' : 'Quando você quer?'} step="">
+              {form.delivery_type === 'entrega' ? (<>
                 <HorariosDeEntrega
                   settings={settings}
                   data={form.scheduled_date}
@@ -684,7 +738,25 @@ export default function CheckoutPage() {
                   erro={errors.scheduled_time}
                   recarregar={recarregarHorarios}
                 />
-              ) : (<>
+                {uberAtivo && (
+                  <p className="text-xs text-text-light">
+                    Não achou um horário bom?{' '}
+                    <button
+                      type="button"
+                      onClick={() => handleChange({ target: { name: 'delivery_type', value: 'uber' } })}
+                      className="font-semibold text-primary underline cursor-pointer"
+                    >
+                      Receba por Uber
+                    </button>
+                    , sem agendar.
+                  </p>
+                )}
+              </>) : (<>
+              {ehUber && (
+                <p className="text-xs text-text-light -mt-1 mb-3">
+                  A gente chama o motorista do Uber quando o pedido estiver pronto. O link para acompanhar a corrida chega no seu WhatsApp.
+                </p>
+              )}
               {entregaFechada && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
                   <p className="text-sm font-bold text-yellow-700">A entrega está fora do horário agora</p>
@@ -705,7 +777,7 @@ export default function CheckoutPage() {
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
                   <p className="text-sm font-bold text-yellow-700">A loja está fechada agora</p>
                   <p className="text-xs text-yellow-600 mt-0.5">
-                    Funcionamos todos os dias, das {horarioDaLoja(settings).abre} às {horarioDaLoja(settings).fecha}. Escolha o dia e o horário em que você vem buscar.
+                    Funcionamos todos os dias, das {horarioDaLoja(settings).abre} às {horarioDaLoja(settings).fecha}. Escolha o dia e o horário em que você {ehUber ? 'quer receber' : 'vem buscar'}.
                   </p>
                 </div>
               )}
@@ -715,7 +787,7 @@ export default function CheckoutPage() {
                   onChange={() => !entregaFechada && !retiradaFechada && handleChange({ target: { name: 'order_type', value: 'agora' } })}
                   icon={<HiLightningBolt size={22} />}
                   label="Agora"
-                  sublabel={entregaFechada ? 'Entrega só no horário' : retiradaFechada ? `Loja abre às ${horarioDaLoja(settings).abre}` : 'O mais rápido possível'}
+                  sublabel={entregaFechada ? 'Entrega só no horário' : retiradaFechada ? `Loja abre às ${horarioDaLoja(settings).abre}` : ehUber && cotacao.prazo_min ? `Chega em ~${cotacao.prazo_min + 20} min` : 'O mais rápido possível'}
                   name="order_type"
                   value="agora"
                   disabled={entregaFechada || retiradaFechada}
@@ -775,7 +847,7 @@ export default function CheckoutPage() {
                   { value: 'cartao', label: 'Cartão agora', icon: <HiCreditCard size={20} /> },
                   { value: 'dinheiro', label: 'Dinheiro na entrega', icon: <HiCash size={20} /> },
                   { value: 'credito', label: 'Cartão na entrega', icon: <HiCreditCard size={20} /> },
-                ].map(opt => (
+                ].filter(opt => !ehUber || ['pix_online', 'cartao'].includes(opt.value)).map(opt => (
                   <label key={opt.value} className={`flex items-center gap-2.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                     form.payment_method === opt.value
                       ? 'border-primary bg-primary/5 shadow-sm'
@@ -804,6 +876,10 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
+              {ehUber && (
+                <p className="mt-3 text-xs text-text-light">Na entrega por Uber o pagamento é feito agora, pelo site.</p>
+              )}
+              {errors.payment_method && <p className="text-danger text-xs mt-1.5 font-semibold">{errors.payment_method}</p>}
               {form.payment_method === 'dinheiro' && (
                 <div className="mt-4">
                   <Input
@@ -919,7 +995,7 @@ export default function CheckoutPage() {
                 )}
                 <div className="flex justify-between text-sm text-text-light">
                   <span>
-                    Taxa de entrega
+                    {ehUber ? 'Entrega Uber' : 'Taxa de entrega'}
                     {form.delivery_type === 'entrega' && cotacao.status === 'ok' && ` (${formatarKm(cotacao.km)})`}
                   </span>
                   <span className={form.delivery_type === 'retirada' ? 'text-accent font-semibold' : ''}>
@@ -1070,6 +1146,36 @@ function AvisoEntrega({ cotacao, aoRetirar, linkWhatsApp }) {
           : cotacao.motivo === 'cep-nao-encontrado'
             ? 'Não encontramos este CEP. Confira os números.'
             : 'Não conseguimos calcular a entrega agora. Tente de novo em instantes.'}
+      </p>
+      <button type="button" onClick={aoRetirar} className="mt-1 font-semibold text-primary underline cursor-pointer">
+        Prefiro retirar na loja
+      </button>
+    </div>
+  )
+}
+
+/** Resultado da cotação da Uber logo abaixo do CEP. */
+function AvisoUber({ cotacao, aoRetirar }) {
+  if (cotacao.status === 'vazio') {
+    return <p className="text-xs text-text-light -mt-2">O preço é o da própria Uber, calculado pelo endereço. Atende até uns 5 km da loja (Pajuçara).</p>
+  }
+  if (cotacao.status === 'calculando') {
+    return <p className="text-sm text-text-light -mt-2 animate-pulse">Consultando o Uber…</p>
+  }
+  if (cotacao.status === 'ok') {
+    return (
+      <p className="text-sm text-text -mt-2">
+        Entrega Uber: <strong>{formatCurrency(cotacao.taxa)}</strong>
+        {cotacao.prazo_min ? <span className="text-text-light"> · chega uns {cotacao.prazo_min} min depois de chamado</span> : null}
+      </p>
+    )
+  }
+  return (
+    <div className="-mt-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+      <p>
+        {cotacao.status === 'fora-uber'
+          ? 'O Uber não chega neste endereço: ele atende até uns 5 km da loja.'
+          : 'Não conseguimos consultar o Uber agora. Tente de novo em instantes.'}
       </p>
       <button type="button" onClick={aoRetirar} className="mt-1 font-semibold text-primary underline cursor-pointer">
         Prefiro retirar na loja

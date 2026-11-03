@@ -25,6 +25,8 @@ const fields = [
   { key: 'entrega_dias_agenda', label: 'Dias à frente para marcar entrega', type: 'number' },
   { key: 'delivery_fee_per_km', label: 'Taxa de entrega (R$ por km)', type: 'number' },
   { key: 'delivery_max_km', label: 'Entrega até (km)', type: 'number' },
+  { key: 'uber_ativo', label: 'Entrega por Uber pelo site', type: 'chave', padrao: 'nao', ligado: 'Cliente pode escolher Uber (preço da Uber, pago pelo site)', desligado: 'Sem opção de Uber no site' },
+  { key: 'uber_margem', label: 'Uber: somar ao preço da corrida (R$)', type: 'number' },
   { key: 'min_order', label: 'Pedido Mínimo (R$)', type: 'number' },
   { key: 'pix_key', label: 'Chave Pix' },
   { key: 'pix_name', label: 'Nome no Pix' },

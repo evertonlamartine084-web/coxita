@@ -13,6 +13,7 @@ import { playOrderAlert } from '../../utils/alertSound'
 import PromoRefri from '../../components/admin/PromoRefri'
 import ZapDoGrupo from '../../components/admin/ZapDoGrupo'
 import SinalDoPedido from '../../components/admin/SinalDoPedido'
+import UberDoPedido from '../../components/admin/UberDoPedido'
 import ReposicaoModal from '../../components/admin/ReposicaoModal'
 import { impressaoAutoLigada, definirImpressaoAuto, imprimirComanda, imprimirCupomFiscal, marcarComandaImpressa, imprimirTeste } from '../../utils/impressao'
 import toast from 'react-hot-toast'
@@ -132,6 +133,14 @@ export default function OrdersPage() {
       // fila do dia: quem pediu primeiro sai primeiro
       ? [...emAberto].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
       : orders.filter(o => (buscando || !ehAgendadoEmAberto(o)) && casaComBusca(o, busca))
+
+  // corrida do Uber mudou (chamada, motorista, status): atualiza a tela sem recarregar a lista
+  const aoMudarUber = useCallback((id, r) => {
+    if (!r) return
+    const campos = Object.fromEntries(Object.entries(r).filter(([k]) => k.startsWith('uber_')))
+    setSelectedOrder(prev => (prev?.id === id ? { ...prev, ...campos } : prev))
+    setOrders(lista => lista.map(o => (o.id === id ? { ...o, ...campos } : o)))
+  }, [])
 
   const loadOrders = useCallback((showLoading = false) => {
     if (showLoading) setLoading(true)
@@ -479,6 +488,9 @@ export default function OrdersPage() {
                         {ehPromocao(order) && (
                           <span className="ml-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">PROMOÇÃO</span>
                         )}
+                        {order.entregador === 'uber' && (
+                          <span className="ml-1.5 bg-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">🚗 UBER</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-2">
@@ -661,6 +673,10 @@ export default function OrdersPage() {
                   <p className="text-sm text-text-light">Ref: {selectedOrder.address_reference}</p>
                 )}
               </div>
+            )}
+
+            {selectedOrder.entregador === 'uber' && selectedOrder.status !== 'cancelado' && (
+              <UberDoPedido pedido={selectedOrder} aoMudar={aoMudarUber} />
             )}
 
             <div className="border-t border-border pt-3">

@@ -252,7 +252,7 @@ const ROTULO_PAGAMENTO = {
 export function textoDoPedido(p) {
   const entrega = p.delivery_type === 'entrega'
   const pago = p.payment_status === 'pago'
-  const linhas = [`*PEDIDO #${p.order_number}* — ${entrega ? 'ENTREGA' : 'RETIRADA'}`]
+  const linhas = [`*PEDIDO #${p.order_number}* — ${p.entregador === 'uber' ? '🚗 ENTREGA UBER' : entrega ? 'ENTREGA' : 'RETIRADA'}`]
   if (p.reposicao_de) linhas.push(`🔁 *REPOSIÇÃO, SEM COBRANÇA* — motivo: ${p.reposicao_motivo}`)
   if (p.scheduled_for) {
     const j = entrega ? janelaDeEntrega(p.scheduled_for) : null
@@ -310,6 +310,8 @@ export function avisoDevido(p) {
   const feitos = p.zap_cliente ?? {}
   const devido = (evento) => (feitos[evento] ? null : evento)
   if (p.status === 'entregue') return devido('entregue')
+  // Uber: o link da corrida vai assim que a loja chama o motorista
+  if (p.entregador === 'uber' && p.uber_link && !feitos.uber) return 'uber'
   if (p.status === 'saiu_entrega') return devido('saiu')
   if (p.status === 'em_preparo') return devido('em_preparo')
   if (p.status === 'pendente' && p.canal === 'site') return devido('recebido')
@@ -341,10 +343,18 @@ export function mensagemParaCliente(p, evento, { avaliacaoUrl = '' } = {}) {
     }
     case 'em_preparo':
       return `Seu pedido ${codigo} já está sendo preparado 👩‍🍳`
+    case 'uber':
+      return [
+        `Chamamos o Uber para levar o seu pedido ${codigo} 🚗`,
+        p.uber_motorista ? `Motorista: ${p.uber_motorista}` : '',
+        `Acompanhe a corrida por aqui: ${p.uber_link}`,
+      ].filter(Boolean).join('\n')
     case 'saiu':
       return entrega
         ? [
-            `Seu pedido ${codigo} saiu para entrega e chega em breve 🛵`,
+            p.entregador === 'uber'
+              ? `Seu pedido ${codigo} saiu com o motorista do Uber 🚗${p.uber_link ? `\nAcompanhe: ${p.uber_link}` : ''}`
+              : `Seu pedido ${codigo} saiu para entrega e chega em breve 🛵`,
             !pago && aCobrar > 0 ? `Valor a pagar na entrega: ${formatCurrency(aCobrar)}` : '',
           ].filter(Boolean).join('\n')
         : `Seu pedido ${codigo} está pronto! Já pode vir buscar 🎉`

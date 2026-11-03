@@ -296,7 +296,7 @@ function htmlDaComanda(p) {
   <div class="centro">${esc(formatDate(p.created_at))}</div>
   ${p.reposicao_de ? `<div class="faixa invertida">REPOSIÇÃO · SEM COBRANÇA</div><div class="obs">Motivo: ${esc(p.reposicao_motivo)}</div>` : ''}
   ${p.scheduled_for ? `<div class="faixa invertida">AGENDADO: ${esc(formatDate(p.scheduled_for))}</div>${entrega ? `<div class="centro"><b>Chegar entre ${esc(janelaDeEntrega(p.scheduled_for).de)} e ${esc(janelaDeEntrega(p.scheduled_for).ate)}</b></div>` : ''}` : ''}
-  <div class="faixa">${entrega ? 'ENTREGA' : 'RETIRADA NA LOJA'}</div>
+  <div class="faixa ${p.entregador === 'uber' ? 'invertida' : ''}">${p.entregador === 'uber' ? 'ENTREGA UBER · ENTREGAR AO MOTORISTA' : entrega ? 'ENTREGA' : 'RETIRADA NA LOJA'}</div>
   <div class="bloco"><b>${esc(p.customer_name)}</b><div>${esc(p.customer_phone)}</div></div>
   ${endereco}
   <hr>

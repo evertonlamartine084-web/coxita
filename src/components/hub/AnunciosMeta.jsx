@@ -104,7 +104,7 @@ export default function AnunciosMeta({ periodo }) {
 
       {teste?.julgados.length > 0 && (
         <Bloco titulo="🧪 Teste de criativos"
-          subtitulo={`Anúncios no ar desde ${new Date(`${teste.config.inicio}T12:00:00`).toLocaleDateString('pt-BR')}, do mais barato por conversa ao mais caro. ${teste.ativo ? 'O vigia avisa no grupo da loja quando um deve ser desligado e manda o placar às ' + teste.config.hora_placar + 'h.' : 'Vigia desligado.'}`}>
+          subtitulo={`Anúncios no ar desde ${new Date(`${teste.config.inicio}T12:00:00`).toLocaleDateString('pt-BR')}, do mais barato por conversa ao mais caro. ${teste.ativo ? 'O vigia só avisa no grupo da loja quando um deve ser desligado.' : 'Vigia desligado.'}`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>

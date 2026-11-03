@@ -424,6 +424,26 @@ export default function OrderTrackingPage() {
                 )}
               </div>
 
+              {/* Entrega por Uber: link da corrida assim que a loja chama o motorista */}
+              {order.entregador === 'uber' && order.status !== 'cancelado' && (
+                <div className="bg-surface border-2 border-brown/20 p-5 mb-4 shadow-[4px_4px_0_rgba(93,43,4,0.12)]">
+                  <p className="font-display font-extrabold uppercase text-brown">🚗 Entrega por Uber</p>
+                  {order.uber_link ? (
+                    <>
+                      {order.uber_motorista && <p className="text-sm text-text mt-1">Motorista: <strong>{order.uber_motorista}</strong></p>}
+                      <a
+                        href={order.uber_link} target="_blank" rel="noopener noreferrer"
+                        className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-black px-4 font-display font-bold text-white no-underline hover:opacity-90"
+                      >
+                        Acompanhar a corrida
+                      </a>
+                    </>
+                  ) : (
+                    <p className="text-sm text-text-light mt-1">A gente chama o motorista quando o pedido ficar pronto. O link da corrida aparece aqui e no seu WhatsApp.</p>
+                  )}
+                </div>
+              )}
+
               {/* Status tracker */}
               {order.status === 'cancelado' ? (
                 <div className="bg-danger/5 card-organic border-2 border-danger/30 p-6 text-center">
