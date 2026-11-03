@@ -10,7 +10,7 @@ import { precoAtual, lojaDaOrigem } from '../../utils/precosDosInsumos'
 
 /**
  * Onde comprar (02/11/2026): o robô cotar-mercados procura todo dia às 6h30 o preço de cada insumo
- * no Atacadão e no Nordestão (os mercados de Natal com loja online aberta). Aqui, o mais barato de
+ * no Atacadão, no Nordestão e no Favorito (os mercados de Natal com loja online aberta). Aqui, o mais barato de
  * hoje contra o que se paga, e a oferta que vale a pena em destaque.
  *
  * Vale a pena: 10% ou mais abaixo do que se paga hoje. "Menor em 30 dias": o melhor de hoje é o
@@ -167,8 +167,8 @@ export default function OndeComprarPage() {
         </Button>
       </div>
       <p className="mb-6 text-sm text-gray-500">
-        Todo dia às 6h30 o robô procura os insumos nas lojas de Natal do Atacadão (Natal Sul) e do Nordestão (Lagoa Nova), com o estoque delas, e compara, por kg ou litro, com o que vocês pagam hoje.
-        Assaí e Carrefour bloqueiam robô no site e ficam de fora.
+        Todo dia às 6h30 o robô procura os insumos nas lojas de Natal do Atacadão (Natal Sul), do Nordestão (Santa Catarina, Potengi) e do Favorito (Ponta Negra), com o estoque delas,
+        e compara, por kg ou litro, com o que vocês pagam hoje. Assaí e Carrefour bloqueiam robô; Super Fácil, Mar Vermelho e Rede Mais não vendem online.
         {dados.rodada && <> Última busca: {new Date(dados.rodada.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}{dados.rodada.erros?.length ? ` (${dados.rodada.erros.length} erro(s))` : ''}.</>}
       </p>
 

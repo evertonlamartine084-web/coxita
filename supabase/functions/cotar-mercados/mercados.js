@@ -6,11 +6,12 @@
  *
  *  - Atacadão (VTEX): a busca é aberta; o preço e o estoque são os da loja Natal Sul, pela simulação
  *    de carrinho com o vendedor dela (o preço da busca é o da loja online nacional).
- *  - Nordestão (VipCommerce): a loja online entra como visitante com a chave que o próprio site
- *    manda para todo navegador (POST auth/loja/login) e busca no centro de distribuição 2, a loja
- *    da Av. Senador Salgado Filho, 1656 (Lagoa Nova).
+ *  - Nordestão e Favorito (VipCommerce): a loja online entra como visitante com a chave que o
+ *    próprio site manda para todo navegador (POST auth/loja/login) e busca na loja escolhida
+ *    (VIP_LOJAS).
  *
- * Assaí e Carrefour ficam de fora: os sites têm proteção contra robô (Incapsula, captcha).
+ * Assaí e Carrefour ficam de fora: os sites têm proteção contra robô (Incapsula, captcha). Super
+ * Fácil, Mar Vermelho e Rede Mais não vendem online (encarte só no Facebook e no WhatsApp).
  */
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36'
@@ -100,32 +101,49 @@ export async function buscarAtacadao(termo) {
   return saida
 }
 
-// ---------------------------------------------------------------- Nordestão
+// ---------------------------------------------------------------- VipCommerce (Nordestão, Favorito)
 
-const VIP = 'https://services.vipcommerce.com.br/api-admin/v1'
-const NORDESTAO = { org: 52, filial: 1, cd: 2, dominio: 'nordestaomaisvoce.com.br', chave: 'df072f85df9bf7dd71b6811c34bdbaa4f219d98775b56cff9dfa5f8ca1bf8469' }
-let tokenNordestao = null
+// A chave é a mesma que a plataforma manda para todo visitante de qualquer loja dela.
+const VIP_CHAVE = 'df072f85df9bf7dd71b6811c34bdbaa4f219d98775b56cff9dfa5f8ca1bf8469'
+// cd = centro de distribuição = a loja que separa o pedido; a lista sai de
+// org/<org>/filial/1/loja/centros_distribuicoes/retiradas
+const VIP_LOJAS = {
+  // Santa Catarina (Potengi, Zona Norte): a mais perto da Coxelli. Há também Lagoa Nova (2),
+  // Ponta Negra (3), Nova Parnamirim (4) e Tirol (6).
+  'Nordestão': { api: 'https://services.vipcommerce.com.br', org: 52, filial: 1, cd: 1, dominio: 'nordestaomaisvoce.com.br', site: 'https://www.lojaonline.nordestao.com.br' },
+  // só a loja de Ponta Negra (Av. Eng. Roberto Freire, 1460) vende online
+  'Favorito': { api: 'https://services-beta.vipcommerce.com.br', org: 35, filial: 1, cd: 1, dominio: 'favoritosupermercados.com.br', site: 'https://www.favoritosupermercados.com.br' },
+}
+const tokensVip = new Map()
 
-async function token() {
-  if (tokenNordestao) return tokenNordestao
-  const r = await fetch(`${VIP}/org/${NORDESTAO.org}/auth/loja/login`, {
-    method: 'POST',
-    headers: { 'user-agent': UA, 'content-type': 'application/json', domainkey: NORDESTAO.dominio, organizationid: String(NORDESTAO.org), authorization: 'Bearer' },
-    body: JSON.stringify({ domain: NORDESTAO.dominio, username: 'loja', key: NORDESTAO.chave }),
-  })
-  const d = await r.json()
-  if (!d?.data) throw new Error('Nordestão não abriu a loja para visitante')
-  tokenNordestao = d.data
-  return tokenNordestao
+function cabecalhoVip(loja, token) {
+  return { 'user-agent': UA, 'content-type': 'application/json', domainkey: loja.dominio, organizationid: String(loja.org), authorization: `Bearer${token ? ` ${token}` : ''}` }
 }
 
-export async function buscarNordestao(termo) {
-  const t = await token()
-  const termoUrl = encodeURIComponent(termo).replace(/%20/g, '+')
-  const r = await fetch(`${VIP}/org/${NORDESTAO.org}/filial/${NORDESTAO.filial}/centro_distribuicao/${NORDESTAO.cd}/loja/buscas/produtos/termo/${termoUrl}?page=1`, {
-    headers: { 'user-agent': UA, 'content-type': 'application/json', domainkey: NORDESTAO.dominio, organizationid: String(NORDESTAO.org), authorization: `Bearer ${t}` },
+async function tokenVip(nome) {
+  if (tokensVip.has(nome)) return tokensVip.get(nome)
+  const loja = VIP_LOJAS[nome]
+  const pedido = fetch(`${loja.api}/api-admin/v1/org/${loja.org}/auth/loja/login`, {
+    method: 'POST',
+    headers: cabecalhoVip(loja),
+    body: JSON.stringify({ domain: loja.dominio, username: 'loja', key: VIP_CHAVE }),
+  }).then(r => r.json()).then(d => {
+    if (!d?.data) throw new Error(`${nome} não abriu a loja para visitante`)
+    return d.data
   })
-  if (!r.ok) throw new Error(`Nordestão ${r.status}`)
+  tokensVip.set(nome, pedido)
+  pedido.catch(() => tokensVip.delete(nome))
+  return pedido
+}
+
+async function buscarVip(nome, termo) {
+  const loja = VIP_LOJAS[nome]
+  const t = await tokenVip(nome)
+  const termoUrl = encodeURIComponent(termo).replace(/%20/g, '+')
+  const r = await fetch(`${loja.api}/api-admin/v1/org/${loja.org}/filial/${loja.filial}/centro_distribuicao/${loja.cd}/loja/buscas/produtos/termo/${termoUrl}?page=1`, {
+    headers: cabecalhoVip(loja, t),
+  })
+  if (!r.ok) throw new Error(`${nome} ${r.status}`)
   const d = await r.json()
   const saida = []
   for (const p of d?.data?.produtos ?? []) {
@@ -135,13 +153,13 @@ export async function buscarNordestao(termo) {
     const preco = promo > 0 && promo < cheio ? promo : cheio
     if (!(preco > 0)) continue
     saida.push({
-      mercado: 'Nordestão',
+      mercado: nome,
       produto_id: String(p.produto_id),
       produto: p.descricao,
       marca: p.marca?.descricao ?? null,
       preco,
       preco_original: preco < cheio ? cheio : null,
-      link: `https://www.lojaonline.nordestao.com.br/produtos/detalhe/${p.produto_id}/${p.link}`,
+      link: `${loja.site}/produtos/detalhe/${p.produto_id}/${p.link}`,
     })
   }
   return saida
@@ -149,7 +167,7 @@ export async function buscarNordestao(termo) {
 
 export const MERCADOS = [
   { nome: 'Atacadão', buscar: buscarAtacadao },
-  { nome: 'Nordestão', buscar: buscarNordestao },
+  ...Object.keys(VIP_LOJAS).map(nome => ({ nome, buscar: (termo) => buscarVip(nome, termo) })),
 ]
 
 /**
