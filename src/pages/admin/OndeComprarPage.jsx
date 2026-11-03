@@ -58,8 +58,12 @@ function SeloRede({ rede }) {
   return <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${COR_DA_REDE[rede] ?? 'bg-gray-700 text-white'}`}>{rede}</span>
 }
 
-function Cartao({ p, unidade, pago, aoIgnorar, destaque = false }) {
+const semAcento = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+const daMarcaDeVoces = (produto, marcas) => (marcas ?? []).some(m => semAcento(produto).includes(semAcento(m)))
+
+function Cartao({ p, unidade, pago, marcas, aoIgnorar, destaque = false }) {
   const diferenca = pago ? (Number(p.preco_unidade) / pago - 1) * 100 : null
+  const mesmaMarca = daMarcaDeVoces(p.produto, marcas)
   const maisBarato = diferenca != null && diferenca <= -10
   const lojas = p.lojasMaisBaratas.map(lojaDe).filter(Boolean)
   return (
@@ -73,7 +77,10 @@ function Cartao({ p, unidade, pago, aoIgnorar, destaque = false }) {
             {diferenca < 0 ? '−' : '+'}{Math.abs(Math.round(diferenca))}%
           </span>
         )}
-        {p.preco_original && <span className="absolute bottom-2 left-2 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Oferta</span>}
+        <div className="absolute bottom-2 left-2 flex flex-wrap gap-1">
+          {p.preco_original && <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Oferta</span>}
+          {mesmaMarca && <span className="rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-950">★ A de vocês</span>}
+        </div>
         <button
           type="button"
           onClick={() => aoIgnorar(p)}
@@ -269,7 +276,7 @@ export default function OndeComprarPage() {
                   <p className="mb-1 truncate text-xs font-semibold uppercase tracking-wide text-gray-500">
                     {l.insumo.name}{l.menorEm30 && <span className="ml-1 normal-case text-green-700">· menor em 30 dias</span>}
                   </p>
-                  <Cartao p={l.melhor} unidade={l.insumo.unit} pago={l.pago} aoIgnorar={ignorar} destaque />
+                  <Cartao p={l.melhor} unidade={l.insumo.unit} pago={l.pago} marcas={l.busca?.marcas} aoIgnorar={ignorar} destaque />
                   <p className="mt-1 text-[11px] text-gray-500 tabular-nums">vocês pagam {porUnidade(l.pago, l.insumo.unit)}</p>
                 </div>
               ))}
@@ -287,6 +294,7 @@ export default function OndeComprarPage() {
               <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
                 <div>
                   <h3 className="text-base font-bold text-gray-900">{l.insumo.name}</h3>
+                  {l.busca?.descricao && <p className="text-xs font-medium text-gray-700">O que vocês compram: {l.busca.descricao}</p>}
                   <p className="text-xs text-gray-500 tabular-nums">
                     vocês pagam <strong className="text-gray-700">{l.pago ? porUnidade(l.pago, l.insumo.unit) : '—'}</strong>
                     {lojaDaOrigem(l.insumo.preco_origem) ? ` no ${lojaDaOrigem(l.insumo.preco_origem)}` : ''}
@@ -304,12 +312,12 @@ export default function OndeComprarPage() {
               )}
 
               {l.produtos.length === 0
-                ? <p className="text-sm text-gray-500">O robô não achou este insumo{rede ? ` no ${rede}` : ''} hoje.</p>
+                ? <p className="text-sm text-gray-500">Nenhum mercado{rede ? ` do ${rede}` : ''} tem hoje este produto como vocês compram (costuma ser coisa de distribuidora).</p>
                 : (
                   <>
                     <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-4 xl:grid-cols-6">
                       {vistos.map(p => (
-                        <Cartao key={`${p.rede}|${p.produto_id}`} p={p} unidade={l.insumo.unit} pago={l.pago} aoIgnorar={ignorar} />
+                        <Cartao key={`${p.rede}|${p.produto_id}`} p={p} unidade={l.insumo.unit} pago={l.pago} marcas={l.busca?.marcas} aoIgnorar={ignorar} />
                       ))}
                     </div>
                     {l.produtos.length > NA_PRATELEIRA && (

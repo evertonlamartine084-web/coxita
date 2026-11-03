@@ -149,3 +149,43 @@ language sql stable security invoker set search_path = public as $$
    group by supply_id
 $$;
 grant execute on function mercado_minimos(int) to authenticated;
+
+-- 03/11: buscas pelo que a Coxelli compra de fato (nota do insumo, cupons e planilha), não pelo
+-- nome genérico. O dono: "vc ta me mostrando o peito de frango, mas a gente compra o filé do
+-- peito". `descricao` aparece na prateleira; `marcas` ganham o selo "a de vocês".
+alter table mercado_buscas add column if not exists descricao text;
+alter table mercado_buscas add column if not exists marcas text[] not null default '{}';
+
+update mercado_buscas b
+   set termos = v.termos, comeca = v.comeca, incluir = v.incluir, excluir = v.excluir,
+       minimo = v.minimo, descricao = v.descricao, marcas = v.marcas, atualizado_em = now()
+  from (values
+    ('Frango', 'file de peito de frango;file de peito;file peito frango', array['file de peito','file peito','file de frango'], array['peito'], array['empanado','temperado','grelhado','sassami','sobrecoxa','coxa','defumado','fatiad','tiras','cubos'], null::numeric, 'Filé de peito de frango congelado', array['Lar']),
+    -- mercado quase não diz o corte da moída; músculo ganha o selo pela "marca"
+    ('Carne moída', 'musculo moido;carne moida musculo;carne moida', array['carne moida','carne bovina moida','musculo'], array['moid'], array['suina','frango','soja','cordeiro','patinho','acem','fraldinha'], null, 'Carne moída de músculo', array['Músculo']),
+    ('Carne de sol', 'carne de sol coxao mole;carne de sol', array['carne de sol','carne do sol'], array['coxao mole'], array['desfiad'], null, 'Carne de sol de coxão mole', array[]::text[]),
+    ('Doce de leite', 'doce de soro de leite;doce de soro', array['doce de soro'], array[]::text[], array[]::text[], null, 'Doce de soro de leite (balde de 4,8 kg)', array['Aurea']),
+    ('Requeijão cremoso', 'requeijao bisnaga;requeijao culinario;requeijao cremoso 1,8kg;requeijao 1,5kg', array['requeijao','req '], array[]::text[], array['light','cheddar','zero','copo'], 1.0, 'Requeijão cremoso em bisnaga (1,8 kg)', array['Reke','Minas','Scala','Da Vaca']),
+    ('Requeijão cheddar', 'cheddar bisnaga;requeijao cheddar;cheddar culinario', array['requeijao','cheddar','mistura'], array['cheddar'], array['fatiad','ralad','molho','light'], 1.0, 'Requeijão cheddar em bisnaga (1,2 kg)', array['Minas','Scala']),
+    ('Margarina', 'margarina 15kg;margarina balde;margarina', array['margarina'], array[]::text[], array['light','sem sal','zero'], 3.0, 'Margarina com sal, balde (Elogiata 80%, 15 kg)', array['Elogiata','Primor']),
+    ('Salsicha', 'salsicha hot dog 3kg;salsicha hot dog', array['salsicha'], array['hot'], array['vegana','lata','conserva','frango'], 1.0, 'Salsicha hot dog, pacote de 3 kg', array['Bom Todo']),
+    ('Farinha de trigo', 'farinha de trigo tipo 1;farinha de trigo 25kg;farinha de trigo', array['farinha de trigo'], array[]::text[], array['integral','pizza','bolo','fermento','mistura','pastel','integral','sem gluten'], null, 'Farinha de trigo tipo 1 (Farina; saco de 25 a 40 kg ou pacote de 1 kg)', array['Farina','Padeiro']),
+    ('Óleo de soja', 'oleo de soja 900ml;oleo de soja', array['oleo de soja','oleo soja'], array[]::text[], array['composto','spray'], null, 'Óleo de soja pet 900 ml (caixa com 20)', array['Vila Velha','ABC']),
+    ('Bacon', 'bacon manta;bacon pedaco;bacon', array['bacon'], array[]::text[], array['fatiad','cubos','sabor','bits','em po','calabresa'], null, 'Bacon em manta ou pedaço (Aurora)', array['Aurora']),
+    ('Presunto', 'presunto cozido;presunto', array['presunto'], array[]::text[], array['parma','cru','fat','peru','frango','sabor'], null, 'Presunto cozido em peça (Aurora)', array['Aurora']),
+    ('Queijo mussarela', 'queijo mussarela;mussarela', array['queijo mussarela','mussarela','queijo muss'], array[]::text[], array['fat','ralad','bufala','palito','light','zero'], null, 'Queijo mussarela em peça', array['Domilac','Paulina']),
+    ('Queijo coalho', 'queijo coalho;queijo de coalho', array['queijo coalho','queijo de coalho'], array[]::text[], array['espeto','palito','fatiad','oregano','light','lact','barrinha'], null, 'Queijo coalho em peça', array['Aurea','Jucurutu','Serido']),
+    ('Calabresa', 'linguica calabresa', array['linguica calabresa','linguica tipo calabresa'], array[]::text[], array['fatiad','apimentad','frango','cozida'], 1.0, 'Linguiça calabresa defumada (pacote de 2,5 kg)', array[]::text[]),
+    ('Massa de pastel', 'massa de pastel rolo;massa para pastel;massa de pastel', array['massa para pastel','massa de pastel','massa pastel','massa p pastel'], array[]::text[], array['disco','mini','integral'], 0.9, 'Massa de pastel em rolo (2 kg)', array['Massa Fest','Pastelouco']),
+    ('Brigadeiro', 'brigadeiro gourmet;brigadeiro', array['brigadeiro','mistura para brigadeiro'], array[]::text[], array['bombom','bolo','biscoito','sorvete','achocolatado'], 0.9, 'Brigadeiro gourmet pronto (Junco, 1 kg)', array['Junco']),
+    ('Nutella', 'nutella', array['nutella'], array[]::text[], array['biscoito','wafer','b-ready'], null, 'Nutella (pote de 3 kg)', array['Nutella']),
+    ('Leite', 'leite integral', array['leite'], array['integral'], array['po','condensado','fermentado','coco','ninho','zero','sem lactose'], null, 'Leite integral longa vida 1 L', array['Natville','Nataville']),
+    ('Sal', 'sal refinado', array['sal '], array[]::text[], array['grosso','rosa','light','temperado','parrilla'], null, 'Sal refinado 1 kg', array['Nevado']),
+    ('Alho em pó', 'alho em po;alho desidratado em po', array['alho'], array['em po'], array['sal','pasta','frito','granulado'], null, 'Alho em pó (500 g)', array[]::text[]),
+    ('Pimenta do reino', 'pimenta do reino moida;pimenta do reino em po', array['pimenta do reino','pimenta-do-reino'], array[]::text[], array['grao','grão','branca'], null, 'Pimenta do reino em pó', array[]::text[]),
+    ('Cominho', 'cominho em po;cominho', array['cominho'], array[]::text[], array['pimenta','grao'], null, 'Cominho em pó', array[]::text[]),
+    ('Coentro em pó', 'coentro em po', array['coentro'], array['po'], array['grao','fresco'], null, 'Coentro em pó', array[]::text[]),
+    ('Cebola', 'cebola branca;cebola', array['cebola'], array[]::text[], array['roxa','po','frita','desidratada','conserva','granulada','molho'], null, 'Cebola branca', array[]::text[])
+  ) as v(insumo, termos, comeca, incluir, excluir, minimo, descricao, marcas)
+  join supplies s on s.name = v.insumo
+ where b.supply_id = s.id;
