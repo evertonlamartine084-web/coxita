@@ -167,7 +167,7 @@ export default function OndeComprarPage() {
         </Button>
       </div>
       <p className="mb-6 text-sm text-gray-500">
-        Todo dia às 6h30 o robô procura os insumos nas lojas de Natal do Atacadão (Natal Sul), do Nordestão (Santa Catarina, Potengi) e do Favorito (Ponta Negra), com o estoque delas,
+        Todo dia às 6h30 o robô procura os insumos nas lojas de Natal do Atacadão (Natal Sul), do Nordestão (Santa Catarina, Lagoa Nova, Ponta Negra, Nova Parnamirim e Tirol) e do Favorito (Ponta Negra), com o estoque delas,
         e compara, por kg ou litro, com o que vocês pagam hoje. Assaí e Carrefour bloqueiam robô; Super Fácil, Mar Vermelho e Rede Mais não vendem online.
         {dados.rodada && <> Última busca: {new Date(dados.rodada.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}{dados.rodada.erros?.length ? ` (${dados.rodada.erros.length} erro(s))` : ''}.</>}
       </p>

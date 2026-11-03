@@ -107,10 +107,14 @@ export async function buscarAtacadao(termo) {
 const VIP_CHAVE = 'df072f85df9bf7dd71b6811c34bdbaa4f219d98775b56cff9dfa5f8ca1bf8469'
 // cd = centro de distribuição = a loja que separa o pedido; a lista sai de
 // org/<org>/filial/1/loja/centros_distribuicoes/retiradas
+const NORDESTAO = { api: 'https://services.vipcommerce.com.br', org: 52, filial: 1, dominio: 'nordestaomaisvoce.com.br', site: 'https://www.lojaonline.nordestao.com.br' }
 const VIP_LOJAS = {
-  // Santa Catarina (Potengi, Zona Norte): a mais perto da Coxelli. Há também Lagoa Nova (2),
-  // Ponta Negra (3), Nova Parnamirim (4) e Tirol (6).
-  'Nordestão': { api: 'https://services.vipcommerce.com.br', org: 52, filial: 1, cd: 1, dominio: 'nordestaomaisvoce.com.br', site: 'https://www.lojaonline.nordestao.com.br' },
+  // todas as lojas do Nordestão que vendem online (o preço pode mudar de uma para outra)
+  'Nordestão Santa Catarina': { ...NORDESTAO, cd: 1 },
+  'Nordestão Lagoa Nova': { ...NORDESTAO, cd: 2 },
+  'Nordestão Ponta Negra': { ...NORDESTAO, cd: 3 },
+  'Nordestão Nova Parnamirim': { ...NORDESTAO, cd: 4 },
+  'Nordestão Tirol': { ...NORDESTAO, cd: 6 },
   // só a loja de Ponta Negra (Av. Eng. Roberto Freire, 1460) vende online
   'Favorito': { api: 'https://services-beta.vipcommerce.com.br', org: 35, filial: 1, cd: 1, dominio: 'favoritosupermercados.com.br', site: 'https://www.favoritosupermercados.com.br' },
 }
@@ -120,9 +124,10 @@ function cabecalhoVip(loja, token) {
   return { 'user-agent': UA, 'content-type': 'application/json', domainkey: loja.dominio, organizationid: String(loja.org), authorization: `Bearer${token ? ` ${token}` : ''}` }
 }
 
+// o login é da rede, não da loja: um token serve a todas as lojas do Nordestão
 async function tokenVip(nome) {
-  if (tokensVip.has(nome)) return tokensVip.get(nome)
   const loja = VIP_LOJAS[nome]
+  if (tokensVip.has(loja.org)) return tokensVip.get(loja.org)
   const pedido = fetch(`${loja.api}/api-admin/v1/org/${loja.org}/auth/loja/login`, {
     method: 'POST',
     headers: cabecalhoVip(loja),
@@ -131,8 +136,8 @@ async function tokenVip(nome) {
     if (!d?.data) throw new Error(`${nome} não abriu a loja para visitante`)
     return d.data
   })
-  tokensVip.set(nome, pedido)
-  pedido.catch(() => tokensVip.delete(nome))
+  tokensVip.set(loja.org, pedido)
+  pedido.catch(() => tokensVip.delete(loja.org))
   return pedido
 }
 
