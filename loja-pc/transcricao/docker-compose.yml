@@ -1,0 +1,15 @@
+# Robô de transcrição dos áudios do Zap no PC da loja (ao lado da Evolution, no Docker do WSL).
+# Ver robo.py. Precisa do chave.env nesta pasta (fora do git).
+services:
+  transcricao:
+    build: .
+    restart: always
+    env_file:
+      - chave.env
+    volumes:
+      - modelos:/modelos
+    # não deixa o Whisper tomar o PC todo: o painel e a Evolution rodam na mesma máquina
+    cpus: 2
+    mem_limit: 2g
+volumes:
+  modelos:

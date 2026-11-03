@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
 
   const tresDias = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
   const [{ data: msgs }, { data: produtos }, { data: sabores }, { data: conv }] = await Promise.all([
-    supabase.from("zap_mensagens").select("de_mim, tipo, texto, responde_texto, criada_em")
+    supabase.from("zap_mensagens").select("de_mim, tipo, texto, transcricao, responde_texto, criada_em")
       .eq("conversa", conversa).gte("criada_em", tresDias).order("criada_em", { ascending: false }).limit(40),
     supabase.from("products").select("id, name, price, pack_size, flavor_group, fixed_flavor_id, categories(name)").eq("active", true),
     supabase.from("flavors").select("id, name, group_slug").eq("active", true),
@@ -115,7 +115,10 @@ Deno.serve(async (req) => {
   }
   const transcricao = [...msgs].reverse().map((m: Record<string, unknown>) => {
     const quem = m.de_mim ? "Loja" : "Cliente"
-    const corpo = m.tipo === "texto" ? m.texto : `[${m.tipo}]${m.texto ? ` ${m.texto}` : ""}`
+    // áudio entra pelo texto que o robô do PC da loja transcreveu
+    const corpo = m.tipo === "texto" ? m.texto
+      : m.tipo === "audio" && m.transcricao ? `[áudio, transcrito] ${m.transcricao}`
+      : `[${m.tipo}]${m.texto ? ` ${m.texto}` : ""}`
     const citada = m.responde_texto ? ` (respondendo a: "${m.responde_texto}")` : ""
     return `[${hora(m.criada_em as string)}] ${quem}${citada}: ${corpo}`
   }).join("\n")

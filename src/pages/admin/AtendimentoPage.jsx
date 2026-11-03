@@ -221,7 +221,15 @@ function Localizacao({ m }) {
 function Midia({ m, url, aoAmpliar, foto, inicial }) {
   if (m.tipo === 'localizacao') return <Localizacao m={m} />
   if (!url) return null
-  if (m.tipo === 'audio') return <Audio url={url} foto={foto} inicial={inicial} deMim={m.de_mim} />
+  if (m.tipo === 'audio') {
+    return (
+      <>
+        <Audio url={url} foto={foto} inicial={inicial} deMim={m.de_mim} />
+        {/* texto do robô de transcrição do PC da loja (loja-pc/transcricao) */}
+        {m.transcricao && <p className="mt-1 max-w-[280px] text-[13px] italic leading-snug text-gray-600">“{m.transcricao}”</p>}
+      </>
+    )
+  }
   if (m.tipo === 'figurinha') return <img src={url} alt="Figurinha" className="h-32 w-32 object-contain" />
   if (m.tipo === 'video') return <video controls src={url} className="max-h-72 w-full rounded-md bg-black" />
   if (m.tipo === 'documento') return <Documento m={m} url={url} />

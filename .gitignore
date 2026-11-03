@@ -36,3 +36,4 @@ loja-pc/sefaz/*.pfx
 
 # Artes de referencia (identidade visual, molduras); o que o site usa esta em public/
 materiais/
+loja-pc/transcricao/chave.env
