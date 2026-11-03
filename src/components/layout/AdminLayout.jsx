@@ -456,7 +456,7 @@ export default function AdminLayout() {
           throw e
         }
       }
-      // no grupo só o "desligar" (o dono não quer aviso de quem está ganhando; isso fica no placar)
+      // no grupo só o "desligar"
       for (const a of julgados.filter(x => x.veredito === 'matar')) {
         await avisar(`${a.veredito}:${a.anuncio_id}`, textoDoAlerta(a))
       }
