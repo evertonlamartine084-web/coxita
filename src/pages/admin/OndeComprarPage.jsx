@@ -19,6 +19,14 @@ import { precoAtual, lojaDaOrigem } from '../../utils/precosDosInsumos'
  */
 
 const VALE_A_PENA = 0.9
+
+// O Assaí só publica o encarte em imagem, atrás de proteção contra robô: aqui é só o link para a
+// pessoa abrir o jornal da loja no site deles (03/11/2026).
+const JORNAIS_ASSAI = [
+  { loja: 'Ponta Negra', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-ponta-negra' },
+  { loja: 'Natal', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-natal' },
+  { loja: 'São Gonçalo', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-sao-goncalo-do-amarante' },
+]
 const NA_PRATELEIRA = 6
 
 const porUnidade = (valor, unidade) => `${formatCurrency(valor)}/${unidade}`
@@ -262,6 +270,17 @@ export default function OndeComprarPage() {
             {r || 'Todos'}
           </button>
         ))}
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 p-3">
+        <p className="mr-1 text-sm font-semibold text-gray-800">Ver jornal do Assaí:</p>
+        {JORNAIS_ASSAI.map(j => (
+          <a key={j.loja} href={j.url} target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-orange-700 shadow-sm ring-1 ring-orange-200 hover:bg-orange-100">
+            {j.loja} <HiExternalLink />
+          </a>
+        ))}
+        <p className="w-full text-xs text-gray-500">Abre o site do Assaí; os preços de lá não entram nas prateleiras.</p>
       </div>
 
       <section className="mb-8">
