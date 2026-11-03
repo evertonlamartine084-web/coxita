@@ -8,6 +8,7 @@ import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaIm
 import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, enviarFilaDoAtendimento, sincronizarMensagens, completarNomes, atualizarFotosDePerfil, baixarMidias, vincularNumerosEscondidos, ultimoDiagnosticoLid, enviarReacoesPendentes, executarAcoesPendentes } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa, mensagemDeLead } from '../../utils/crm'
+import { HORA_DO_RESUMO, textoDoResumo } from '../../utils/resumoDaManha'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -411,9 +412,31 @@ export default function AdminLayout() {
       }
     }
 
+    // Resumo da manhã no grupo: a partir das 7h, uma vez por dia (o banco trava o dia; se a
+    // Evolution falhar, o dia é liberado e tenta na volta seguinte). Depois do meio-dia não manda mais.
+    let resumoDoDia = ''
+    const resumoDaManha = async (config) => {
+      const agora = new Date()
+      const hoje = agora.toLocaleDateString('sv-SE')
+      if (resumoDoDia === hoje || agora.getHours() < HORA_DO_RESUMO || agora.getHours() >= 12) return
+      const { data: r, error } = await supabase.rpc('pegar_resumo_da_manha')
+      if (error) throw error
+      resumoDoDia = hoje
+      if (!r) return // outra aba ou outro dia já mandou
+      try {
+        await mandarNoGrupo(textoDoResumo(r), config)
+        registrarImpressao('resumo_manha', null, { dia: r.dia })
+      } catch (e) {
+        resumoDoDia = ''
+        await supabase.from('resumo_manha').delete().eq('dia', r.dia)
+        registrarImpressao('resumo_manha_falhou', null, { erro: e.message })
+      }
+    }
+
     const fluxosDoCrm = async (config) => {
       if (Date.now() - ultimoCrm < 2 * 60 * 1000) return
       ultimoCrm = Date.now()
+      resumoDaManha(config).catch(e => registrarImpressao('resumo_manha_falhou', null, { erro: e.message }))
       // em paralelo: ler o histórico leva minutos e não pode segurar pedido indo para o grupo
       sincronizarContatos(config).catch(e => registrarImpressao('zap_contatos_falhou', null, { erro: e.message }))
       const { data: fluxos } = await supabase.from('crm_fluxos').select('id, ativo, config')
