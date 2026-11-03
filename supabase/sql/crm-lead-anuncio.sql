@@ -14,7 +14,7 @@ insert into crm_fluxos (id, nome, ativo, config) values (
     'hora_fim', 19,
     'horas_sem_conversa', 20,
     'gatilho', 'encomendar um cento',
-    'mensagem', E'Oi, {nome}! Aqui é da Coxelli 🧡\n\nVocê chamou a gente pelo anúncio do cento. Ainda quer encomendar?\n\nO cento de salgados fritos sai *R$ 30 no Pix* (R$ 32 no cartão), com até 4 sabores. Me diz o dia e o bairro que eu já vejo a entrega pra você 😉'
+    'mensagem', E'Oi! Aqui é da Coxelli 🧡\n\nVocê chamou a gente pelo anúncio do cento. Ainda quer encomendar?\n\nO cento de salgados fritos sai *R$ 30 no Pix* (R$ 32 no cartão), com até 4 sabores. Me diz o dia e o bairro que eu já vejo a entrega pra você 😉'
   )
 ) on conflict (id) do nothing;
 
