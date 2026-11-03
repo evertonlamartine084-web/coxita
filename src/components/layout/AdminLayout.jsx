@@ -9,6 +9,7 @@ import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo,
 import AvisosDoPainel from '../admin/AvisosDoPainel'
 import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa, mensagemDeLead } from '../../utils/crm'
 import { HORA_DO_RESUMO, textoDoResumo } from '../../utils/resumoDaManha'
+import { julgarAnuncios, textoDoAlerta, textoDoPlacar } from '../../utils/vigiaMeta'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -433,6 +434,34 @@ export default function AdminLayout() {
       }
     }
 
+    // Vigia da Meta: de hora em hora lê os anúncios (hub-meta) e avisa no grupo uma vez por
+    // anúncio quando um deve ser desligado ou está ganhando; placar do dia na hora marcada.
+    let ultimoVigia = 0
+    const vigiaDaMeta = async (cfg, config) => {
+      if (Date.now() - ultimoVigia < 60 * 60 * 1000) return
+      ultimoVigia = Date.now()
+      const agora = new Date()
+      const hoje = agora.toLocaleDateString('sv-SE')
+      const { data, error } = await supabase.functions.invoke('hub-meta', { body: { inicio: cfg.inicio, fim: hoje } })
+      if (error || !data?.anuncios) throw new Error(error?.message || 'hub-meta sem anúncios')
+      const julgados = julgarAnuncios(data.anuncios, cfg)
+      // a trava (meta_vigia) garante um aviso só, mesmo com duas abas do painel abertas
+      const avisar = async (chave, texto) => {
+        const { data: novo } = await supabase.from('meta_vigia').upsert({ chave }, { onConflict: 'chave', ignoreDuplicates: true }).select('chave')
+        if (!novo?.length) return
+        try {
+          await mandarNoGrupo(texto, config)
+        } catch (e) {
+          await supabase.from('meta_vigia').delete().eq('chave', chave)
+          throw e
+        }
+      }
+      for (const a of julgados.filter(x => x.veredito !== 'testando')) {
+        await avisar(`${a.veredito}:${a.anuncio_id}`, textoDoAlerta(a))
+      }
+      if (agora.getHours() >= cfg.hora_placar && julgados.length) await avisar(`placar:${hoje}`, textoDoPlacar(julgados, cfg))
+    }
+
     const fluxosDoCrm = async (config) => {
       if (Date.now() - ultimoCrm < 2 * 60 * 1000) return
       ultimoCrm = Date.now()
@@ -444,6 +473,8 @@ export default function AdminLayout() {
       if (posVenda?.ativo) await enviarPosVenda(posVenda.config, config)
       const leads = fluxos?.find(f => f.id === 'lead_anuncio')
       if (leads?.ativo) await enviarLeads(leads.config)
+      const vigia = fluxos?.find(f => f.id === 'vigia_meta')
+      if (vigia?.ativo) vigiaDaMeta(vigia.config, config).catch(e => registrarImpressao('vigia_meta_falhou', null, { erro: e.message }))
       const fluxo = fluxos?.find(f => f.id === 'carrinho_abandonado')
       if (!fluxo?.ativo || !noHorarioDoFluxo(fluxo.config)) return
       const { data: devidos, error } = await supabase.rpc('crm_carrinhos_devidos')

@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2"
 
 /**
  * hub-meta — gasto e resultados dos anúncios da Meta para o hub (/hub → Anúncios), por dia e por
- * campanha, da conta de anúncios Coxelli.
+ * campanha e por anúncio (com a situação de cada um, para o vigia de criativos), da conta Coxelli.
  *
  * Lê com o token de um usuário do sistema do portfólio Coxita, só com "ver desempenho" na conta
  * de anúncios (segredo META_ADS_TOKEN, permissão ads_read). Nada aqui mexe em campanha. A resposta
@@ -29,6 +29,8 @@ const dataValida = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$
 type Linha = {
   date_start: string
   campaign_name?: string
+  ad_id?: string
+  ad_name?: string
   spend?: string
   impressions?: string
   reach?: string
@@ -37,7 +39,7 @@ type Linha = {
 
 async function insights(token: string, inicio: string, fim: string, extra: Record<string, string>) {
   const params = new URLSearchParams({
-    fields: "campaign_name,spend,impressions,reach,actions",
+    fields: "campaign_name,ad_id,ad_name,spend,impressions,reach,actions",
     time_range: JSON.stringify({ since: inicio, until: fim }),
     limit: "500",
     access_token: token,
@@ -55,10 +57,23 @@ async function insights(token: string, inicio: string, fim: string, extra: Recor
   return saida.map((l) => ({
     data: l.date_start,
     campanha: l.campaign_name ?? null,
+    anuncio_id: l.ad_id ?? null,
+    anuncio: l.ad_name ?? null,
     gasto: Number(l.spend ?? 0),
     impressoes: Number(l.impressions ?? 0),
     alcance: Number(l.reach ?? 0),
     conversas: Number(l.actions?.find((a) => a.action_type === CONVERSA)?.value ?? 0),
+  }))
+}
+
+// situação de cada anúncio (ativo, pausado, em análise), para o vigia julgar só os que estão no ar
+async function situacoes(token: string) {
+  const params = new URLSearchParams({ fields: "id,name,effective_status,created_time", limit: "200", access_token: token })
+  const r = await fetch(`https://graph.facebook.com/${VERSAO}/${CONTA}/ads?${params}`)
+  const d = await r.json()
+  if (d.error) throw new Error(`Meta: ${d.error.message}`)
+  return (d.data ?? []).map((a: Record<string, string>) => ({
+    anuncio_id: a.id, anuncio: a.name, situacao: a.effective_status, criado_em: a.created_time,
   }))
 }
 
@@ -94,11 +109,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const [porDia, campanhas] = await Promise.all([
+    const [porDia, campanhas, porAnuncio, ads] = await Promise.all([
       insights(token, inicio, fim, { level: "account", time_increment: "1" }),
       insights(token, inicio, fim, { level: "campaign" }),
+      insights(token, inicio, fim, { level: "ad" }),
+      situacoes(token),
     ])
-    const dados = { porDia, campanhas }
+    // todo anúncio da conta, mesmo sem gasto no período (acabou de entrar no ar)
+    const numeros = new Map(porAnuncio.map((a) => [a.anuncio_id, a]))
+    const anuncios = ads.map((a: Record<string, string>) => ({
+      ...a,
+      gasto: numeros.get(a.anuncio_id)?.gasto ?? 0,
+      impressoes: numeros.get(a.anuncio_id)?.impressoes ?? 0,
+      conversas: numeros.get(a.anuncio_id)?.conversas ?? 0,
+    }))
+    const dados = { porDia, campanhas, anuncios }
     const criado_em = new Date().toISOString()
     await supabase.from("hub_cache").upsert({ chave, dados, criado_em })
     return json({ ...dados, atualizadoEm: criado_em })

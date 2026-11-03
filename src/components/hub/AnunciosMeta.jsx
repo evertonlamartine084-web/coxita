@@ -4,6 +4,7 @@ import { supabase } from '../../services/supabase'
 import Loading from '../ui/Loading'
 import { Bloco, Cartao, GraficoDias } from './HubUi'
 import { diasDoPeriodo, formatarMoeda, formatarNumero } from '../../utils/hub'
+import { julgarAnuncios } from '../../utils/vigiaMeta'
 
 /**
  * Anúncios da Meta no hub: gasto e conversas no Zap (função hub-meta, que lê a conta de anúncios
@@ -12,10 +13,16 @@ import { diasDoPeriodo, formatarMoeda, formatarNumero } from '../../utils/hub'
  */
 
 const moeda = (v) => formatarMoeda(v, 'BRL')
+const VEREDITO = {
+  matar: { nome: 'desligar', cor: 'bg-red-100 text-red-700' },
+  vencendo: { nome: 'ganhando', cor: 'bg-green-100 text-green-700' },
+  testando: { nome: 'testando', cor: 'bg-amber-100 text-amber-800' },
+}
 
 export default function AnunciosMeta({ periodo }) {
   const [meta, setMeta] = useState(null)
   const [leads, setLeads] = useState(null)
+  const [teste, setTeste] = useState(null)
   const [carregando, setCarregando] = useState(false)
 
   const buscar = useCallback(async (atualizar = false) => {
@@ -29,6 +36,13 @@ export default function AnunciosMeta({ periodo }) {
       const erroMeta = m.error ? (await m.error.context?.json?.().catch(() => null))?.erro || m.error.message : null
       setMeta(erroMeta ? { erro: erroMeta } : m.data)
       setLeads(l.data ?? [])
+      // teste de criativos: os mesmos números que o vigia usa no grupo, desde o início do teste
+      const { data: vigia } = await supabase.from('crm_fluxos').select('ativo, config').eq('id', 'vigia_meta').maybeSingle()
+      if (vigia) {
+        const hoje = new Date().toLocaleDateString('sv-SE')
+        const t = await supabase.functions.invoke('hub-meta', { body: { inicio: vigia.config.inicio, fim: hoje, atualizar } })
+        setTeste(t.data?.anuncios ? { ...vigia, julgados: julgarAnuncios(t.data.anuncios, vigia.config) } : null)
+      }
     } finally {
       setCarregando(false)
     }
@@ -85,6 +99,36 @@ export default function AnunciosMeta({ periodo }) {
       {gasto > 0 && (
         <Bloco titulo="Gasto por dia" subtitulo="Barras: gasto. Linha: conversas iniciadas no Zap pelo anúncio.">
           <GraficoDias dados={grafico} nomeBarra="Gasto" nomeLinha="Conversas" formatarBarra={moeda} formatarLinha={(v) => `${v} conversas`} />
+        </Bloco>
+      )}
+
+      {teste?.julgados.length > 0 && (
+        <Bloco titulo="🧪 Teste de criativos"
+          subtitulo={`Anúncios no ar desde ${new Date(`${teste.config.inicio}T12:00:00`).toLocaleDateString('pt-BR')}, do mais barato por conversa ao mais caro. ${teste.ativo ? 'O vigia avisa no grupo da loja quando um deve ser desligado e manda o placar às ' + teste.config.hora_placar + 'h.' : 'Vigia desligado.'}`}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-text-light">
+                  <th className="py-1.5">Anúncio</th><th className="text-right">Gasto</th><th className="text-right">Conversas</th>
+                  <th className="text-right">Por conversa</th><th className="pl-3">Vigia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teste.julgados.map(a => (
+                  <tr key={a.anuncio_id} className="border-t border-border">
+                    <td className="py-2 font-semibold">{a.anuncio}</td>
+                    <td className="text-right tabular-nums">{moeda(a.gasto)}</td>
+                    <td className="text-right tabular-nums">{a.conversas}</td>
+                    <td className="text-right tabular-nums">{a.custo ? moeda(a.custo) : '—'}</td>
+                    <td className="pl-3 text-xs">
+                      <span className={`rounded-full px-2 py-0.5 font-semibold ${VEREDITO[a.veredito].cor}`}>{VEREDITO[a.veredito].nome}</span>
+                      <span className="ml-1.5 text-text-light">{a.motivo}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Bloco>
       )}
 
