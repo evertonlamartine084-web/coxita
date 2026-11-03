@@ -1,15 +1,30 @@
 import { useOutletContext } from 'react-router-dom'
 import Loading from '../../components/ui/Loading'
 import { Bloco, Cartao, GraficoDias, SemDados } from '../../components/hub/HubUi'
+import AnunciosMeta from '../../components/hub/AnunciosMeta'
 import { normalizarData, diasDoPeriodo, formatarMoeda, formatarNumero } from '../../utils/hub'
 
 /**
- * Anúncios do Google Ads, lidos pelo Analytics (as contas estão vinculadas): gasto, cliques e
+ * Anúncios: Meta em cima (components/hub/AnunciosMeta), Google Ads embaixo.
+ *
+ * Google Ads, lidos pelo Analytics (as contas estão vinculadas): gasto, cliques e
  * conversões por campanha. Conversão aqui é evento principal do site: pedido feito ou clique no
  * WhatsApp. O custo por pedido usa os pedidos do site no período, que é o que o anúncio traz.
  */
 export default function HubAnuncios() {
-  const { periodo, vendas, google, carregandoGoogle } = useOutletContext()
+  const contexto = useOutletContext()
+  return (
+    <div className="space-y-8">
+      <AnunciosMeta periodo={contexto.periodo} />
+      <section className="space-y-5">
+        <h2 className="font-sans text-lg font-bold text-brown">🔎 Google Ads</h2>
+        <AnunciosGoogle {...contexto} />
+      </section>
+    </div>
+  )
+}
+
+function AnunciosGoogle({ periodo, vendas, google, carregandoGoogle }) {
   if (!google || !vendas || (carregandoGoogle && !google.analytics)) return <Loading />
   const ga = google.analytics
   if (!ga) return <SemDados fonte="Google Analytics" erro={google.erro || google.erros?.join(' ')} />
