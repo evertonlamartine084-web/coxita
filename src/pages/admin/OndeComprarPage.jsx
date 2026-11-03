@@ -20,12 +20,17 @@ import { precoAtual, lojaDaOrigem } from '../../utils/precosDosInsumos'
 
 const VALE_A_PENA = 0.9
 
-// O Assaí só publica o encarte em imagem, atrás de proteção contra robô: aqui é só o link para a
-// pessoa abrir o jornal da loja no site deles (03/11/2026).
-const JORNAIS_ASSAI = [
-  { loja: 'Ponta Negra', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-ponta-negra' },
-  { loja: 'Natal', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-natal' },
-  { loja: 'São Gonçalo', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-sao-goncalo-do-amarante' },
+// Encarte que só sai em imagem (ou atrás de proteção contra robô): aqui é só o link para a pessoa
+// abrir o jornal no site da loja, ou no Tiendeo, que junta os encartes de Natal (03/11/2026).
+const JORNAIS = [
+  { rede: 'Assaí', loja: 'Ponta Negra', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-ponta-negra' },
+  { rede: 'Assaí', loja: 'Natal', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-natal' },
+  { rede: 'Assaí', loja: 'São Gonçalo', url: 'https://www.assai.com.br/ofertas/rio-grande-do-norte/assai-sao-goncalo-do-amarante' },
+  { rede: 'Carrefour', url: 'https://www.tiendeo.com.br/natal/carrefour' },
+  { rede: 'Atacadão', url: 'https://www.tiendeo.com.br/natal/atacadao' },
+  { rede: 'Nordestão', url: 'https://www.tiendeo.com.br/natal/nordestao' },
+  { rede: 'Rede Mais', url: 'https://www.tiendeo.com.br/natal/rede-mais-supermercados' },
+  { rede: 'Super Fácil', loja: 'Facebook', url: 'https://www.facebook.com/superfacilatacado' },
 ]
 const NA_PRATELEIRA = 6
 
@@ -272,15 +277,17 @@ export default function OndeComprarPage() {
         ))}
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 p-3">
-        <p className="mr-1 text-sm font-semibold text-gray-800">Ver jornal do Assaí:</p>
-        {JORNAIS_ASSAI.map(j => (
-          <a key={j.loja} href={j.url} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-orange-700 shadow-sm ring-1 ring-orange-200 hover:bg-orange-100">
-            {j.loja} <HiExternalLink />
-          </a>
-        ))}
-        <p className="w-full text-xs text-gray-500">Abre o site do Assaí; os preços de lá não entram nas prateleiras.</p>
+      <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-3">
+        <p className="mb-2 text-sm font-semibold text-gray-800">📰 Jornal de ofertas das outras lojas</p>
+        <div className="flex flex-wrap gap-2">
+          {JORNAIS.map(j => (
+            <a key={j.url} href={j.url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-orange-700 shadow-sm ring-1 ring-orange-200 hover:bg-orange-100">
+              {j.rede}{j.loja ? <span className="font-normal text-orange-600">· {j.loja}</span> : null} <HiExternalLink />
+            </a>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-gray-500">Abre o encarte no site da loja (ou no Tiendeo). Esses preços não entram nas prateleiras.</p>
       </div>
 
       <section className="mb-8">
