@@ -95,6 +95,7 @@ export async function buscarAtacadao(termo) {
       marca: p.brand ?? null,
       preco,
       preco_original: cheio > preco ? cheio : null,
+      imagem: p.items?.[0]?.images?.[0]?.imageUrl ?? null,
       link: `https://www.atacadao.com.br/${p.linkText}/p`,
     })
   }
@@ -172,6 +173,7 @@ async function buscarVip(nome, termo) {
       preco,
       ...(aPeso ? { peso_kg: Number(p.quantidade_unidade_diferente) } : {}),
       preco_original: preco < cheio ? cheio : null,
+      imagem: p.imagem ? `https://produto-assets-vipcommerce-com-br.br-se1.magaluobjects.com/250x250/${p.imagem}` : null,
       link: `${loja.site}/produtos/detalhe/${p.produto_id}/${p.link}`,
     })
   }

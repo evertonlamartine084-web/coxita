@@ -35,6 +35,8 @@ create table if not exists mercado_precos (
   visto_em date not null default (now() at time zone 'America/Fortaleza')::date,
   unique (supply_id, mercado, produto_id, visto_em)
 );
+-- foto do produto no site do mercado, para a tela parecer prateleira (03/11)
+alter table mercado_precos add column if not exists imagem text;
 create index if not exists mercado_precos_dia_idx on mercado_precos (visto_em desc, supply_id, preco_unidade);
 
 create table if not exists mercado_ignorados (
@@ -135,3 +137,15 @@ revoke all on function pedir_cotacao_mercados() from public, anon, authenticated
 -- Todo dia às 6h30 de Natal (9h30 UTC): oferta de mercado costuma virar de madrugada.
 select cron.unschedule(jobid) from cron.job where jobname = 'cotar-mercados';
 select cron.schedule('cotar-mercados', '30 9 * * *', 'select pedir_cotacao_mercados()');
+
+-- Menor preço de cada insumo nos últimos 30 dias, para o selo "menor em 30 dias" (03/11): com as
+-- cinco lojas do Nordestão são ~700 linhas por dia, e o painel não precisa baixar o mês inteiro.
+create or replace function mercado_minimos(p_dias int default 30)
+returns table (supply_id uuid, menor numeric, dias int)
+language sql stable security invoker set search_path = public as $$
+  select supply_id, min(preco_unidade), count(distinct visto_em)::int
+    from mercado_precos
+   where visto_em >= (now() at time zone 'America/Fortaleza')::date - p_dias
+   group by supply_id
+$$;
+grant execute on function mercado_minimos(int) to authenticated;

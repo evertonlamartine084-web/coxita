@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
         supply_id: b.supply_id,
         mercado: a.mercado, produto_id: a.produto_id, produto: a.produto, marca: a.marca,
         tamanho: a.tamanho, preco: a.preco, preco_original: a.preco_original, preco_unidade: a.preco_unidade,
-        link: a.link, visto_em: hoje,
+        link: a.link, imagem: a.imagem, visto_em: hoje,
       })), { onConflict: "supply_id,mercado,produto_id,visto_em" })
       if (erroGravar) erros.push(`${s.name} — gravar: ${erroGravar.message}`)
       else precos += achados.length
