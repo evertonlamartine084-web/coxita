@@ -33,9 +33,7 @@ export function julgarAnuncios(anuncios, cfg) {
 }
 
 export function textoDoAlerta(a) {
-  return a.veredito === 'matar'
-    ? `🚨 *Vigia da Meta*\n\nO anúncio *${a.anuncio}* ${a.motivo}.\n\n👉 Sugestão: *desligar*. O orçamento continua o mesmo e vai para os outros.`
-    : `🏆 *Vigia da Meta*\n\n*${a.anuncio}* está ganhando o teste: ${a.motivo}.`
+  return `🚨 *Vigia da Meta*\n\nO anúncio *${a.anuncio}* ${a.motivo}.\n\n👉 Sugestão: *desligar*. O orçamento continua o mesmo e vai para os outros.`
 }
 
 export function textoDoPlacar(julgados, cfg) {

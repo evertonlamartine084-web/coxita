@@ -435,7 +435,7 @@ export default function AdminLayout() {
     }
 
     // Vigia da Meta: de hora em hora lê os anúncios (hub-meta) e avisa no grupo uma vez por
-    // anúncio quando um deve ser desligado ou está ganhando; placar do dia na hora marcada.
+    // anúncio quando um deve ser desligado; placar do dia na hora marcada.
     let ultimoVigia = 0
     const vigiaDaMeta = async (cfg, config) => {
       if (Date.now() - ultimoVigia < 60 * 60 * 1000) return
@@ -456,7 +456,8 @@ export default function AdminLayout() {
           throw e
         }
       }
-      for (const a of julgados.filter(x => x.veredito !== 'testando')) {
+      // no grupo só o "desligar" (o dono não quer aviso de quem está ganhando; isso fica no placar)
+      for (const a of julgados.filter(x => x.veredito === 'matar')) {
         await avisar(`${a.veredito}:${a.anuncio_id}`, textoDoAlerta(a))
       }
       if (agora.getHours() >= cfg.hora_placar && julgados.length) await avisar(`placar:${hoje}`, textoDoPlacar(julgados, cfg))
