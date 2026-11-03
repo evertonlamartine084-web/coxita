@@ -145,9 +145,13 @@ async function buscarVip(nome, termo) {
   const loja = VIP_LOJAS[nome]
   const t = await tokenVip(nome)
   const termoUrl = encodeURIComponent(termo).replace(/%20/g, '+')
-  const r = await fetch(`${loja.api}/api-admin/v1/org/${loja.org}/filial/${loja.filial}/centro_distribuicao/${loja.cd}/loja/buscas/produtos/termo/${termoUrl}?page=1`, {
-    headers: cabecalhoVip(loja, t),
-  })
+  const url = `${loja.api}/api-admin/v1/org/${loja.org}/filial/${loja.filial}/centro_distribuicao/${loja.cd}/loja/buscas/produtos/termo/${termoUrl}?page=1`
+  let r = await fetch(url, { headers: cabecalhoVip(loja, t) })
+  // o servidor do Favorito devolve 500 de vez em quando; na segunda vai
+  if (r.status >= 500) {
+    await new Promise(ok => setTimeout(ok, 1500))
+    r = await fetch(url, { headers: cabecalhoVip(loja, t) })
+  }
   if (!r.ok) throw new Error(`${nome} ${r.status}`)
   const d = await r.json()
   const saida = []
@@ -157,12 +161,16 @@ async function buscarVip(nome, termo) {
     const promo = p.em_oferta ? Number(p.oferta?.preco_oferta ?? p.oferta?.preco ?? 0) : 0
     const preco = promo > 0 && promo < cheio ? promo : cheio
     if (!(preco > 0)) continue
+    // vendido a peso: "Bacon Sadia Defumado 300g" sai em peça de 0,165 kg a R$ 45,88/kg. O peso
+    // vem em quantidade_unidade_diferente (e o preco_original, aí, é o do kg, não o de antes)
+    const aPeso = p.possui_unidade_diferente && /^kg$/i.test(p.unidade_sigla ?? '') && Number(p.quantidade_unidade_diferente) > 0
     saida.push({
       mercado: nome,
       produto_id: String(p.produto_id),
       produto: p.descricao,
       marca: p.marca?.descricao ?? null,
       preco,
+      ...(aPeso ? { peso_kg: Number(p.quantidade_unidade_diferente) } : {}),
       preco_original: preco < cheio ? cheio : null,
       link: `${loja.site}/produtos/detalhe/${p.produto_id}/${p.link}`,
     })
@@ -189,13 +197,15 @@ export async function cotarInsumo(busca, unidade, ignorados = new Set(), pagoHoj
         for (const p of await mercado.buscar(termo)) {
           if (ignorados.has(`${p.mercado}|${p.produto_id}`)) continue
           if (!combina(p.produto, busca)) continue
-          const tamanho = unidade === 'un' ? (tamanhoDoNome(p.produto, null) ? null : 1) : tamanhoDoNome(p.produto, unidade)
+          const tamanho = p.peso_kg && ['kg', 'L'].includes(unidade) ? p.peso_kg
+            : unidade === 'un' ? (tamanhoDoNome(p.produto, null) ? null : 1) : tamanhoDoNome(p.produto, unidade)
           if (!tamanho) continue
           if (busca.minimo && tamanho < Number(busca.minimo)) continue
           const preco_unidade = Math.round((p.preco / tamanho) * 10000) / 10000
           // nome com o peso errado no site ("Queijo Coalho Pc 400kg"): longe demais do que se paga
           if (pagoHoje > 0 && (preco_unidade < pagoHoje * 0.3 || preco_unidade > pagoHoje * 4)) continue
-          achados.set(`${p.mercado}|${p.produto_id}`, { ...p, tamanho, preco_unidade })
+          const { peso_kg: _, ...resto } = p
+          achados.set(`${p.mercado}|${p.produto_id}`, { ...resto, tamanho, preco_unidade })
         }
       } catch (e) {
         erros.push(`${mercado.nome} (${termo}): ${e.message}`)
