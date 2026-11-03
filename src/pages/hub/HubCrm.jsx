@@ -6,6 +6,7 @@ import { supabase } from '../../services/supabase'
 import Loading from '../../components/ui/Loading'
 import { Bloco, Cartao } from '../../components/hub/HubUi'
 import FluxoPosVenda from '../../components/hub/FluxoPosVenda'
+import FluxoLeadAnuncio from '../../components/hub/FluxoLeadAnuncio'
 import ContatosDoZap from '../../components/hub/ContatosDoZap'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { linkZap } from '../../utils/hub'
@@ -75,7 +76,7 @@ export default function HubCrm() {
 
   const seletor = (
     <div className="flex flex-wrap gap-2">
-      {[['carrinho', '🛒 Carrinho abandonado'], ['pos_venda', '🧡 Pós-venda'], ['contatos', '📇 Contatos do Zap']].map(([k, rotulo]) => (
+      {[['carrinho', '🛒 Carrinho abandonado'], ['pos_venda', '🧡 Pós-venda'], ['lead_anuncio', '📣 Lead do anúncio'], ['contatos', '📇 Contatos do Zap']].map(([k, rotulo]) => (
         <button key={k} type="button" onClick={() => setAba(k)}
           className={`cursor-pointer rounded-xl px-4 py-2 text-sm font-bold ring-1 ${
             aba === k ? 'bg-primary text-white ring-primary' : 'bg-white text-text ring-border hover:bg-cream'
@@ -88,6 +89,10 @@ export default function HubCrm() {
 
   if (aba === 'contatos') {
     return <div className="space-y-5">{seletor}<ContatosDoZap /></div>
+  }
+
+  if (aba === 'lead_anuncio') {
+    return <div className="space-y-5">{seletor}<FluxoLeadAnuncio periodo={periodo} /></div>
   }
 
   if (aba === 'pos_venda') {

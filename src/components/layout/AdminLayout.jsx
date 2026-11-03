@@ -7,7 +7,7 @@ import { playOrderAlert } from '../../utils/alertSound'
 import { impressaoAutoLigada, impressaoAutoDesde, prontoParaComanda, comandaJaImpressa, marcarComandaImpressa, imprimirComanda, registrarImpressao } from '../../utils/impressao'
 import { lerConfigZap, zapPronto, zapJaEnviado, marcarZapEnviado, mandarNoGrupo, textoDoPedido, estadoDoZap, avisoDevido, numeroDoCliente, mensagemParaCliente, mandarParaCliente, resumoDasConversas, salvarCopiaDoZap, sincronizarSemWhatsApp, ligarAtendimentoNaEvolution, enviarFilaDoAtendimento, sincronizarMensagens, completarNomes, atualizarFotosDePerfil, baixarMidias, vincularNumerosEscondidos, ultimoDiagnosticoLid, enviarReacoesPendentes, executarAcoesPendentes } from '../../utils/zapDoGrupo'
 import AvisosDoPainel from '../admin/AvisosDoPainel'
-import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa } from '../../utils/crm'
+import { mensagemDeCarrinho, noHorarioDoFluxo, mensagemDePosVenda, alertaDeNotaBaixa, mensagemDeLead } from '../../utils/crm'
 import { updateSetting } from '../../services/settings'
 import toast from 'react-hot-toast'
 import { usePushDoPainel } from '../../hooks/usePushDoPainel'
@@ -352,6 +352,32 @@ export default function AdminLayout() {
       }
     }
 
+    // Lead do anúncio: a mensagem vai para a fila do Atendimento (sai pelo mesmo envio e aparece
+    // na conversa). O registro em crm_envios vem antes; o índice único por conversa impede repetir.
+    const enviarLeads = async (cfg) => {
+      if (!noHorarioDoFluxo(cfg)) return
+      const { data: devidos, error } = await supabase.rpc('crm_leads_devidos')
+      if (error) throw error
+      for (const lead of devidos ?? []) {
+        const { data: reg, error: erroReg } = await supabase.from('crm_envios').insert({
+          fluxo: 'lead_anuncio', etapa: 'lead_anuncio', status: 'enviando', conversa: lead.conversa,
+          telefone_digitos: (lead.telefone || '').replace(/\D/g, '').slice(-11),
+        }).select('id').single()
+        if (erroReg) continue // outra aba já pegou
+        const { error: erroFila } = await supabase.from('zap_mensagens').insert({
+          conversa: lead.conversa, de_mim: true, status: 'enviar', enviada_por: 'crm: lead do anúncio',
+          texto: mensagemDeLead(lead, cfg),
+        })
+        if (erroFila) {
+          await supabase.from('crm_envios').delete().eq('id', reg.id)
+          registrarImpressao('crm_lead_falhou', null, { conversa: lead.conversa, erro: erroFila.message })
+          continue
+        }
+        await supabase.from('crm_envios').update({ status: 'enviado', enviado_em: new Date().toISOString() }).eq('id', reg.id)
+        registrarImpressao('crm_lead', null, { conversa: lead.conversa })
+      }
+    }
+
     // CRM (hub → CRM): carrinho abandonado. O banco diz quem está devendo mensagem; aqui o
     // carrinho é "pego" (aberto → avisado) antes de mandar, para duas abas não mandarem em dobro.
     let ultimoCrm = 0
@@ -393,6 +419,8 @@ export default function AdminLayout() {
       const { data: fluxos } = await supabase.from('crm_fluxos').select('id, ativo, config')
       const posVenda = fluxos?.find(f => f.id === 'pos_venda')
       if (posVenda?.ativo) await enviarPosVenda(posVenda.config, config)
+      const leads = fluxos?.find(f => f.id === 'lead_anuncio')
+      if (leads?.ativo) await enviarLeads(leads.config)
       const fluxo = fluxos?.find(f => f.id === 'carrinho_abandonado')
       if (!fluxo?.ativo || !noHorarioDoFluxo(fluxo.config)) return
       const { data: devidos, error } = await supabase.rpc('crm_carrinhos_devidos')

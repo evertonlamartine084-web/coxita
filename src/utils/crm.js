@@ -81,3 +81,16 @@ export const VARIAVEIS_POS_VENDA = [
   { chave: '{link}', explica: 'avaliação no Google (etapa 1) ou cardápio (etapa 3)' },
   { chave: '{cupom}', explica: 'código do cupom (se tiver)' },
 ]
+
+/** Lead do anúncio: retomada de quem chamou pelo botão do anúncio e não fechou. */
+export function mensagemDeLead(lead, config) {
+  // nome da agenda ou do perfil do Zap: só vale primeira palavra com cara de nome ("Ana 💕" → Ana);
+  // perfil "." ou "o certo pelo certo" fica sem nome
+  const primeiro = (lead.nome || '').trim().split(/\s+/)[0]
+  const nome = /^\p{Lu}\p{Ll}{2,}$/u.test(primeiro) ? primeiro : 'tudo bem'
+  return (config.mensagem || '').replaceAll('{nome}', nome).trim()
+}
+
+export const VARIAVEIS_LEAD = [
+  { chave: '{nome}', explica: 'primeiro nome do contato no Zap' },
+]
