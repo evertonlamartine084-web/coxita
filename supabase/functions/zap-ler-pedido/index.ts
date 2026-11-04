@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
+import { REGRAS, VERSAO_REGRAS } from "./regras.ts"
 
 /**
  * zap-ler-pedido — conversa com o robô leitor de pedido do PC da loja (loja-pc/leitor-pedido),
@@ -10,6 +11,9 @@ import { createClient } from "npm:@supabase/supabase-js@2"
  *                                           cardápio (produtos e sabores ativos).
  *   gravar { conversa, leitura, ate }     → guarda o pedido achado em zap_conversas.pedido_lido.
  *   pulso { nota }                        → sinal de vida, em settings.leitor_pedido_robo_estado.
+ *   regras {}                             → { versao, codigo }: o robô se atualiza sozinho com a
+ *                                           cópia de src/utils/lerPedidoDoZap.js (regras.ts, gerado
+ *                                           por loja-pc/leitor-pedido/copiar-regras.sh), sem AnyDesk.
  *
  * Autenticação: header x-robo-segredo igual ao segredo LEITOR_SEGREDO. Sem isso, 401.
  */
@@ -66,6 +70,8 @@ Deno.serve(async (req) => {
       .eq("chave", corpo.conversa)
     return error ? json({ erro: error.message }, 500) : json({ ok: true })
   }
+
+  if (corpo.acao === "regras") return json({ versao: VERSAO_REGRAS, codigo: REGRAS })
 
   if (corpo.acao === "pulso") {
     await db.from("settings").upsert({

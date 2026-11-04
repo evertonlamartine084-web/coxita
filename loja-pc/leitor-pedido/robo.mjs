@@ -7,7 +7,11 @@
  * grava o pedido achado em zap_conversas.pedido_lido. O Atendimento mostra a faixa
  * "Pedido na conversa · Falta: ..." com o botão para conferir e criar.
  */
-import { lerPedidoDoZap } from './lerPedidoDoZap.js'
+import * as local from './lerPedidoDoZap.js'
+
+// regras: começa com a cópia da imagem e troca pela versão da função quando ela muda
+let lerPedidoDoZap = local.lerPedidoDoZap
+let versaoRegras = 'local'
 
 const URL_FUNCAO = `${process.env.SUPABASE_URL.replace(/\/$/, '')}/functions/v1/zap-ler-pedido`
 const SEGREDO = process.env.LEITOR_SEGREDO
@@ -27,12 +31,31 @@ async function chamar(acao, dados = {}) {
   return corpo
 }
 
+async function atualizarRegras() {
+  try {
+    const { versao, codigo } = await chamar('regras')
+    if (!versao || versao === versaoRegras || !codigo) return
+    const mod = await import(`data:text/javascript;base64,${Buffer.from(codigo).toString('base64')}`)
+    if (typeof mod.lerPedidoDoZap !== 'function') throw new Error('regras sem lerPedidoDoZap')
+    lerPedidoDoZap = mod.lerPedidoDoZap
+    versaoRegras = versao
+    log('regras atualizadas:', versao)
+  } catch (e) {
+    log('não consegui atualizar as regras:', e.message)
+  }
+}
+
 let ultimoPulso = 0
+let ultimaRegra = 0
 log('robô leitor de pedido no ar')
 for (;;) {
   try {
+    if (Date.now() - ultimaRegra > 300000) {
+      await atualizarRegras()
+      ultimaRegra = Date.now()
+    }
     if (Date.now() - ultimoPulso > 600000) {
-      await chamar('pulso', { nota: 'ok' })
+      await chamar('pulso', { nota: `regras ${versaoRegras}` })
       ultimoPulso = Date.now()
     }
     const { conversas = [], produtos = [], sabores = [] } = await chamar('pendentes')

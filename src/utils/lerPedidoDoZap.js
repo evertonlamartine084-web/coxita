@@ -39,7 +39,8 @@ const APELIDOS = [
   ['croquete de queijo e presunto', /((croquetes?|crocretes?|risoles?|risoli) (de )?)?queijo (e |com )?presunto|(risoles?|risoli)( de queijo)?|\bpresunto\b/],
   ['croquete de calabresa', /(croquetes? (de )?)?calabresa/],
   ['travesseiro sertanejo', /travesseiros?( sertanejos?)?|(bolinhas?|bolinhos?) sertanej[oa]s?|\bsertanej[oa]s?\b|carne de sol/],
-  ['bolinha de carne', /(bolinhas?|bolinhos?) de carne|\bcarne\b/],
+  // o cardápio mandado pela loja chama de "coxinha de carne": é a bolinha de carne
+  ['bolinha de carne', /(bolinhas?|bolinhos?|coxinhas?) de carne|\bcarne\b/],
   ['bolinha de queijo', /(bolinhas?|bolinhos?) de queijo( cheddar)?|queijo cheddar|\bqueijo\b|\bbolinhas?\b/],
   ['coxinha de frango', /coxinhas?( de frango)?|\bfrango\b/],
   ['enroladinho de salsicha', /enroladinhos?( de salsicha)?|\bsalsichas?\b/],
@@ -76,7 +77,8 @@ function quantidadeNoTrecho(trecho) {
 /** Sabores citados numa mensagem: [{ chave, qtd|null }]. */
 function saboresDaMensagem(texto) {
   const achados = []
-  const trechos = normalizar(texto).split(/\n|,|;|\+|\s+e\s+(?=\d)|\s{2,}/)
+  // espaço repetido dentro da linha ("200 unidades  de sertaneja") não separa o número do sabor
+  const trechos = normalizar(texto).replace(/[ \t]+/g, ' ').split(/\n|,|;|\+|\s+e\s+(?=\d)/)
   for (const original of trechos) {
     let resto = ` ${original} `
     const naLinha = []
@@ -110,8 +112,13 @@ function quantidadeTotal(texto, logoAposPerguntarQuantos) {
   const t = normalizar(texto).replace(/\b(cem|duzentos|trezentos|quatrocentos|quinhentos|seiscentos|setecentos|oitocentos|novecentos|mil)\b(?=\s+(salgados?|unidades?|sortidos?|fritos?))/g, (n) => String(CENTENAS[n]))
   let total = null
   if (logoAposPerguntarQuantos) {
-    const curto = t.trim().match(/^(?:so |somente |apenas |e )?(\d|um|uma|dois|duas|tres|quatro|cinco|meio)\b(?: mesmo| so)?[.!]?$/)
-    if (curto) return (/^\d$/.test(curto[1]) ? Number(curto[1]) : NUMEROS_ESCRITOS[curto[1]]) * 100
+    const curto = t.trim().match(/^(?:so |somente |apenas |e |sao )?(\d{1,4}|um|uma|dois|duas|tres|quatro|cinco|meio)\b(?: mesmo| so| centos?| unidades| salgados)?[.!]?$/)
+    if (curto) {
+      // "6" = 6 centos; "600" = 600 unidades
+      const n = /^\d+$/.test(curto[1]) ? Number(curto[1]) : NUMEROS_ESCRITOS[curto[1]]
+      if (n <= 20) return n * 100
+      if (n % 50 === 0) return n
+    }
   }
   const centos = [...t.matchAll(/\b(\d+|um|uma|dois|duas|tres|quatro|cinco|seis|meio|meia)\s+centos?\b(\s+e\s+meio)?/g)]
   for (const c of centos) {
@@ -223,6 +230,15 @@ function enderecoDaMensagem(texto) {
     if (/\b\d{5}-?\d{3}\b/.test(n) && n.replace(/[^a-z]/g, '').length < 4) return
     extras.push(l)
   })
+  // "Rua presidente José Bento ⏎ 684 alecrim": número na linha de baixo, e o resto é o bairro
+  if (r.rua && !r.numero) {
+    const i = extras.findIndex(l => /^\s*(n[º°o.]?\s*)?\d{1,5}[a-z]?\b/i.test(l))
+    if (i >= 0) {
+      const m = extras[i].match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5}[a-z]?)\b[\s,.-]*(.*)$/i)
+      r.numero = m[1]
+      extras.splice(i, 1, ...(m[2] ? [m[2]] : []))
+    }
+  }
   for (const l of extras) {
     const n = normalizar(l)
     if (/\b(bloco|bl|apto?|apartamento|casa|lote|quadra|qd|torre|sala)\b/.test(n)) r.complemento = r.complemento ? `${r.complemento}, ${l}` : l
@@ -391,7 +407,8 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
     }
 
     if (!m.de_mim) {
-      const q = quantidadeTotal(texto, lojaPerguntouQuantos)
+      // lista de sabores com número ("#200 de sertaneja / #100 de pizza"): o total é a soma, não a 1ª linha
+      const q = comNumero.length >= 2 ? null : quantidadeTotal(texto, lojaPerguntouQuantos)
       if (q != null) {
         if (/\bmais\b|adicion|acrescent/.test(t) && total) total += q
         else if (!/\?$/.test(t.trim()) || !total) total = q
