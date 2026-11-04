@@ -7,3 +7,6 @@ alter table zap_conversas
 
 -- conversas com mensagem nova desde a última leitura (o robô pergunta por estas)
 create index if not exists zap_conversas_leitura_idx on zap_conversas (ultima_em desc);
+
+-- versão das regras usada na leitura: regra nova faz o robô reler as conversas recentes (04/11/2026)
+alter table zap_conversas add column if not exists pedido_lido_versao text;

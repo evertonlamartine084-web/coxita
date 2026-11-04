@@ -32,10 +32,12 @@ Deno.serve(async (req) => {
 
   if (corpo.acao === "pendentes") {
     const desde = new Date(Date.now() - TRES_DIAS).toISOString()
-    const { data: convs, error } = await db.from("zap_conversas").select("chave, telefone, ultima_em, pedido_lido_ate")
+    const { data: convs, error } = await db.from("zap_conversas").select("chave, telefone, ultima_em, pedido_lido_ate, pedido_lido_versao")
       .gte("ultima_em", desde).order("ultima_em", { ascending: false }).limit(200)
     if (error) return json({ erro: error.message }, 500)
-    const novas = (convs ?? []).filter((c) => !c.pedido_lido_ate || new Date(c.ultima_em) > new Date(c.pedido_lido_ate)).slice(0, 15)
+    // mensagem nova OU leitura feita com regras velhas (regra corrigida relê sozinha)
+    const novas = (convs ?? []).filter((c) => !c.pedido_lido_ate || new Date(c.ultima_em) > new Date(c.pedido_lido_ate)
+      || c.pedido_lido_versao !== VERSAO_REGRAS).slice(0, 15)
 
     // pedidos dos últimos 3 dias, para cortar o que já virou pedido
     const { data: recentes } = await db.from("orders").select("created_at, customer_phone")
@@ -66,7 +68,7 @@ Deno.serve(async (req) => {
 
   if (corpo.acao === "gravar") {
     const { error } = await db.from("zap_conversas")
-      .update({ pedido_lido: corpo.leitura ?? null, pedido_lido_ate: corpo.ate ?? new Date().toISOString() })
+      .update({ pedido_lido: corpo.leitura ?? null, pedido_lido_ate: corpo.ate ?? new Date().toISOString(), pedido_lido_versao: VERSAO_REGRAS })
       .eq("chave", corpo.conversa)
     return error ? json({ erro: error.message }, 500) : json({ ok: true })
   }
