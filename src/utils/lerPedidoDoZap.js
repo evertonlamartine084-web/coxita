@@ -644,3 +644,39 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
     pronto: juntos.length > 0 && faltando.length === 0,
   }
 }
+
+/**
+ * Comprovante mandado DEPOIS de o pedido existir (04/11/2026): o Atendimento mostra a faixa
+ * "Comprovante recebido para o #N" com "Recebi tudo" / "Foi o sinal". Comprovante = foto ou PDF
+ * do cliente com cara de comprovante (nome) ou logo depois da chave/cobrança Pix, ou "paguei".
+ *
+ * @returns {{ id, em, como: 'foto'|'pdf'|'texto', cobrado: number|null } | null}
+ */
+export function comprovanteDoPedido(msgs, pedido) {
+  if (!pedido || pedido.payment_status === 'pago') return null
+  // um pouco antes de criar: a atendente às vezes lança depois de ver o comprovante chegar
+  const desde = new Date(pedido.created_at).getTime() - 5 * 60 * 1000
+  const sinalEm = pedido.sinal_em ? new Date(pedido.sinal_em).getTime() : 0
+  const ordenadas = [...(msgs ?? [])].sort((a, b) => new Date(a.criada_em) - new Date(b.criada_em))
+  let pixMandado = false
+  let cobrado = null
+  let achado = null
+  for (const m of ordenadas) {
+    const quando = new Date(m.criada_em).getTime()
+    const t = normalizar(corpo(m))
+    if (m.de_mim) {
+      if (/68\.?484\.?975\/?0001-?76|chave pix|pix copia e cola|00020101/.test(t) || ['outro', 'pagamento'].includes(m.tipo)) pixMandado = true
+      const v = m.tipo === 'pagamento' && t.match(/r\$\s*([\d.]+,\d{2})/)
+      if (v && quando >= desde) cobrado = Number(v[1].replace(/\./g, '').replace(',', '.'))
+      continue
+    }
+    // comprovante que já virou sinal registrado não conta de novo
+    if (quando < desde || (sinalEm && quando <= sinalEm)) continue
+    const arquivo = m.tipo === 'imagem' ? 'foto' : m.tipo === 'documento' ? 'pdf' : null
+    if (arquivo && (/comprovante|pix|transferencia|recibo|pagamento/.test(t) || pixMandado)) achado = { id: m.id, em: m.criada_em, como: arquivo }
+    else if (m.tipo === 'texto' && /\b(paguei|ja paguei|pix feito|fiz o pix|transferi|segue o comprovante|ta pago|pagamento feito)\b/.test(t) && !/\?/.test(t)) {
+      achado = achado ?? { id: m.id, em: m.criada_em, como: 'texto' }
+    }
+  }
+  return achado ? { ...achado, cobrado } : null
+}

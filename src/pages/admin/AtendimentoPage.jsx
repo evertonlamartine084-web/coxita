@@ -11,7 +11,8 @@ import { pixCopiaECola } from '../../utils/pix'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { CardPedidoAberto, FichaDoCliente } from '../../components/admin/AtendimentoCliente'
 import { getSettings } from '../../services/settings'
-import { lerPedidoDoZap } from '../../utils/lerPedidoDoZap'
+import { lerPedidoDoZap, comprovanteDoPedido } from '../../utils/lerPedidoDoZap'
+import { marcarPago, registrarSinal } from '../../services/orders'
 
 /**
  * Atendimento do WhatsApp dentro do painel, em qualquer aparelho (supabase/zap-atendimento*.sql).
@@ -690,6 +691,37 @@ export default function AtendimentoPage() {
     return { ...r, ultima: recentes[recentes.length - 1]?.id }
   }, [conversa, catalogo, mensagens, pedidosCliente, agora])
 
+  // 🧾 Comprovante que chegou depois do pedido lançado (04/11/2026): a pessoa confere no banco e
+  // dá baixa aqui mesmo. "Não é" esconde até chegar outro.
+  const [comprovantesVistos, setComprovantesVistos] = useState({})
+  const comprovante = useMemo(
+    () => (pedidoAberto ? comprovanteDoPedido(mensagens, pedidoAberto) : null),
+    [mensagens, pedidoAberto],
+  )
+  const mostrarComprovante = !!comprovante && !comprovantesVistos[comprovante.id]
+  const baixarComprovante = async (comoSinal) => {
+    const p = pedidoAberto
+    try {
+      if (comoSinal) {
+        const sugestao = comprovante.cobrado ?? Math.round(Number(p.total) / 2 * 100) / 100
+        const entrada = window.prompt(`Valor do sinal pago no Pix (R$) — pedido #${p.order_number}:`, String(sugestao).replace('.', ','))
+        if (entrada === null) return
+        const valor = Number(String(entrada).replace(/[^\d,.]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'))
+        if (!(valor > 0) || valor >= Number(p.total)) return toast.error('Valor de sinal inválido.')
+        await registrarSinal(p.id, valor, 'pix')
+        toast.success(`Sinal de ${formatCurrency(valor)} registrado no #${p.order_number}.`)
+      } else {
+        if (!window.confirm(`Conferiu no banco? Marcar o #${p.order_number} como pago (${formatCurrency(faltaReceber(p))})?`)) return
+        await marcarPago(p.id, Number(p.sinal_valor) > 0 ? null : 'pix')
+        toast.success(`#${p.order_number} marcado como pago.`)
+      }
+      setComprovantesVistos(v => ({ ...v, [comprovante.id]: true }))
+      carregarPedidos()
+    } catch {
+      toast.error('Não consegui dar baixa no pedido.')
+    }
+  }
+
   const abrirLeitura = (p) => {
     if (!conversa || !p) return
     const e = p.endereco ?? {}
@@ -938,6 +970,24 @@ export default function AtendimentoPage() {
                 aoCobrar={PIX_LIGADO ? (p) => cobrarPix(faltaReceber(p), p) : null}
                 aoMudar={carregarPedidos}
               />
+              {mostrarComprovante && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-green-200 bg-green-50 px-3 py-2 text-sm sm:px-4">
+                  <span aria-hidden="true">🧾</span>
+                  <p className="min-w-0 flex-1 text-gray-900">
+                    <span className="font-semibold">Comprovante {comprovante.como === 'texto' ? '(o cliente disse que pagou)' : `(${comprovante.como})`}</span>
+                    {' '}às {new Date(comprovante.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} para o #{pedidoAberto.order_number}
+                    {comprovante.cobrado ? ` · cobrado ${formatCurrency(comprovante.cobrado)}` : ''} · <span className="text-green-800">confira no banco</span>
+                  </p>
+                  <div className="flex shrink-0 gap-1.5">
+                    <button onClick={() => baixarComprovante(false)} className={`${BOTAO} bg-green-600 px-3 text-white hover:bg-green-700`}>Recebi tudo</button>
+                    {!(Number(pedidoAberto.sinal_valor) > 0) && (
+                      <button onClick={() => baixarComprovante(true)} className={`${BOTAO} border border-green-600 bg-white px-3 text-green-700 hover:bg-green-50`}>Foi o sinal</button>
+                    )}
+                    <button onClick={() => setComprovantesVistos(v => ({ ...v, [comprovante.id]: true }))} title="Não é comprovante"
+                      className="rounded px-2 text-xs text-gray-500 hover:bg-black/5">Não é</button>
+                  </div>
+                </div>
+              )}
               {mostrarFaixa && (
                 <div className={`flex shrink-0 items-center gap-2 border-b px-3 py-2 text-sm sm:px-4 ${doRobo.pronto ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
                   <span aria-hidden="true">🤖</span>
