@@ -589,6 +589,39 @@ function desembrulhar(m) {
   return atual
 }
 
+/**
+ * Mensagens de pagamento do WhatsApp (botão "Solicitar pagamento" do Business, Pix, pedido).
+ * Antes de 04/11/2026 viravam 'outro' sem conteúdo e o leitor de pedido não via o pagamento
+ * da Lisy França. Devolve um texto curto ("Cobrança Pix R$ 55,69", "Pagamento recebido") ou null.
+ */
+function pagamentoDoZap(m) {
+  const reais = (v) => {
+    const n = Number(v?.value ?? v?.amount1000 ?? v) / (v?.offset ? 10 ** v.offset : v?.amount1000 ? 1000 : 1)
+    return Number.isFinite(n) && n > 0 ? ` R$ ${n.toFixed(2).replace('.', ',')}` : ''
+  }
+  if (m.requestPaymentMessage) return `Cobrança${reais(m.requestPaymentMessage.amount ?? m.requestPaymentMessage.amount1000)}`
+  if (m.sendPaymentMessage) return 'Pagamento enviado'
+  if (m.paymentInviteMessage) return 'Convite de pagamento'
+  if (m.declinePaymentRequestMessage) return 'Pagamento recusado'
+  if (m.cancelPaymentRequestMessage) return 'Cobrança cancelada'
+  const fluxo = m.interactiveMessage?.nativeFlowMessage ?? m.interactiveResponseMessage?.nativeFlowResponseMessage
+  if (fluxo) {
+    const nomes = (fluxo.buttons ?? [fluxo]).map(b => b?.name).filter(Boolean).join(',')
+    const parametros = (fluxo.buttons ?? [fluxo]).map(b => b?.buttonParamsJson ?? b?.paramsJson).filter(Boolean).join(' ')
+    if (/pay|pix|order/i.test(nomes + parametros)) {
+      let valor = ''
+      try {
+        const p = JSON.parse((fluxo.buttons?.[0]?.buttonParamsJson ?? fluxo.paramsJson) || '{}')
+        valor = reais(p.total_amount ?? p.order?.total_amount ?? p.amount)
+      } catch { /* sem valor */ }
+      const status = /paid|pago|captured|success/i.test(parametros) ? 'Pagamento recebido' : 'Cobrança Pix'
+      return `${status}${valor}`
+    }
+  }
+  if (m.orderMessage) return `Pedido do WhatsApp${reais(m.orderMessage.totalAmount1000 ? { amount1000: m.orderMessage.totalAmount1000 } : null)}`
+  return null
+}
+
 /** [tipo, texto] da mensagem; null para reacao, mensagem apagada e afins. */
 function conteudoDaMensagem(m) {
   if (m.reactionMessage || m.protocolMessage) return null
@@ -605,6 +638,8 @@ function conteudoDaMensagem(m) {
   if (m.buttonsResponseMessage) return ['texto', m.buttonsResponseMessage.selectedDisplayText ?? null]
   if (m.listResponseMessage) return ['texto', m.listResponseMessage.title ?? null]
   if (!Object.keys(m).length || m.senderKeyDistributionMessage && Object.keys(m).length === 1) return null
+  const pagamento = pagamentoDoZap(m)
+  if (pagamento) return ['pagamento', pagamento]
   return ['outro', null]
 }
 
@@ -753,7 +788,8 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
         // localização: coordenadas para abrir no mapa
         dados: msg.locationMessage || msg.liveLocationMessage
           ? { lat: (msg.locationMessage ?? msg.liveLocationMessage).degreesLatitude, lng: (msg.locationMessage ?? msg.liveLocationMessage).degreesLongitude }
-          : null,
+          // tipo que o painel ainda não conhece (pagamento, enquete...): guarda o conteúdo para ensinar depois
+          : ['outro', 'pagamento'].includes(c[0]) ? { tipos: Object.keys(msg), bruto: JSON.stringify(msg).slice(0, 6000) } : null,
         remote_jid: jid,
       })
     }
@@ -806,6 +842,11 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   mensagens.sort((a, b) => a.criada_em.localeCompare(b.criada_em))
   for (let i = 0; i < mensagens.length; i += 200) {
     await supabase.from('zap_mensagens').upsert(mensagens.slice(i, i + 200), { onConflict: 'wa_id', ignoreDuplicates: true })
+  }
+  // 'outro' gravado antes de guardar o conteúdo (04/11/2026): completa tipo, texto e dados
+  for (const m of mensagens.filter(x => x.dados?.bruto)) {
+    await supabase.from('zap_mensagens').update({ tipo: m.tipo, texto: m.texto, dados: m.dados })
+      .eq('wa_id', m.wa_id).eq('tipo', 'outro').is('dados', null)
   }
   // mensagem que já estava no banco antes desta sessão do painel: só o ✓ pode ter mudado
   for (const m of mensagens.filter(x => x.de_mim && x.status_wa)) {

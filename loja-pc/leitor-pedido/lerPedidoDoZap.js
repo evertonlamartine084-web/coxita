@@ -464,7 +464,7 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
       const tx = taxaDaMensagem(texto)
       if (tx != null) taxa = tx
       // chave Pix mandada (CNPJ, "chave pix", cobrança do WhatsApp Business, que chega como 'outro')
-      if (/68\.?484\.?975\/?0001-?76|chave pix|pix copia e cola/.test(t) || m.tipo === 'outro') lojaMandouPix = true
+      if (/68\.?484\.?975\/?0001-?76|chave pix|pix copia e cola/.test(t) || ['outro', 'pagamento'].includes(m.tipo)) lojaMandouPix = true
       if (/50 ?%|metade|sinal|entrada/.test(t) && !/\?/.test(t)) combinouSinal = true
     } else {
       // comprovante: PDF/foto com "comprovante" no nome, ou foto/PDF logo depois da chave Pix
@@ -473,6 +473,8 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
       if (/\b(paguei|ja paguei|pix feito|fiz o pix|transferi|ta pago|pago)\b/.test(t) && !/\?/.test(t)) comprovanteEm = comprovanteEm ?? m.criada_em
       if (/pagamento total|pagar (tudo|total|o total|completo)|pago completo|valor total|tudo de uma vez/.test(t)) pagaTudo = true
     }
+    // botão de pagamento do WhatsApp: a cópia do painel grava tipo 'pagamento' ("Pagamento recebido")
+    if (m.tipo === 'pagamento' && /recebido|enviado|pago|aprovado|conclu/.test(t)) comprovanteEm = m.criada_em
     const pg = m.de_mim ? null : pagamentoDaMensagem(texto, m.tipo)
     if (pg) pagamento = pg
     // a loja mandou a chave Pix (o CNPJ): sem outra forma combinada, é Pix
