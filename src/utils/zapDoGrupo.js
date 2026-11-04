@@ -582,7 +582,9 @@ function desembrulhar(m) {
   let atual = m ?? {}
   for (let i = 0; i < 4; i++) {
     const dentro = atual.ephemeralMessage?.message ?? atual.viewOnceMessage?.message ??
-      atual.viewOnceMessageV2?.message ?? atual.documentWithCaptionMessage?.message ?? atual.editedMessage?.message
+      atual.viewOnceMessageV2?.message ?? atual.documentWithCaptionMessage?.message ?? atual.editedMessage?.message ??
+      // foto/vídeo de álbum (várias mídias juntas) vem dentro de associatedChildMessage (04/11/2026)
+      atual.associatedChildMessage?.message
     if (!dentro) break
     atual = dentro
   }
@@ -596,7 +598,8 @@ function desembrulhar(m) {
  */
 function pagamentoDoZap(m) {
   const reais = (v) => {
-    const n = Number(v?.value ?? v?.amount1000 ?? v) / (v?.offset ? 10 ** v.offset : v?.amount1000 ? 1000 : 1)
+    // total_amount do WhatsApp: { value: 230000, offset: 1000 } = R$ 230,00 (offset é o divisor)
+    const n = Number(v?.value ?? v?.amount1000 ?? v) / (Number(v?.offset) || (v?.amount1000 ? 1000 : 1))
     return Number.isFinite(n) && n > 0 ? ` R$ ${n.toFixed(2).replace('.', ',')}` : ''
   }
   if (m.requestPaymentMessage) return `Cobrança${reais(m.requestPaymentMessage.amount ?? m.requestPaymentMessage.amount1000)}`
@@ -638,6 +641,12 @@ function conteudoDaMensagem(m) {
   if (m.buttonsResponseMessage) return ['texto', m.buttonsResponseMessage.selectedDisplayText ?? null]
   if (m.listResponseMessage) return ['texto', m.listResponseMessage.title ?? null]
   if (!Object.keys(m).length || m.senderKeyDistributionMessage && Object.keys(m).length === 1) return null
+  // o "álbum" é só o aviso de que vêm N fotos (elas chegam uma a uma); mensagem cifrada de edição não tem conteúdo
+  if (m.albumMessage || m.secretEncryptedMessage) return null
+  if (m.templateMessage) {
+    const t = m.templateMessage.hydratedTemplate ?? m.templateMessage.hydratedFourRowTemplate ?? {}
+    return ['texto', [t.hydratedTitleText, t.hydratedContentText].filter(Boolean).join('\n') || null]
+  }
   const pagamento = pagamentoDoZap(m)
   if (pagamento) return ['pagamento', pagamento]
   return ['outro', null]
@@ -720,6 +729,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   const { count: jaTinha } = await supabase.from('zap_mensagens').select('id', { count: 'exact', head: true })
   const conversas = new Map()
   const mensagens = []
+  const doAlbum = new Set() // wa_id de foto/vídeo que veio dentro de associatedChildMessage
   const reacoesVistas = []
   const protocolos = []
   // diagnóstico do nome de perfil nas conversas de número escondido (sem guardar o nome)
@@ -775,6 +785,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
       }
       conversas.set(chave, atual)
       const msg = desembrulhar(r.message)
+      if (r.message?.associatedChildMessage) doAlbum.add(k.id)
       const ctx = r.contextInfo ?? msg.extendedTextMessage?.contextInfo ?? msg.imageMessage?.contextInfo ?? null
       const citada = ctx?.stanzaId ? conteudoDaMensagem(desembrulhar(ctx.quotedMessage)) : null
       mensagens.push({
@@ -847,6 +858,11 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   for (const m of mensagens.filter(x => x.dados?.bruto)) {
     await supabase.from('zap_mensagens').update({ tipo: m.tipo, texto: m.texto, dados: m.dados })
       .eq('wa_id', m.wa_id).eq('tipo', 'outro').is('dados', null)
+  }
+  // foto/vídeo de álbum que tinha virado 'outro' (antes de abrir o associatedChildMessage)
+  for (const m of mensagens.filter(x => doAlbum.has(x.wa_id) && x.tipo !== 'outro')) {
+    await supabase.from('zap_mensagens').update({ tipo: m.tipo, texto: m.texto, dados: null })
+      .eq('wa_id', m.wa_id).eq('tipo', 'outro')
   }
   // mensagem que já estava no banco antes desta sessão do painel: só o ✓ pode ter mudado
   for (const m of mensagens.filter(x => x.de_mim && x.status_wa)) {
