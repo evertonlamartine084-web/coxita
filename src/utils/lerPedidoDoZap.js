@@ -529,6 +529,30 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
     }
   }
 
+  // Churros sem sabor dito: "Os churros é outro valor?" → loja "Churros o cento ta 48" → cliente
+  // "Acrescente" (caso do pedido de 600 em 04/11). Entra o pacote que a loja cotou, com o sabor
+  // citado na conversa ou doce de leite, e a dúvida para conferir.
+  const falouChurros = ordenadas.findIndex(m => !m.de_mim && /\bchurros?\b/.test(normalizar(corpo(m))))
+  if (falouChurros >= 0 && !doces.some(d => /churros/i.test(d.sabor.name))) {
+    const depois = ordenadas.slice(falouChurros)
+    const cotacao = depois.find(m => m.de_mim && /\bchurros?\b/.test(normalizar(corpo(m))) && /\d/.test(corpo(m)))
+    const iCot = cotacao ? ordenadas.indexOf(cotacao) : -1
+    const aceitou = iCot >= 0 && ordenadas.slice(iCot + 1, iCot + 6).some(m => !m.de_mim
+      && /\b(acrescent|adicion|coloc|inclu|pode por|bota|manda tambem|quero (os |o )?churros|vou querer)/.test(normalizar(corpo(m))))
+    if (aceitou) {
+      const tc = normalizar(corpo(cotacao))
+      const tamanho = /\b200\b|dois centos/.test(tc) ? 200 : /\b50\b|meio cento/.test(tc) ? 50 : 100
+      const tudo = ordenadas.map(m => normalizar(corpo(m))).join(' ')
+      const brigadeiro = /churros? (de |com )?brigadeiro/.test(tudo)
+      const sabor = (sabores ?? []).find(x => normalizar(x.name) === (brigadeiro ? 'churros de brigadeiro' : 'churros de doce de leite'))
+      const p = sabor && ativos.find(x => x.fixed_flavor_id === sabor.id && Number(x.pack_size) === tamanho)
+      if (p) {
+        itens.push({ produto_id: p.id, quantidade: 1, sabores: [], montar_sabores: false })
+        duvidas.push(`Entrou ${p.name}: o cliente pediu churros${/churros? (de |com )?(doce de leite|brigadeiro)/.test(tudo) ? '' : ' sem dizer o sabor'}. Confira.`)
+      } else duvidas.push('O cliente falou de churros: confira o sabor e a quantidade.')
+    } else duvidas.push('O cliente falou de churros: confira se entra no pedido.')
+  }
+
   // junta pacotes iguais com os mesmos sabores
   const juntos = []
   for (const it of itens) {
@@ -538,9 +562,6 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
   }
 
   if (lojaEscolhe) duvidas.push('O cliente deixou a loja escolher os sabores (sortidos).')
-  if (ordenadas.some(m => !m.de_mim && /\bchurros?\b/.test(normalizar(corpo(m)))) && !doces.some(d => /churros/i.test(d.sabor.name))) {
-    duvidas.push('O cliente falou de churros: confira o sabor e a quantidade.')
-  }
 
   const falaDeBebida = ordenadas.some(m => !m.de_mim && /\b(refri|refrigerante|coca|guarana|pepsi|fanta|sprite|suco|agua)\b/.test(normalizar(corpo(m))))
   if (falaDeBebida) duvidas.push('O cliente falou de bebida: confira se entra no pedido.')
