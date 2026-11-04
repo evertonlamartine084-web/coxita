@@ -126,8 +126,10 @@ export function precoDaComposicao(produto, sabores, precos) {
   const fatia = (precoEmCentavos, quantidade) =>
     Math.round((precoEmCentavos * quantidade) / tamanho)
 
-  let cheio = 0
-  let aVista = 0
+  // Sabores com o MESMO preço somam as unidades antes de arredondar: 4 sabores de 50 num
+  // pacote de R$ 60,69 davam 4 x 15,17 = 60,68 (04/11/2026). Agrupados, todo recheio de
+  // salgado volta ao preço exato do pacote, e o pastel segue com a fração de cada tabela.
+  const somaPorPreco = new Map() // `${tipo}:${centavos}` -> unidades
   let algumSemPrecoAVista = false
 
   for (const escolha of escolhidos) {
@@ -136,10 +138,19 @@ export function precoDaComposicao(produto, sabores, precos) {
     const precoAVista = proprio
       ? centavos(proprio.cash_price)
       : (aVistaDoPacote == null ? null : centavos(aVistaDoPacote))
+    const qtd = Number(escolha.quantity)
 
-    cheio += fatia(precoCheio, Number(escolha.quantity))
+    somaPorPreco.set(`c:${precoCheio}`, (somaPorPreco.get(`c:${precoCheio}`) ?? 0) + qtd)
     if (precoAVista == null) algumSemPrecoAVista = true
-    else aVista += fatia(precoAVista, Number(escolha.quantity))
+    else somaPorPreco.set(`v:${precoAVista}`, (somaPorPreco.get(`v:${precoAVista}`) ?? 0) + qtd)
+  }
+
+  let cheio = 0
+  let aVista = 0
+  for (const [chave, qtd] of somaPorPreco) {
+    const [tipo, preco] = chave.split(':')
+    if (tipo === 'c') cheio += fatia(Number(preco), qtd)
+    else aVista += fatia(Number(preco), qtd)
   }
 
   return {
