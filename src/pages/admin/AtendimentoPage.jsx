@@ -666,6 +666,13 @@ export default function AtendimentoPage() {
       nome: nome.trim() || null, nome_origem: nome.trim() ? 'manual' : null, telefone: telefone ?? null,
     }).eq('chave', conversa.chave)
     if (error) return toast.error('Não consegui renomear.')
+    // número escondido com telefone informado: junta na conversa do telefone (e as próximas
+    // mensagens desse @lid já entram lá, pela tabela zap_lids)
+    if (conversa.chave.endsWith('@lid') && telefone && telefone !== conversa.telefone) {
+      const { error: e2 } = await supabase.rpc('zap_juntar_lid', { p_lid: conversa.chave, p_telefone: telefone, p_origem: 'atendente' })
+      if (e2) toast.error('Renomeei, mas não consegui juntar com a conversa do telefone.')
+      else { toast.success('Conversa juntada com a do telefone.'); abertaRef.current = telefone; setAberta(telefone) }
+    }
     carregarConversas()
   }
 

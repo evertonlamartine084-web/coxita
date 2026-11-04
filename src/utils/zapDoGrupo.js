@@ -625,6 +625,51 @@ function pagamentoDoZap(m) {
   return null
 }
 
+/*
+ * Número escondido (…@lid) → telefone (04/11/2026). Depois de reconectar pelo QR a Evolution
+ * passou a mandar clientes antigos só com o @lid. O par vem da tabela zap_lids, ou é aprendido
+ * quando uma mensagem do @lid já está gravada (mesmo wa_id) na conversa do telefone. Com o par,
+ * a mensagem entra na conversa do telefone, e a conversa do @lid já gravada é juntada nela.
+ */
+let lidsConhecidos = null
+let lidsLidosEm = 0
+async function ligarLidsAoTelefone(mensagens, conversas) {
+  const comLid = mensagens.filter(m => /@lid$/.test(m.conversa))
+  if (!comLid.length) return
+  if (!lidsConhecidos || Date.now() - lidsLidosEm > 5 * 60 * 1000) {
+    const { data } = await supabase.from('zap_lids').select('lid, telefone')
+    lidsConhecidos = new Map((data ?? []).map(l => [l.lid, l.telefone]))
+    lidsLidosEm = Date.now()
+  }
+  const novos = new Map()
+  const semPar = comLid.filter(m => !lidsConhecidos.has(m.conversa))
+  for (let i = 0; i < semPar.length; i += 200) {
+    const lote = semPar.slice(i, i + 200)
+    const { data } = await supabase.from('zap_mensagens').select('wa_id, conversa')
+      .in('wa_id', lote.map(m => m.wa_id)).not('conversa', 'like', '%@lid')
+    for (const g of data ?? []) {
+      const m = lote.find(x => x.wa_id === g.wa_id)
+      if (m && /^\d{10,13}$/.test(g.conversa) && !novos.has(m.conversa)) novos.set(m.conversa, g.conversa)
+    }
+  }
+  for (const [lid, tel] of novos) {
+    lidsConhecidos.set(lid, tel)
+    // junta o que já estava gravado na conversa do @lid
+    await supabase.rpc('zap_juntar_lid', { p_lid: lid, p_telefone: tel, p_origem: 'mesma_mensagem' })
+  }
+  for (const m of comLid) {
+    const tel = lidsConhecidos.get(m.conversa)
+    if (!tel) continue
+    const lid = m.conversa
+    m.conversa = tel
+    const daLid = conversas.get(lid)
+    if (daLid) {
+      conversas.delete(lid)
+      if (!conversas.has(tel)) conversas.set(tel, { ...daLid, chave: tel, jid: `${tel}@s.whatsapp.net`, telefone: tel })
+    }
+  }
+}
+
 /** [tipo, texto] da mensagem; null para reacao, mensagem apagada e afins. */
 function conteudoDaMensagem(m) {
   if (m.reactionMessage || m.protocolMessage) return null
@@ -821,6 +866,7 @@ export async function sincronizarMensagens(config = lerConfigZap(), { paginas = 
   }
 
   ultimoDiagnosticoLid = { ...perfilLid, conversas_lid: perfilLid.conversas_lid.size, conversas_com_nome: perfilLid.conversas_com_nome.size, campos: [...perfilLid.campos] }
+  await ligarLidsAoTelefone(mensagens, conversas)
   if (!mensagens.length) return 0
 
   // Volta rápida sem novidade (nada novo e nenhum ✓ mudou): não toca no banco.
