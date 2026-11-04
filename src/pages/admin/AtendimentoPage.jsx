@@ -693,7 +693,6 @@ export default function AtendimentoPage() {
   const abrirLeitura = (p) => {
     if (!conversa || !p) return
     const e = p.endereco ?? {}
-    const quandoOk = p.data && p.hora
     setPedido({
       customer_name: conversa.nome || '',
       customer_phone: conversa.telefone ? telefoneNaTela(conversa.telefone) : '',
@@ -702,7 +701,10 @@ export default function AtendimentoPage() {
       ...(p.pagamento && p.pagamento !== 'nao_informado' ? { payment_method: p.pagamento } : {}),
       address: e.rua ?? '', address_number: e.numero ?? '', neighborhood: e.bairro ?? '', address_cep: e.cep ?? '',
       notes: [p.observacoes, e.complemento && `Compl.: ${e.complemento}`, p.referencia && `Ref.: ${p.referencia}`, p.troco_para && `Troco para R$ ${p.troco_para}`].filter(Boolean).join(' · '),
-      ...(quandoOk ? { agendado: true, scheduled_date: p.data, scheduled_time: p.hora } : {}),
+      // dia sem hora também entra: o pedido pede a hora antes de salvar
+      ...(p.data ? { agendado: true, scheduled_date: p.data, scheduled_time: p.hora ?? '' } : {}),
+      ...(p.taxa_entrega != null && p.tipo_entrega !== 'retirada' ? { taxa_entrega: String(p.taxa_entrega).replace('.', ',') } : {}),
+      ...(p.pago ? { pago: p.pago } : {}),
       itens: p.itens ?? [],
       duvidas: [...(p.faltando?.length ? [`Falta na conversa: ${p.faltando.join(', ')}.`] : []), ...(p.duvidas ?? [])],
     })
@@ -731,7 +733,8 @@ export default function AtendimentoPage() {
       : doRobo.hora ?? ''
     const tipo = { entrega: 'entrega', retirada: 'retirada' }[doRobo.tipo_entrega] ?? ''
     const pag = { pix: 'Pix', dinheiro: 'dinheiro', credito: 'crédito', debito: 'débito' }[doRobo.pagamento] ?? ''
-    return [itens, quando, tipo, pag].filter(Boolean).join(' · ')
+    const taxa = doRobo.taxa_entrega != null && doRobo.tipo_entrega !== 'retirada' ? `entrega R$ ${String(doRobo.taxa_entrega).replace('.', ',')}` : (tipo === 'entrega' ? 'entrega' : tipo)
+    return [itens, quando, taxa, pag].filter(Boolean).join(' · ')
   }, [doRobo, catalogo])
 
   // Pix Copia e Cola com o valor dentro: duas mensagens, a segunda só com o código, para o

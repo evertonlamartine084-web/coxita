@@ -249,6 +249,31 @@ function enderecoDaMensagem(texto) {
   return r
 }
 
+/**
+ * Taxa de entrega que a LOJA passou: "Entrega fica 15 reais", "Fica 20 reais a taxa de entrega",
+ * "A entrega para esse endereço fica 4 reais", "+ 15 de entrega". Horário de entrega ("entregamos
+ * de 13h às 18h") e percentual não contam.
+ */
+function taxaDaMensagem(texto) {
+  const t = normalizar(texto).replace(/r\$\s*/g, '')
+  // "junto com a entrega fica 35" é o total, não a taxa
+  if (!/\b(entrega|taxa|frete)\b/.test(t) || /%|quanto|\bnao\b|entregamos de|horario de entrega|junto com|total/.test(t)) return null
+  const num = '(\\d{1,3}(?:[.,]\\d{2})?)(?!\\s*(?:h\\b|hs|horas?|:|%|km|unidades|salgados|centos?))'
+  const padroes = [
+    new RegExp(`(?:entrega|taxa|frete)[^\\d?]{0,30}?(?:fica|sai|e|de|:)\\s*(?:em\\s*)?${num}`),
+    new RegExp(`${num}\\s*(?:reais|conto)?\\s*(?:d[ae]|a|pra|para)\\s*(?:taxa|entrega|frete)`),
+    new RegExp(`\\+\\s*${num}\\s*(?:reais)?\\s*(?:d[ae])?\\s*(?:taxa|entrega|frete)`),
+  ]
+  for (const re of padroes) {
+    const m = t.match(re)
+    if (m) {
+      const v = Number(m[1].replace(',', '.'))
+      if (v >= 2 && v <= 80) return v
+    }
+  }
+  return null
+}
+
 function pagamentoDaMensagem(texto, tipo) {
   const t = normalizar(texto)
   if (tipo === 'documento' && /comprovante/.test(t)) return 'pix'
@@ -325,6 +350,11 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
   let endereco = null
   let pagamento = null
   let troco = null
+  let taxa = null
+  let lojaMandouPix = false
+  let combinouSinal = false
+  let pagaTudo = false
+  let comprovanteEm = null
   let lojaPerguntouHora = false
   let lojaPerguntouQuantos = false
   const datasCitadas = new Set()
@@ -335,7 +365,8 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
 
   for (const m of ordenadas) {
     const texto = corpo(m)
-    if (!texto) continue
+    // foto/PDF sem legenda e a cobrança Pix do WhatsApp ('outro') não têm texto, mas contam para o pagamento
+    if (!texto && !['imagem', 'documento', 'outro'].includes(m.tipo)) continue
     const t = normalizar(texto)
 
     const sabs = saboresDaMensagem(texto)
@@ -428,6 +459,19 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
       if (bairro && !endereco?.bairro) endereco = { ...(endereco ?? {}), bairro: texto.match(new RegExp(bairro[1], 'i'))?.[0] ?? bairro[1] }
       const tr = t.match(/troco\s+(?:pra|para|de)\s*(?:r\$\s*)?(\d{2,3})/)
       if (tr) troco = Number(tr[1])
+    }
+    if (m.de_mim) {
+      const tx = taxaDaMensagem(texto)
+      if (tx != null) taxa = tx
+      // chave Pix mandada (CNPJ, "chave pix", cobrança do WhatsApp Business, que chega como 'outro')
+      if (/68\.?484\.?975\/?0001-?76|chave pix|pix copia e cola/.test(t) || m.tipo === 'outro') lojaMandouPix = true
+      if (/50 ?%|metade|sinal|entrada/.test(t) && !/\?/.test(t)) combinouSinal = true
+    } else {
+      // comprovante: PDF/foto com "comprovante" no nome, ou foto/PDF logo depois da chave Pix
+      const ehArquivo = m.tipo === 'documento' || m.tipo === 'imagem'
+      if ((ehArquivo && /comprovante|pix|transferencia|recibo/.test(t)) || (ehArquivo && lojaMandouPix)) comprovanteEm = m.criada_em
+      if (/\b(paguei|ja paguei|pix feito|fiz o pix|transferi|ta pago|pago)\b/.test(t) && !/\?/.test(t)) comprovanteEm = comprovanteEm ?? m.criada_em
+      if (/pagamento total|pagar (tudo|total|o total|completo)|pago completo|valor total|tudo de uma vez/.test(t)) pagaTudo = true
     }
     const pg = m.de_mim ? null : pagamentoDaMensagem(texto, m.tipo)
     if (pg) pagamento = pg
@@ -562,6 +606,10 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
   }
 
   if (lojaEscolhe) duvidas.push('O cliente deixou a loja escolher os sabores (sortidos).')
+  if (comprovanteEm) {
+    const h = new Date(comprovanteEm).toLocaleTimeString('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit' })
+    duvidas.push(`O cliente mandou comprovante (ou disse que pagou) às ${h}: confira no banco antes de salvar como ${combinouSinal && !pagaTudo ? 'sinal' : 'pago'}.`)
+  }
 
   const falaDeBebida = ordenadas.some(m => !m.de_mim && /\b(refri|refrigerante|coca|guarana|pepsi|fanta|sprite|suco|agua)\b/.test(normalizar(corpo(m))))
   if (falaDeBebida) duvidas.push('O cliente falou de bebida: confira se entra no pedido.')
@@ -583,6 +631,10 @@ export function lerPedidoDoZap(msgs, produtos, sabores) {
     hora,
     pagamento: pagamento ?? 'nao_informado',
     troco_para: troco,
+    taxa_entrega: taxa,
+    // 'pago' | 'sinal' | null: só com comprovante (ou "já paguei") na conversa; a atendente confere no banco
+    pago: comprovanteEm ? (combinouSinal && !pagaTudo ? 'sinal' : 'pago') : null,
+    comprovante_em: comprovanteEm,
     itens: juntos,
     observacoes: null,
     duvidas,
