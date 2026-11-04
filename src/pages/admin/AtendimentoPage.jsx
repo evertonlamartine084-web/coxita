@@ -11,6 +11,7 @@ import { pixCopiaECola } from '../../utils/pix'
 import NovoPedidoModal from '../../components/admin/NovoPedidoModal'
 import { CardPedidoAberto, FichaDoCliente } from '../../components/admin/AtendimentoCliente'
 import { getSettings } from '../../services/settings'
+import { lerPedidoDoZap } from '../../utils/lerPedidoDoZap'
 
 /**
  * Atendimento do WhatsApp dentro do painel, em qualquer aparelho (supabase/zap-atendimento*.sql).
@@ -351,6 +352,8 @@ export default function AtendimentoPage() {
   const [gravando, setGravando] = useState(null) // { recorder, stream }
   const [pedidosCliente, setPedidosCliente] = useState(null)
   const [settings, setSettings] = useState({})
+  const [catalogo, setCatalogo] = useState(null)
+  const [dispensados, setDispensados] = useState({}) // conversa -> id da última mensagem quando fechou a faixa
   const [mostrarFicha, setMostrarFicha] = useState(false)
   const [avisos, setAvisos] = useState(() => (typeof Notification !== 'undefined' ? Notification.permission : 'denied'))
   const fimRef = useRef(null)
@@ -425,6 +428,11 @@ export default function AtendimentoPage() {
   useEffect(() => {
     Promise.resolve().then(() => { carregarConversas(); carregarRespostas() })
     getSettings().then(setSettings).catch(() => {})
+    // cardápio para o robô que lê o pedido da conversa
+    Promise.all([
+      supabase.from('products').select('id, name, pack_size, flavor_group, fixed_flavor_id, active').eq('active', true),
+      supabase.from('flavors').select('id, name, group_slug, active'),
+    ]).then(([p, f]) => setCatalogo({ produtos: p.data ?? [], sabores: f.data ?? [] })).catch(() => {})
     return aCada(carregarConversas, 20000)
   }, [carregarConversas, carregarRespostas])
 
@@ -669,42 +677,62 @@ export default function AtendimentoPage() {
     })
   }
 
-  // ✨ A IA lê a conversa e devolve o pedido montado (supabase/functions/montar-pedido); a pessoa
-  // confere tudo no NovoPedidoModal antes de criar.
-  const [montandoIA, setMontandoIA] = useState(false)
-  const montarComIA = async () => {
-    if (!conversa) return
-    setMontandoIA(true)
-    try {
-      const { data, error } = await supabase.functions.invoke('montar-pedido', { body: { conversa: conversa.chave } })
-      if (error) {
-        const corpo = await error.context?.json?.().catch(() => null)
-        const motivo = corpo?.erro
-        throw new Error(motivo === 'sem_chave' || motivo === 'chave_invalida' ? 'A IA ainda não está ligada (falta a chave da Anthropic).'
-          : motivo === 'sem_mensagens' ? 'Não há mensagens recentes nesta conversa.'
-            : motivo === 'ocupado' ? 'A IA está ocupada, tente de novo em alguns segundos.' : 'Não consegui montar o pedido.')
-      }
-      const p = data.pedido
-      const e = p.endereco ?? {}
-      const quandoOk = p.data && p.hora
-      setPedido({
-        customer_name: p.nome_cliente || conversa.nome || '',
-        customer_phone: conversa.telefone ? telefoneNaTela(conversa.telefone) : '',
-        canal: 'whatsapp',
-        ...(p.tipo_entrega === 'entrega' || p.tipo_entrega === 'retirada' ? { delivery_type: p.tipo_entrega } : {}),
-        ...(p.pagamento && p.pagamento !== 'nao_informado' ? { payment_method: p.pagamento } : {}),
-        address: e.rua ?? '', address_number: e.numero ?? '', neighborhood: e.bairro ?? '', address_cep: e.cep ?? '',
-        notes: [p.observacoes, e.complemento && `Compl.: ${e.complemento}`, p.troco_para && `Troco para R$ ${p.troco_para}`].filter(Boolean).join(' · '),
-        ...(quandoOk ? { agendado: true, scheduled_date: p.data, scheduled_time: p.hora } : {}),
-        itens: p.itens ?? [],
-        duvidas: p.duvidas ?? [],
-      })
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setMontandoIA(false)
-    }
+  // 🤖 O robô (src/utils/lerPedidoDoZap.js) lê a conversa no próprio navegador, sem IA paga, e
+  // monta o pedido; a pessoa confere tudo no NovoPedidoModal antes de criar. Só lê as mensagens
+  // dos últimos 3 dias que vieram depois do último pedido deste cliente.
+  const leitura = useMemo(() => {
+    if (!conversa || !catalogo || !mensagens.length) return null
+    const ultimoPedido = (pedidosCliente ?? []).reduce((max, p) => Math.max(max, new Date(p.created_at).getTime() || 0), 0)
+    const desde = Math.max(agora - 3 * 24 * 60 * 60 * 1000, ultimoPedido)
+    const recentes = mensagens.filter(m => new Date(m.criada_em).getTime() > desde)
+    if (!recentes.some(m => !m.de_mim)) return null
+    const r = lerPedidoDoZap(recentes, catalogo.produtos, catalogo.sabores)
+    return { ...r, ultima: recentes[recentes.length - 1]?.id }
+  }, [conversa, catalogo, mensagens, pedidosCliente, agora])
+
+  const abrirLeitura = (p) => {
+    if (!conversa || !p) return
+    const e = p.endereco ?? {}
+    const quandoOk = p.data && p.hora
+    setPedido({
+      customer_name: conversa.nome || '',
+      customer_phone: conversa.telefone ? telefoneNaTela(conversa.telefone) : '',
+      canal: 'whatsapp',
+      ...(p.tipo_entrega === 'entrega' || p.tipo_entrega === 'retirada' ? { delivery_type: p.tipo_entrega } : {}),
+      ...(p.pagamento && p.pagamento !== 'nao_informado' ? { payment_method: p.pagamento } : {}),
+      address: e.rua ?? '', address_number: e.numero ?? '', neighborhood: e.bairro ?? '', address_cep: e.cep ?? '',
+      notes: [p.observacoes, e.complemento && `Compl.: ${e.complemento}`, p.referencia && `Ref.: ${p.referencia}`, p.troco_para && `Troco para R$ ${p.troco_para}`].filter(Boolean).join(' · '),
+      ...(quandoOk ? { agendado: true, scheduled_date: p.data, scheduled_time: p.hora } : {}),
+      itens: p.itens ?? [],
+      duvidas: [...(p.faltando?.length ? [`Falta na conversa: ${p.faltando.join(', ')}.`] : []), ...(p.duvidas ?? [])],
+    })
   }
+
+  const montarPedido = () => {
+    if (!leitura || (!leitura.itens.length && leitura.faltando.includes('itens') && leitura.tipo_entrega === 'indefinido')) {
+      toast('Não achei um pedido nas mensagens recentes. Abri o pedido em branco.')
+      return abrirPedido()
+    }
+    abrirLeitura(leitura)
+  }
+  // A faixa vem do robô do PC da loja (loja-pc/leitor-pedido), que lê todas as conversas e grava
+  // em zap_conversas.pedido_lido. Some quando já tem pedido criado depois da leitura, ou quando a
+  // pessoa fecha (volta com mensagem nova).
+  const doRobo = conversa?.pedido_lido ?? null
+  const ultimoPedidoEm = (pedidosCliente ?? []).reduce((max, p) => Math.max(max, new Date(p.created_at).getTime() || 0), 0)
+  const mostrarFaixa = !!doRobo?.itens?.length && dispensados[conversa?.chave] !== doRobo.ultima
+    && !(ultimoPedidoEm && ultimoPedidoEm >= new Date(conversa.pedido_lido_ate).getTime())
+  const resumoDaLeitura = useMemo(() => {
+    if (!doRobo?.itens?.length || !catalogo) return ''
+    const nome = (id) => catalogo.produtos.find(p => p.id === id)?.name ?? 'item'
+    const itens = doRobo.itens.map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${nome(i.produto_id)}`).join(' + ')
+    const quando = doRobo.data
+      ? `${new Date(`${doRobo.data}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}${doRobo.hora ? ` ${doRobo.hora}` : ''}`
+      : doRobo.hora ?? ''
+    const tipo = { entrega: 'entrega', retirada: 'retirada' }[doRobo.tipo_entrega] ?? ''
+    const pag = { pix: 'Pix', dinheiro: 'dinheiro', credito: 'crédito', debito: 'débito' }[doRobo.pagamento] ?? ''
+    return [itens, quando, tipo, pag].filter(Boolean).join(' · ')
+  }, [doRobo, catalogo])
 
   // Pix Copia e Cola com o valor dentro: duas mensagens, a segunda só com o código, para o
   // cliente segurar o dedo e copiar.
@@ -889,10 +917,10 @@ export default function AtendimentoPage() {
                 <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                   <button onClick={() => setMostrarFicha(v => !v)} title="Ficha do cliente" aria-label="Ficha do cliente" aria-pressed={mostrarFicha}
                     className={`${ICONE} min-[1380px]:hidden ${mostrarFicha ? 'bg-gray-200 text-gray-800' : ''}`}><HiUser size={20} /></button>
-                  <button onClick={montarComIA} disabled={montandoIA} title="A IA lê a conversa e monta o pedido para você conferir"
+                  <button onClick={montarPedido} title="O robô lê a conversa e monta o pedido para você conferir"
                     className={`${BOTAO} w-9 border border-primary/40 bg-white text-primary hover:bg-primary/5 disabled:opacity-60 @[30rem]:w-auto @[30rem]:px-3`}>
-                    <HiSparkles className={montandoIA ? 'animate-pulse' : ''} size={16} />
-                    <span className="hidden @[30rem]:inline">{montandoIA ? 'Lendo…' : 'Montar pedido'}</span>
+                    <HiSparkles size={16} />
+                    <span className="hidden @[30rem]:inline">Montar pedido</span>
                   </button>
                   <button onClick={abrirPedido} title="Criar pedido"
                     className={`${BOTAO} w-9 bg-primary text-white hover:bg-primary/90 @[30rem]:w-auto @[30rem]:px-3`}>
@@ -907,6 +935,21 @@ export default function AtendimentoPage() {
                 aoCobrar={PIX_LIGADO ? (p) => cobrarPix(faltaReceber(p), p) : null}
                 aoMudar={carregarPedidos}
               />
+              {mostrarFaixa && (
+                <div className={`flex shrink-0 items-center gap-2 border-b px-3 py-2 text-sm sm:px-4 ${doRobo.pronto ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
+                  <span aria-hidden="true">🤖</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-gray-900">{doRobo.pronto ? 'Pedido pronto na conversa' : 'Pedido na conversa'}: <span className="font-normal">{resumoDaLeitura}</span></p>
+                    {!doRobo.pronto && <p className="truncate text-xs text-amber-800">Falta: {doRobo.faltando.join(', ')}</p>}
+                  </div>
+                  <button onClick={() => abrirLeitura(doRobo)}
+                    className={`${BOTAO} shrink-0 px-3 text-white ${doRobo.pronto ? 'bg-green-600 hover:bg-green-700' : 'bg-primary hover:bg-primary/90'}`}>
+                    {doRobo.pronto ? 'Confirmar pedido' : 'Conferir'}
+                  </button>
+                  <button onClick={() => setDispensados(d => ({ ...d, [conversa.chave]: doRobo.ultima }))} aria-label="Fechar" title="Esconder até chegar mensagem nova"
+                    className="shrink-0 rounded p-1 text-gray-500 hover:bg-black/5"><HiX size={16} /></button>
+                </div>
+              )}
               <div className="relative flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="relative flex min-h-0 flex-1 flex-col">

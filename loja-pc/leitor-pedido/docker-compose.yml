@@ -1,0 +1,10 @@
+# Robô leitor de pedido do Zap no PC da loja (ao lado da Evolution, no Docker do WSL).
+# Ver robo.mjs. Precisa do chave.env nesta pasta (fora do git).
+services:
+  leitor-pedido:
+    build: .
+    restart: always
+    env_file:
+      - chave.env
+    cpus: 0.5
+    mem_limit: 256m
