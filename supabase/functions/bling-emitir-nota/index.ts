@@ -256,6 +256,19 @@ async function produtosPorCodigo(supabase: any, codigos: string[]) {
 }
 
 /**
+ * O Bling recusa o celular com +55 ("É necessário preencher corretamente o campo Celular",
+ * #233 em 03/11/2026). Vai como (84) 99999-9999; número de fora ou estranho fica de fora,
+ * porque celular não é obrigatório e não pode travar a nota.
+ */
+function celularParaBling(telefone: unknown): string | undefined {
+  let d = String(telefone ?? "").replace(/\D/g, "")
+  if (d.length === 13 && d.startsWith("55")) d = d.slice(2)
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return undefined
+}
+
+/**
  * Com CPF, o contato é a pessoa — procurado pelo documento, criado se ainda não existe. Sem CPF,
  * todos caem num único "Consumidor final", que a NFC-e aceita sem identificação.
  */
@@ -269,7 +282,7 @@ async function contatoDoCliente(supabase: any, pedido: any): Promise<number> {
       tipo: "F",
       numeroDocumento: cpf,
       situacao: "A",
-      celular: pedido.customer_phone ?? undefined,
+      celular: celularParaBling(pedido.customer_phone),
       indicadorIe: 9, // não contribuinte
     })
     return criado.data.id
